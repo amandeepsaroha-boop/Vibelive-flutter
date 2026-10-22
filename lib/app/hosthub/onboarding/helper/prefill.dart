@@ -1,0 +1,167 @@
+import 'package:flutter/widgets.dart';
+
+import '../../../../core/network/strapi.dart';
+import '../../../api/client/client_models.dart';
+import '../../../api/hosthub/catalog_models.dart';
+import '../../../api/hosthub/profile_models.dart';
+import 'draft_controller.dart';
+import 'draft_models.dart';
+
+/// Fills a new draft from what the app already knows: Personal Info (name,
+/// location, photo), the user's interests answers (gender), and, for a host
+/// resubmitting, their saved host profile. Never overwrites an answer.
+abstract final class HostPrefill {
+  static void apply(
+    HostDraftController d,
+    UserWithExpert me, {
+    HostProfile? host,
+    Map<String, List<String>> answers = const {},
+  }) {
+    if (d.seeded) return;
+    void text(TextEditingController c, String? value) {
+      final v = (value ?? '').trim();
+      if (c.text.trim().isEmpty && v.isNotEmpty) c.text = v;
+    }
+
+    text(d.name, me.name);
+    d.state.value ??= me.state ?? _named(me.addressJson['state']);
+    d.district.value ??= me.district ?? _named(me.addressJson['district']);
+    d.gender.value ??=
+        host?.gender ??
+        HostProfile.normalizeGender(J.str(me.user['gender'])) ??
+        genderFromAnswers(answers);
+
+    if (host != null) _fromHost(d, host, text);
+    text(d.handle, suggestHandle(me.name));
+    final picId = me.profilePicId;
+    if (d.photos.value.isEmpty && picId != null) {
+      d.photos.value = [
+        HostDraftPhoto(key: 'm$picId', mediaId: picId, url: me.profilePicUrl),
+      ];
+    }
+    d.seeded = true;
+    d.flush();
+  }
+
+  static void _fromHost(
+    HostDraftController d,
+    HostProfile host,
+    void Function(TextEditingController, String?) text,
+  ) {
+    if (host.key.isNotEmpty) d.expertId ??= host.key;
+    text(d.handle, host.handler);
+    text(d.tagline, host.tagline);
+    text(d.bio, host.descriptions);
+    if (d.languages.value.isEmpty && host.languages.isNotEmpty) {
+      d.languages.value = host.languages;
+      d.languagesSeeded = true;
+    }
+    if (d.photos.value.isEmpty) {
+      d.photos.value = [
+        for (final img in host.profileImages.take(3))
+          if (img.imageId != null)
+            HostDraftPhoto(
+              key: 'm${img.imageId}',
+              mediaId: img.imageId,
+              url: img.imageUrl,
+            ),
+      ];
+    }
+    hostSettings(d, host);
+  }
+
+  /// Rates, "available now" and the weekly schedule of a saved profile
+  /// (also seeds the host's schedule / rates edit screens).
+  static void hostSettings(HostDraftController d, HostProfile host) {
+    final rates = host.rates;
+    if (rates.hasAny) {
+      d.audioOn.value = rates.voiceCallRate > 0;
+      d.videoOn.value = rates.videoCallRate > 0;
+      if (rates.voiceCallRate > 0) {
+        d.audioRate.value = rates.voiceCallRate.round();
+      }
+      if (rates.videoCallRate > 0) {
+        d.videoRate.value = rates.videoCallRate.round();
+      }
+    }
+    d.availableNow.value = host.callAnyTime;
+    d.vacation.value = host.vacationMode;
+    final week = host.weeklySchedule;
+    if (week.values.any((slots) => slots.isNotEmpty)) {
+      d.week.value = {
+        for (final day in HostWeekday.values)
+          day: (week[day] ?? const []).isEmpty
+              ? const HostDaySlot(enabled: false)
+              : HostDaySlot(
+                  enabled: true,
+                  start: week[day]!.first.startMinutes,
+                  end: week[day]!.first.endMinutes,
+                ),
+      };
+    }
+  }
+
+  /// Languages default once: English, plus Hindi for a Hindi UI.
+  static void seedLanguages(
+    HostDraftController d,
+    List<HostOption> catalog,
+    Locale locale,
+  ) {
+    if (d.languagesSeeded || d.languages.value.isNotEmpty) return;
+    final wanted = {'english', if (locale.languageCode == 'hi') 'hindi'};
+    d.languages.value = [
+      for (final o in catalog)
+        if (wanted.contains(languageKey(o.label))) o,
+    ];
+    d.languagesSeeded = true;
+    d.flush();
+  }
+
+  /// A handle from the name: "Aanya Sharma" → "aanyasharma".
+  static String suggestHandle(String? name) {
+    final h = HostProfile.sanitizeHandle((name ?? '').replaceAll(' ', ''));
+    if (h.length < 3) return '';
+    return h.length > 30 ? h.substring(0, 30) : h;
+  }
+
+  /// The client interests' "How do you identify?" answer, as a host gender.
+  static String? genderFromAnswers(Map<String, List<String>> answers) {
+    for (final e in answers.entries) {
+      if (!e.key.contains('user_gender')) continue;
+      for (final v in e.value) {
+        final s = v.toLowerCase();
+        if (s.contains('female') || s.contains('woman')) return 'Female';
+        if (s.endsWith('_male') || s == 'male' || s.contains('_man')) {
+          return 'Male';
+        }
+      }
+    }
+    return null;
+  }
+
+  /// English name of a catalog language (labels come in native script).
+  static String languageKey(String label) {
+    final l = label.trim().toLowerCase();
+    return _nativeNames[l] ?? l;
+  }
+
+  static const _nativeNames = {
+    'हिंदी': 'hindi',
+    'हिन्दी': 'hindi',
+    'বাংলা': 'bengali',
+    'தமிழ்': 'tamil',
+    'తెలుగు': 'telugu',
+    'मराठी': 'marathi',
+    'ਪੰਜਾਬੀ': 'punjabi',
+    'ગુજરાતી': 'gujarati',
+    'ಕನ್ನಡ': 'kannada',
+    'മലയാളം': 'malayalam',
+    'اردو': 'urdu',
+    'हरियाणवी': 'haryanvi',
+  };
+
+  static GeoOption? _named(dynamic name) {
+    final n = (J.str(name) ?? '').trim();
+    return n.isEmpty ? null : GeoOption({'name': n});
+  }
+}

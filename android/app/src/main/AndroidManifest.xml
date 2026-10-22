@@ -1,0 +1,129 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Network (Agora, Firebase, API) -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Notifications (Android 13+ asks at runtime) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- Calls: microphone, camera, audio routing -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_CONNECT"
+        android:usesPermissionFlags="neverForLocation"/>
+    <!-- Incoming call over the lock screen. Play Console: declare a "calling app" for the
+         full-screen intent. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+    <uses-permission android:name="android.permission.TURN_SCREEN_ON"/>
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
+    <!-- flutter_callkit_incoming registers its self-managed PhoneAccount unguarded: required. -->
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS"/>
+    <!-- The ongoing-call foreground service keeps the mic alive in the background (Android 14). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA"/>
+    <!-- RN parity: OEM "appear on top" gate (Samsung overlay check). -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <!-- DND state flutter_callkit_incoming reads before ringing. -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY"/>
+
+    <application
+        android:label="Vibe Live"
+        android:name=".VibeApplication"
+        android:icon="@mipmap/ic_launcher">
+        <!-- singleTask: notification Accept, the notification tap, the full-screen intent and
+             app links all reuse the one task (RN + CE).
+             NO showWhenLocked / turnScreenOn here: they would put every screen (wallet,
+             profile...) in front of the keyguard. MainActivity.setLockedActivity turns them
+             on for the duration of a call instead. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Links are handled by app_links (lib/app/authscreen/helper/deep_links.dart),
+                 not by the router. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
+            <!-- vibeexpoapp:// (share links) and vibecalling:// (campaign / admin links) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="vibeexpoapp"/>
+                <data android:scheme="vibecalling"/>
+            </intent-filter>
+            <!-- Verified App Links: https://vibelive.angrymamba.com/{handler} -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="vibelive.angrymamba.com"/>
+                <data android:scheme="http" android:host="vibelive.angrymamba.com"/>
+            </intent-filter>
+        </activity>
+
+        <!-- The plugin aims its tap + full-screen intents at its own activity by class name.
+             IncomingCallRedirect finishes it in onActivityCreated and opens MainActivity.
+             showWhenLocked is needed HERE (the plugin's manifest has only turnScreenOn), or the
+             hand-off happens from behind the keyguard and the screen never turns on (CE). -->
+        <activity
+            android:name="com.hiennv.flutter_callkit_incoming.CallkitIncomingActivity"
+            android:theme="@style/CallkitRedirectTheme"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            tools:replace="android:theme"/>
+
+        <!-- Icon / colour / channel when the OS renders an FCM notification block itself. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification"/>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_icon_color"/>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="default"/>
+
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>

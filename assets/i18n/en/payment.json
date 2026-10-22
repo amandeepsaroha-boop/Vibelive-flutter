@@ -1,0 +1,115 @@
+{
+  "errors": {
+    "invalid_amount": "Please enter or select a valid amount greater than 0.",
+    "recharge_failed": "We couldn't start your payment. Please try again.",
+    "order_failed": "Could not create the payment order. Please try again.",
+    "config_missing": "Payments aren't available right now. Please try again later.",
+    "payu_failed": "We couldn't start the PayU payment. Please try again.",
+    "verification_failed": "Payment verification could not be completed.",
+    "transfer_failed": "Unable to complete the transfer. Please try again.",
+    "missing_user": "We couldn't find your account. Please log in again.",
+    "bank_save_failed": "Unable to save your bank details. Please try again.",
+    "invoice_failed": "Couldn't get the invoice PDF. Please try again.",
+    "gateway_unavailable": "This payment method isn't available in the app yet. Please try again later."
+  },
+  "verification": {
+    "pending_title": "Payment Received",
+    "pending": "Your payment was received and is being verified. Your wallet will update shortly."
+  },
+  "invoice": {
+    "generating_title": "Invoice Generating",
+    "generating": "Your invoice is being generated. Pull down to refresh the list in a few moments.",
+    "processing_title": "PDF Processing",
+    "processing": "Your invoice PDF is still processing. Pull down to refresh in a moment."
+  },
+  "wallet": {
+    "title": "Wallet",
+    "subtitle": "YOUR BALANCE",
+    "back": "Back",
+    "total_balance": "TOTAL BALANCE",
+    "add": "ADD",
+    "cash": "CASH",
+    "earnings": "EARNINGS",
+    "cash_hint": "Used for calls",
+    "earnings_hint": "Transfer to cash",
+    "transfer": "Transfer earnings to cash",
+    "tabs": {
+      "all": "ALL",
+      "cash": "CASH",
+      "earnings": "EARNINGS"
+    },
+    "transactions": "TRANSACTIONS",
+    "no_more": "NO MORE TRANSACTIONS",
+    "empty": "No transactions found",
+    "incomplete_title": "Profile Incomplete",
+    "incomplete_add": "Please update your Name, Email, and Mobile in Personal Info before adding money.",
+    "incomplete_pay": "Please update your Name and Email in Personal Info before adding money.",
+    "update_profile": "Update Profile"
+  },
+  "tx": {
+    "wallet_transfer": "Wallet Transfer",
+    "topup": "Wallet Top Up",
+    "received": "Received from Vibe Live",
+    "paid": "Paid to Vibe Live",
+    "earnings_to_cash": "Earnings to Cash",
+    "commission": "Commission",
+    "call_from": "{{type}} from {{name}}",
+    "call_to": "{{type}} to {{name}}",
+    "call_audio": "Audio Call",
+    "call_video": "Video Call",
+    "call_other": "Call",
+    "unknown": "Unknown",
+    "status": {
+      "success": "SUCCESS",
+      "failure": "FAILURE",
+      "pending": "PENDING"
+    },
+    "datetime": "{{date}} at {{time}}",
+    "invoice": "Invoice",
+    "invoice_loading": "Loading...",
+    "invoice_url_title": "Invoice URL",
+    "download_error_title": "Download Error"
+  },
+  "add_money": {
+    "title": "Add Money",
+    "enter_amount": "ENTER AMOUNT",
+    "quick_select": "QUICK SELECT",
+    "recharge_amount": "Recharge Amount",
+    "gst": "GST ({{percent}}%)",
+    "total_payable": "Total Payable",
+    "will_be_added": "₹{{amount}} will be added to your wallet",
+    "submit": "ADD MONEY",
+    "description": "Wallet Recharge",
+    "invalid_title": "Invalid Amount",
+    "invalid_message": "Please enter a valid amount."
+  },
+  "status": {
+    "success_title": "Payment Successful",
+    "success": "Your wallet has been updated.",
+    "failure_title": "Payment Failed",
+    "failure": "Your payment could not be processed.",
+    "continue": "CONTINUE",
+    "verifying_title": "Verifying Payment...",
+    "verifying": "Please wait a moment while we update your wallet balance."
+  },
+  "transfer": {
+    "title": "Earnings → Cash",
+    "subtitle": "One-way transfer. Money moved to Cash cannot be moved back.",
+    "cash": "CASH",
+    "earnings": "EARNINGS",
+    "amount_label": "AMOUNT TO TRANSFER",
+    "max_label": "MAX: ₹{{amount}}",
+    "max": "MAX",
+    "credit": "Credit to Cash",
+    "gst": "GST ({{percent}}%)",
+    "total": "Total Deducted",
+    "confirm": "CONFIRM TRANSFER",
+    "invalid_title": "Invalid Amount",
+    "min_message": "Minimum transfer amount is ₹{{min}}",
+    "insufficient_title": "Insufficient Balance",
+    "insufficient_message": "Earnings balance is not enough for this transfer including GST.",
+    "success_title": "Success",
+    "success": "Transfer completed successfully!",
+    "failed_title": "Transfer Failed"
+  }
+}

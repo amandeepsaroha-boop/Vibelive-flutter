@@ -1,0 +1,50 @@
+{
+  "offline": "No internet connection",
+  "fields": {
+    "name": "Name",
+    "email": "Email",
+    "mobile": "Mobile",
+    "handle": "Profile Handle",
+    "tagline": "Tagline",
+    "languages": "Languages",
+    "description": "Description"
+  },
+  "warn": {
+    "personal": "Please complete: {{fields}} to access calling services",
+    "professional": "Please complete your professional profile: {{fields}}",
+    "rates": "Please set your call rates to start receiving calls",
+    "approval": "Complete your last step - Submit your profile for approval to go live"
+  },
+  "milestones": {
+    "first_call": {
+      "category": "FIRST VIBE",
+      "title": "First Call\nCompleted!",
+      "subtitle": "Your first call is done. Welcome to the Vibe crew.",
+      "badge": "LEVEL 1"
+    },
+    "minutes_100": {
+      "category": "100 CLUB",
+      "title": "100-Minute\nClub!",
+      "subtitle": "Outstanding consistency. You've officially clocked 100 minutes of real conversation.",
+      "badge": "100 MIN"
+    },
+    "money_received": {
+      "category": "TOP EARNER",
+      "title": "Wealth\nUnlocked!",
+      "subtitle": "Congratulations! You've successfully turned your time into verified earnings.",
+      "badge": "EARNER"
+    },
+    "pro_launch": {
+      "category": "VERIFIED HOST",
+      "title": "Host\nVerified!",
+      "subtitle": "Your profile is now verified. You're ready to start taking calls.",
+      "badge": "VERIFIED"
+    },
+    "default": {
+      "category": "ACHIEVEMENT",
+      "title": "New Milestone\nUnlocked!",
+      "subtitle": "You've reached a new stage in your journey. Keep up the great work!",
+      "badge": "NEW LVL"
+    }
+  }
+}

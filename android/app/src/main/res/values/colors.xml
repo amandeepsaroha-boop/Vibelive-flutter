@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#561DE2</color>
+    <!-- Small-icon tint for FCM-drawn notifications (RN #561de2). -->
+    <color name="notification_icon_color">#561DE2</color>
+</resources>

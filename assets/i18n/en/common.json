@@ -1,0 +1,98 @@
+{
+  "app_name": "Vibe Live",
+  "actions": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "retry": "Retry",
+    "continue": "Continue",
+    "close": "Close",
+    "save": "Save",
+    "submit": "Submit",
+    "skip": "Skip",
+    "yes": "Yes",
+    "no": "No",
+    "done": "Done",
+    "back": "Back"
+  },
+  "states": {
+    "loading": "Loading...",
+    "empty_title": "Nothing here yet",
+    "empty_message": "Check back a little later.",
+    "offline_title": "You're offline"
+  },
+  "errors": {
+    "title": "Something went wrong",
+    "network": "No internet connection. Check your connection and try again.",
+    "timeout": "This is taking too long. Check your connection and try again.",
+    "cancelled": "The request was cancelled.",
+    "rejected": "That didn't work. Please check and try again.",
+    "unauthorized": "Please log in to continue.",
+    "forbidden": "You don't have access to this.",
+    "not_found": "We couldn't find what you were looking for.",
+    "conflict": "This was already updated. Please refresh and try again.",
+    "rate_limited": "Too many attempts. Please wait a moment and try again.",
+    "server": "Something went wrong on our side. Please try again.",
+    "session_expired": "Your session has expired. Please log in again.",
+    "logging_out": "Logging you out...",
+    "unknown": "Something went wrong. Please try again.",
+    "upload_failed": "Upload failed. Please try again."
+  },
+  "alert": {
+    "notice": "Notice"
+  },
+  "input": {
+    "show_password": "Show password",
+    "hide_password": "Hide password"
+  },
+  "badge": {
+    "influencer": "Influencer",
+    "verified": "Verified"
+  },
+  "image_preview": {
+    "favorite": "Favourite",
+    "share": "Share",
+    "copy_link": "Copy link",
+    "qr": "Show QR code"
+  },
+  "share": {
+    "copied": "Copied to clipboard"
+  },
+  "qr": {
+    "title": "Profile QR Code",
+    "hint": "Scan this QR to view profile & start a call on Vibe"
+  },
+  "back_to_exit": "Press back again to exit",
+  "push": {
+    "call": {
+      "incoming": "Incoming call",
+      "incoming_video": "Incoming video call",
+      "ongoing_voice": "Ongoing voice call",
+      "ongoing_video": "Ongoing video call",
+      "end_call": "End Call",
+      "accept": "Accept",
+      "decline": "Decline"
+    },
+    "wallet": {
+      "topup_title": "Wallet Top Up",
+      "topup_body": "Wallet Top Up Successful",
+      "topup_body_amount": "{{amount}} added to your wallet.",
+      "received_title": "Money Received",
+      "paid_title": "Money Paid",
+      "transfer_body": "Wallet transfer completed",
+      "received_body_amount": "{{amount}} received in your wallet.",
+      "paid_body_amount": "{{amount}} deducted from your wallet.",
+      "received_from": "{{amount}} received from {{name}}.",
+      "paid_to": "{{amount}} paid to {{name}}."
+    },
+    "verification": {
+      "title": "Verification Update",
+      "body": "Your profile status has been updated."
+    },
+    "permission": {
+      "title": "Notification permission",
+      "rationale": "Vibe Live needs notifications to tell you about incoming calls.",
+      "settings": "Allow notifications in Settings so you don't miss calls."
+    }
+  }
+}

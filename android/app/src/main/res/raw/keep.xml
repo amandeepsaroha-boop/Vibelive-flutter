@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sounds and the notification icon are looked up by NAME (getIdentifier / FCM meta-data /
+     notification channels), never through R: keep them from resource shrinking. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/reciver_side_ringing,@raw/ringtone_default,@raw/coin_sound_add,@drawable/ic_notification" />

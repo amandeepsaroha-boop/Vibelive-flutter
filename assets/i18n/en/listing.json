@@ -1,0 +1,13 @@
+{
+  "errors": {
+    "profile_unavailable": "This profile is not available right now."
+  },
+  "host": {
+    "unknown_name": "UNKNOWN",
+    "default_city": "INDIA",
+    "default_tag": "PROFESSIONAL"
+  },
+  "search": {
+    "default_name": "Expert"
+  }
+}

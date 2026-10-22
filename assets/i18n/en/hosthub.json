@@ -1,0 +1,33 @@
+{
+  "errors": {
+    "create_profile_failed": "We couldn't create your host profile. Please try again.",
+    "missing_verification": "Your verification request isn't ready yet. Please try again.",
+    "invalid_payment_response": "We couldn't start the payment. Please try again."
+  },
+  "sections": {
+    "professional": "Professional Details",
+    "expertise": "Expertise",
+    "schedule": "Schedule",
+    "rates": "Call Rates"
+  },
+  "personal_fields": {
+    "full_name": "Full Name",
+    "email": "Email",
+    "mobile": "Mobile",
+    "state": "State",
+    "district": "District"
+  },
+  "badge": {
+    "apply": "Apply for badge",
+    "finish": "Finish badge application",
+    "approval_required": "Your host profile must be approved before you can apply for the Verification Badge. Complete your profile and request approval first."
+  },
+  "expertise": {
+    "saved": "Expertise saved",
+    "errors": {
+      "unknown_option": "Some selected options are no longer available.",
+      "single_only": "Choose only one option.",
+      "required": "This question is required."
+    }
+  }
+}

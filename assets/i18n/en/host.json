@@ -1,0 +1,104 @@
+{
+  "actions": {
+    "share": "Share profile",
+    "more": "More options"
+  },
+  "header": {
+    "rating": "RATING",
+    "company_profile": "Company's Profile"
+  },
+  "call": {
+    "rate": "₹{{price}}/min",
+    "audio": "Audio Call",
+    "video": "Video Call",
+    "connecting": "CONNECTING...",
+    "calls_unavailable": "Calls Unavailable",
+    "company_banner": "Company Account • Free Calling",
+    "your_profile": "THIS IS YOUR PROFILE",
+    "self_title": "🪞 This is Your Profile",
+    "self_message": "You cannot call yourself! Go to your profile to update it.",
+    "login_title": "Login Required",
+    "login_message": "Please log in to initiate a call.",
+    "login": "Login",
+    "incomplete_title": "Profile Incomplete",
+    "incomplete_message": "Please update your Name, Email, and Mobile in Personal Info before starting a call.",
+    "update_profile": "Update Profile",
+    "low_balance_title": "Insufficient Balance",
+    "low_balance_message": "Your cash balance (Rs {{cash}}) is less than the minimum required (Rs {{required}} for {{minutes}} min @ Rs {{rate}}/min).",
+    "low_balance_earnings": "Your cash balance (Rs {{cash}}) is less than the minimum required (Rs {{required}} for {{minutes}} min @ Rs {{rate}}/min).\n\nYou have Rs {{earnings}} in earnings. Transfer to wallet?",
+    "recharge": "Recharge",
+    "transfer": "Transfer Earnings",
+    "safety_title": "Before you connect",
+    "safety_message": "Keep conversations in the app. For your safety, please don't share personal contact details or arrange to meet offline.",
+    "start": "Start",
+    "unavailable": "Calling isn't available in this version yet."
+  },
+  "social": {
+    "instagram": "Instagram",
+    "facebook": "Facebook",
+    "snapchat": "Snapchat",
+    "website": "Website",
+    "view": "View",
+    "verified_title": "VERIFIED INFLUENCER",
+    "verified_message": "This expert is officially verified on the following platforms:",
+    "open_failed": "Couldn't open this link."
+  },
+  "about": {
+    "vibe": "THE_VIBE",
+    "default_tagline": "\"Open for meaningful conversations and premium guidance.\"",
+    "read_more": "Read more",
+    "read_less": "Read less",
+    "topics": "TOPICS & EXPERTISE",
+    "languages": "LANGUAGES SPOKEN"
+  },
+  "reviews": {
+    "title": "REVIEWS ({{count}})",
+    "user": "User",
+    "no_comment": "No comment provided",
+    "see_more": "SEE MORE",
+    "empty": "No reviews yet",
+    "failed": "Couldn't load reviews."
+  },
+  "share": {
+    "title": "SHARE PROFILE",
+    "copy": "Copy Link",
+    "copied": "Profile link copied to clipboard!",
+    "native": "Share via…",
+    "qr": "Show QR Code",
+    "message": "Check out {{name}} on Vibe: {{url}}"
+  },
+  "menu": {
+    "report": "Report this User",
+    "block": "Block this Expert"
+  },
+  "block": {
+    "title": "Block this Expert?",
+    "message": "You will no longer see this expert in your search or listing, and neither of you will be able to contact each other.",
+    "confirm": "Block",
+    "success_title": "Success",
+    "success": "Expert blocked.",
+    "failed_title": "Block Failed",
+    "missing": "Target user information is missing."
+  },
+  "report": {
+    "title": "REPORT PROFILE",
+    "title_short": "Report",
+    "reporting": "Reporting {{- name}}",
+    "category_fallback": "Category",
+    "categories_failed": "Could not load report categories. Please try again later.",
+    "note_placeholder": "Additional notes (optional)...",
+    "submit": "SUBMIT REPORT",
+    "login_title": "Login Required",
+    "login_message": "Please log in to report a profile.",
+    "unavailable": "This profile cannot be reported right now.",
+    "missing_title": "Missing Data",
+    "missing_category": "Please select a report category.",
+    "success_title": "Success",
+    "success": "Report submitted. Our team will review it.",
+    "failed_title": "Report Failed"
+  },
+  "voice": {
+    "hear": "HEAR THEIR VOICE",
+    "playing": "NOW PLAYING"
+  }
+}

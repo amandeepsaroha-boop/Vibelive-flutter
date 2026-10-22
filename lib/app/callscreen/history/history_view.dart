@@ -1,0 +1,209 @@
+import 'dart:async';
+
+import 'package:clock/clock.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../../../core/network/api_exception.dart';
+import '../../../core/session/session_store.dart';
+import '../../../core/theme/vibe_colors.dart';
+import '../../../core/utils/scale.dart';
+import '../../api/callscreen/call_models.dart';
+import '../../api/callscreen/call_queries.dart';
+import '../../api/splashscreen/splash_queries.dart';
+import '../../component/c_state_view.dart';
+import '../../component/c_text.dart';
+import '../../component/c_toast.dart';
+import '../../component/infinite_scroll.dart';
+import '../../homescreen/helper/home_controller.dart';
+import '../../navbar/bottombar/navbar_collapse.dart';
+import 'helper/history_entry.dart';
+import 'helper/history_format.dart';
+import 'helper/history_layout.dart';
+import 'history_actions.dart';
+import 'history_row.dart';
+import 'history_skeleton.dart';
+
+/// The History tab (RN `app/(tabs)/explore.jsx`): the LOGS header and the
+/// paged call log. Page 1 renders from disk, later pages load on scroll, and
+/// page 1 is refreshed quietly each time the tab is shown again.
+class HistoryView extends HookWidget {
+  const HistoryView({super.key, required this.home});
+  final HomeController home;
+
+  @override
+  Widget build(BuildContext context) {
+    final feed = useCallHistory(context);
+    final pingConfig = useAppConfig(context).data?.expertPingConfig;
+    final pingWindow = CallHistoryItem.pingWindow(pingConfig);
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final entries = useMemoized(
+      () => HistoryEntry.all(
+        feed.items,
+        pingWindow: pingWindow,
+        now: clock.now(),
+        format: HistoryFormat.of(locale),
+      ),
+      [feed.items, pingWindow, locale],
+    );
+    final actions = useMemoized(HistoryActions.new);
+
+    // Back on this tab: calls made since the last visit appear without a
+    // pull (RN useFocusEffect). The first build is the initial load; a failed
+    // quiet refresh keeps the list as it is.
+    final latestFeed = useRef(feed)..value = feed;
+    useEffect(() {
+      void onTab() {
+        final f = latestFeed.value;
+        if (home.tab.value != HomeTab.history || f.firstPage.data == null) {
+          return;
+        }
+        unawaited(f.refresh().then((_) {}, onError: (Object _) {}));
+      }
+
+      home.tab.addListener(onTab);
+      return () => home.tab.removeListener(onTab);
+    }, [home]);
+
+    Future<void> refresh() async {
+      try {
+        await feed.refresh();
+      } on ApiException catch (e) {
+        CToast.error(e);
+      }
+    }
+
+    final first = feed.firstPage;
+    final hasUser = SessionStore.instance.value.userDocumentId != null;
+    final busy = first.isLoading || first.isFetching;
+    // RN: 120 under the last row inside the bottom safe area, which clears
+    // the floating navbar. View padding: fixed while a keyboard is up.
+    final padding = EdgeInsets.fromLTRB(
+      5.ms,
+      0,
+      5.ms,
+      120.ms + MediaQuery.viewPaddingOf(context).bottom,
+    );
+
+    final Widget body;
+    if (entries.isEmpty && hasUser && first.data == null && busy) {
+      body = Padding(
+        padding: EdgeInsets.symmetric(horizontal: 5.ms),
+        child: const HistorySkeleton(),
+      );
+    } else {
+      // RN: a failed page 1 shows a retry, never "No call history found".
+      final failed = entries.isEmpty && (first.isError || !hasUser);
+      body = InfiniteScroll(
+        padding: padding,
+        hasMore: feed.hasMore,
+        loadingMore: feed.isLoadingMore,
+        loadMoreFailed: feed.loadMoreError != null,
+        onLoadMore: feed.loadMore,
+        onRefresh: refresh,
+        onScroll: NavbarCollapse.instance.track,
+        endLabel: entries.isEmpty ? null : 'call:history.end',
+        loadingBuilder: (_) => const HistorySkeleton.more(),
+        slivers: [
+          if (failed)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _LoadFailed(
+                error: first.error,
+                onRetry: () => first.refetch(),
+              ),
+            )
+          else if (entries.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: CStateView.empty(
+                title: 'call:history.empty',
+                message: null,
+              ),
+            )
+          else
+            SliverVariedExtentList.builder(
+              itemCount: entries.length,
+              itemExtentBuilder: (i, _) => i < entries.length
+                  ? HistoryLayout.extent(ping: entries[i].showPing)
+                  : null,
+              itemBuilder: (_, i) {
+                final e = entries[i];
+                return HistoryRow(
+                  key: ValueKey(e.key),
+                  entry: e,
+                  onOpen: (e) => actions.openProfile(context, e),
+                  onMenu: (e) => actions.openMenu(context, e),
+                );
+              },
+            ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        const _Header(),
+        Expanded(child: body),
+      ],
+    );
+  }
+}
+
+/// RN "LOGS / CALL HISTORY" title block (this tab has no top bar).
+class _Header extends StatelessWidget {
+  const _Header();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(7.ms, 8.ms, 7.ms, 10.ms),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CText(
+              'call:history.title',
+              size: 34,
+              weight: FontWeight.w900,
+              letterSpacing: -1,
+              color: c.text,
+            ),
+            CText(
+              'call:history.subtitle',
+              size: 10,
+              weight: FontWeight.w900,
+              letterSpacing: 2,
+              color: c.accent,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "Couldn't load call history" with the reason and a retry.
+class _LoadFailed extends StatelessWidget {
+  const _LoadFailed({required this.error, required this.onRetry});
+  final ApiException? error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = error;
+    final offline =
+        e?.type == ApiErrorType.network || e?.type == ApiErrorType.timeout;
+    return CStateView(
+      title: 'call:history.load_failed',
+      message: e?.localizedMessage(context),
+      translateMessage: false,
+      icon: offline ? LucideIcons.wifiOff : LucideIcons.circleAlert,
+      actionLabel: 'actions.retry',
+      onAction: onRetry,
+    );
+  }
+}

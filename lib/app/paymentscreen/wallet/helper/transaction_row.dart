@@ -1,0 +1,127 @@
+import '../../../api/paymentscreen/wallet_models.dart';
+import 'wallet_format.dart';
+
+/// Payment status chip of a row.
+enum TxStatus { success, failure, pending }
+
+/// What one history row shows (RN `renderTransaction`), computed once per
+/// row so building the tile does no parsing.
+class TransactionRow {
+  const TransactionRow({
+    required this.key,
+    required this.transaction,
+    required this.kind,
+    required this.isCredit,
+    required this.titleKey,
+    required this.reference,
+    required this.amount,
+    required this.status,
+    required this.rawStatus,
+    required this.hasInvoice,
+    this.detailKey,
+    this.detailVariables,
+    this.date,
+    this.time,
+  });
+
+  factory TransactionRow.of(WalletTransaction tx, String? myName, int index) {
+    final kind = tx.kindFor(myName);
+    final credit = tx.isCreditFor(myName);
+    final topup = tx.isTopupFor(myName);
+
+    String? detailKey;
+    Map<String, String>? detailVars;
+    if (kind == TransactionKind.walletTransfer) {
+      detailKey = 'payment:tx.earnings_to_cash';
+    } else if (!topup) {
+      if (tx.isCommission) {
+        detailKey = 'payment:tx.commission';
+      } else {
+        detailKey = credit ? 'payment:tx.call_from' : 'payment:tx.call_to';
+        detailVars = {
+          'type': switch (tx.callKind) {
+            CallKind.audio => 'payment:tx.call_audio',
+            CallKind.video => 'payment:tx.call_video',
+            CallKind.other => 'payment:tx.call_other',
+          },
+          'name': tx.counterpartyFor(myName) ?? '',
+        };
+      }
+    }
+
+    final raw = tx.paymentStatus;
+    final status = switch (raw) {
+      'success' => TxStatus.success,
+      'failure' => TxStatus.failure,
+      _ => TxStatus.pending,
+    };
+    final created = tx.createdAt;
+    final at = created == null ? null : WalletFormat.dateTime(created);
+    final isCall = tx.raw['call'] != null;
+
+    return TransactionRow(
+      key: '${tx.id ?? tx.reference ?? index}',
+      transaction: tx,
+      kind: kind,
+      isCredit: credit,
+      titleKey: switch (kind) {
+        TransactionKind.walletTransfer => 'payment:tx.wallet_transfer',
+        TransactionKind.topup => 'payment:tx.topup',
+        TransactionKind.received => 'payment:tx.received',
+        TransactionKind.paid => 'payment:tx.paid',
+      },
+      detailKey: detailKey,
+      detailVariables: detailVars,
+      reference: tx.reference ?? (tx.id != null ? '${tx.id}' : 'N/A'),
+      amount: WalletFormat.amount2((tx.displayAmountFor(myName) ?? 0).abs()),
+      status: status,
+      rawStatus: raw,
+      hasInvoice:
+          tx.invoices.isNotEmpty ||
+          ((topup || isCall) && status == TxStatus.success),
+      date: at?.date,
+      time: at?.time,
+    );
+  }
+
+  final String key;
+  final WalletTransaction transaction;
+  final TransactionKind kind;
+  final bool isCredit;
+  final String titleKey;
+
+  /// Second line; [detailVariables] holds `type` (an i18n key) and `name`
+  /// (empty: show "Unknown").
+  final String? detailKey;
+  final Map<String, String>? detailVariables;
+
+  /// `transaction_Id`, else the row id.
+  final String reference;
+
+  /// Absolute amount, two decimals.
+  final String amount;
+  final TxStatus status;
+
+  /// Unknown statuses are shown as sent (RN uppercases the raw value).
+  final String? rawStatus;
+  final bool hasInvoice;
+  final String? date;
+  final String? time;
+
+  bool get isTopupIcon =>
+      kind == TransactionKind.topup || kind == TransactionKind.walletTransfer;
+
+  /// Rows the wallet screen shows: commission rows are hidden (RN).
+  static List<TransactionRow> visible(
+    Iterable<WalletTransaction> rows,
+    String? myName,
+  ) {
+    final out = <TransactionRow>[];
+    var i = 0;
+    for (final tx in rows) {
+      if (!tx.isCommission) out.add(TransactionRow.of(tx, myName, i));
+      i++;
+    }
+    return out;
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "vibelive (prod API)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["--dart-define-from-file=config/env.json"]
+    },
+    {
+      "name": "vibelive (local API)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define-from-file=config/env.json",
+        "--dart-define=API_URL=http://10.0.2.2:1337"
+      ]
+    }
+  ]
+}

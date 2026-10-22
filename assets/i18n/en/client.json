@@ -1,0 +1,195 @@
+{
+  "errors": {
+    "no_session": "We couldn't find your session. Please log in again.",
+    "profile_not_found": "We couldn't load your profile. Please try again.",
+    "email_taken": "This email is already in use.",
+    "mobile_taken": "This mobile number is already in use.",
+    "missing_user": "We couldn't identify this user. Please try again from their profile.",
+    "missing_favorite": "We couldn't find this favourite. Please refresh and try again."
+  },
+  "fallback": {
+    "user_name": "User",
+    "expert_name": "Professional",
+    "blocked_user": "Blocked User"
+  },
+  "personal_info": {
+    "title": "Personal Info",
+    "save": "Save",
+    "change_photo": "Change profile photo",
+    "photo_hint": "Use this page to update basic profile details. State and district are required for profile completion.",
+    "basic_info": "BASIC INFO",
+    "fields": {
+      "name": "Full Name",
+      "email": "Email",
+      "mobile": "Mobile",
+      "state": "State",
+      "district": "District"
+    },
+    "placeholders": {
+      "name": "Full Name",
+      "email": "Email",
+      "mobile": "Mobile",
+      "state": "Select State",
+      "district": "Select District"
+    },
+    "picker": {
+      "search": "Search {{-title}}...",
+      "loading": "Fetching {{-title}} list...",
+      "no_states": "No states found",
+      "no_districts": "No districts found",
+      "select_state_first": "Please select state first.",
+      "unnamed": "Unnamed"
+    },
+    "errors": {
+      "name_required": "Please enter your full name.",
+      "email_required": "Please enter your email address.",
+      "email_invalid": "Please enter a valid email address.",
+      "mobile_required": "Please enter your mobile number.",
+      "mobile_invalid": "Please enter a valid 10-digit mobile number.",
+      "state_required": "Please select your state.",
+      "district_required": "Please select your district.",
+      "missing_user": "We couldn't find your profile. Please log in again.",
+      "pick_failed": "Failed to pick image."
+    },
+    "upload_title": "Upload",
+    "upload_error_title": "Upload Error",
+    "success": {
+      "profile_title": "Profile Saved",
+      "profile_message": "Your profile has been saved successfully.",
+      "photo_title": "Photo Updated",
+      "photo_message": "Profile picture updated successfully."
+    }
+  },
+  "me": {
+    "avatar": "Profile photo",
+    "general_user": "General User",
+    "company_profile": "Company's Profile",
+    "mode": {
+      "vacation": "On vacation",
+      "available": "Available for calls",
+      "custom": "Custom schedule active"
+    },
+    "availability": {
+      "title": "AVAILABILITY MODES",
+      "manage": "Manage Schedule",
+      "available": "Available",
+      "vacation": "Vacation",
+      "custom": "Custom",
+      "updating": "Updating...",
+      "hint_vacation": "Calls are paused while you're away.",
+      "hint_available": "Clients can start calls instantly.",
+      "hint_custom": "Calls follow your saved schedule.",
+      "hint_custom_unset": "Set your schedule to receive calls.",
+      "error_title": "Availability",
+      "no_profile": "Professional profile is not available yet."
+    },
+    "section": {
+      "dashboard": "Dashboard",
+      "settings": "Settings"
+    },
+    "stats": {
+      "lifetime_earnings": "LIFETIME EARNINGS",
+      "calls": "CALLS",
+      "insights": "INSIGHTS",
+      "revenue": "REVENUE",
+      "call_stats": "CALL STATS",
+      "retention": "RETENTION",
+      "profile_views": "Profile Views",
+      "avg_rating": "Avg Rating",
+      "referrals": "Referrals",
+      "conversion": "Conversion",
+      "missed_calls": "Missed Calls",
+      "declined": "Declined",
+      "withdrawals": "Withdrawals",
+      "video_earning": "Video Earning",
+      "audio_earning": "Audio Earning",
+      "referral_earning": "Ref. Earning",
+      "avg_duration_in": "Avg Duration (In)",
+      "avg_duration_out": "Avg Duration (Out)",
+      "audio_calls": "Audio Calls",
+      "video_minutes": "Video Mins",
+      "repeat_users_pct": "Repeat Users %",
+      "repeat_calls": "Repeat Calls",
+      "repeat_users": "Repeat Users",
+      "repeat_calls_pct": "Repeat Call %",
+      "duration": "{{minutes}}m {{seconds}}s",
+      "minutes": "{{value}}m",
+      "referral_program": "REFERRAL PROGRAM",
+      "referral_program_hint": "INVITE & EARN ON EVERY SIGNUP"
+    },
+    "invite": {
+      "title": "Invite & Earn",
+      "subtitle": "Share your code — earn on every signup.",
+      "your_code": "YOUR CODE",
+      "copy": "COPY",
+      "copied": "COPIED",
+      "whatsapp": "WHATSAPP",
+      "invite_all": "INVITE ALL",
+      "activity": "Referral Activity Log",
+      "message": "Join me on Vibe Live! Use my code {{-code}} to get started.\n\n{{-link}}",
+      "message_copied": "Invite message copied. Paste it in any app to share."
+    },
+    "wallet": {
+      "title": "MY WALLET",
+      "subtitle": "VIEW BALANCE & TRANSACTIONS"
+    },
+    "categories": {
+      "identity": "IDENTITY",
+      "hub": "HOST HUB",
+      "resources": "RESOURCES",
+      "resources_hint": "HELP, LEGAL, GST DETAILS & REFUNDS"
+    },
+    "items": {
+      "share": "Share Profile",
+      "qr": "Profile QR Code",
+      "personal": "Personal Info",
+      "become_host": "Become a Host",
+      "pro_details": "Professional Details",
+      "expertise": "Specialization",
+      "schedule": "My Schedule",
+      "rates": "Call Rates & Revenue",
+      "approval": "Approval Status",
+      "verification": "Verification Badge"
+    },
+    "badge_pill": "✨ {{-label}}",
+    "become_host_locked": {
+      "title": "Complete Personal Info",
+      "message": "Complete your personal info before becoming a host.\n\nMissing: {{-fields}}",
+      "action": "Complete Now"
+    },
+    "unlock": {
+      "pill": "🎁 WANT TO BECOME A HOST?",
+      "title": "🎉 Profile complete!",
+      "body": "You've unlocked the Host Program. Set up your host profile to start taking voice & video calls and earn for your time.",
+      "dismiss": "Dismiss"
+    },
+    "share": {
+      "message": "Check out this profile on Vibe Live: {{-link}}",
+      "my_message": "Check out my profile on Vibe: {{-link}}",
+      "link_copied": "Profile link copied to clipboard!",
+      "message_copied": "Profile link copied. Paste it in any app to share.",
+      "unavailable": "Profile link is not available yet."
+    },
+    "menu": {
+      "title": "OPTIONS",
+      "share": "Share Profile",
+      "become_host": "Become a Host",
+      "logout": "Logout Session"
+    }
+  },
+  "referral": {
+    "title": "Referral",
+    "refresh": "Refresh",
+    "your_code": "YOUR REFERRAL CODE",
+    "no_code": "N/A",
+    "share": "SHARE REFERRAL LINK",
+    "share_subject": "Vibe Live Referral",
+    "total_clicks": "TOTAL CLICKS",
+    "joined_users": "JOINED USERS",
+    "referred_users": "REFERRED USERS",
+    "referred_user": "Referred user",
+    "empty": "No referred users yet",
+    "alert_title": "Referral",
+    "code_unavailable": "Referral code is not available yet."
+  }
+}

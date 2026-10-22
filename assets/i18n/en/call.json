@@ -1,0 +1,155 @@
+{
+  "errors": {
+    "user_busy": "The user is already on another call.",
+    "invalid_response": "Invalid response from call server.",
+    "initiate_failed": "Could not initiate call. Please try again.",
+    "missing_participants": "Missing caller or receiver details.",
+    "review_empty": "Please give a star rating or write a comment.",
+    "expert_unresolved": "Unable to find this host's profile.",
+    "review_failed": "Failed to submit review.",
+    "ping_failed": "Failed to send ping."
+  },
+  "history": {
+    "title": "LOGS",
+    "subtitle": "CALL HISTORY",
+    "unknown": "Unknown",
+    "missed": "MISSED",
+    "declined": "DECLINED",
+    "minutes": "{{minutes}} mins",
+    "no_date": "No date",
+    "no_time": "N/A",
+    "outcome": {
+      "missed": "Missed",
+      "declined": "Declined",
+      "video": "Video call",
+      "voice": "Voice call"
+    },
+    "nudge": "NUDGE",
+    "ping_sent_title": "Success",
+    "ping_sent": "Ping sent to {{name}}",
+    "load_failed": "Couldn't load call history",
+    "empty": "No call history found",
+    "end": "NO MORE CALLS",
+    "options": "Call options",
+    "error_title": "Error",
+    "profile_title": "Profile",
+    "profile_failed": "Unable to open profile right now.",
+    "menu": {
+      "rate": "Rate this Call",
+      "reviewed": "Review Submitted",
+      "profile": "See Profile",
+      "report_host": "Report this Host Profile",
+      "report_user": "Report this User"
+    },
+    "review": {
+      "title": "Rate this Call",
+      "with": "with {{name}}",
+      "star": "{{value}} stars",
+      "hint": "Select stars or write a comment to submit",
+      "placeholder": "Share your experience (optional if you gave stars)...",
+      "skip": "Skip",
+      "submit": "Submit review",
+      "thanks_title": "Thanks!",
+      "thanks": "Your feedback was submitted.",
+      "expert_unresolved": "Unable to resolve Host Profile."
+    },
+    "report": {
+      "title": "Report Profile",
+      "category": "Category",
+      "categories_failed": "Couldn't load report categories.",
+      "placeholder": "Additional notes...",
+      "submit": "Submit report",
+      "missing_title": "Missing Data",
+      "missing": "Please select report category.",
+      "failed": "Failed to submit report.",
+      "success_title": "Success",
+      "success": "Report submitted."
+    }
+  },
+  "incoming": {
+    "title": "Incoming Call...",
+    "fallback_name": "Incoming Call",
+    "decline": "Decline",
+    "accept": "Accept",
+    "block_label": "Block this caller",
+    "block_hint": "Declines and stops them contacting you",
+    "report_label": "Report this caller",
+    "report_hint": "Declines and sends it for review",
+    "this_caller": "this caller",
+    "block_title": "Block {{name}}?",
+    "block_message": "The call will be declined and they will not be able to contact you again.",
+    "report_title": "Report {{name}}?",
+    "report_message": "The call will be declined and sent to our team to review.",
+    "block": "Block",
+    "report": "Report"
+  },
+  "type": {
+    "video": "Video Call",
+    "audio": "Audio Call"
+  },
+  "badge": {
+    "official": "App Official",
+    "company": "Company Account"
+  },
+  "status": {
+    "calling": "CALLING",
+    "ringing": "RINGING",
+    "ended": "CALL ENDED",
+    "declined": "Declined"
+  },
+  "name": {
+    "host": "Host",
+    "expert": "Expert",
+    "user": "User",
+    "you": "You"
+  },
+  "controls": {
+    "mute": "Microphone",
+    "camera": "Camera",
+    "speaker": "Speaker",
+    "flip": "Switch camera",
+    "hangup": "End call"
+  },
+  "safety": {
+    "title": "SOMETHING WRONG?",
+    "report_label": "Report this call",
+    "report_hint": "Ends the call and sends it for review",
+    "block_label": "Block {{name}}",
+    "block_label_plain": "Block",
+    "block_hint": "Ends the call and stops them contacting you"
+  },
+  "feedback": {
+    "title": "Rate Your Call Experience",
+    "subtitle_named": "How was your session with {{name}}?",
+    "subtitle": "How was your session?",
+    "placeholder": "Write additional feedback (optional)...",
+    "submit": "Submit Feedback",
+    "skip": "Skip & Continue",
+    "block": "Block this User",
+    "block_title": "Block {{name}}?",
+    "block_fallback": "User",
+    "block_message": "You will no longer be able to contact each other or see each other in search or listings.",
+    "blocked_title": "Success",
+    "blocked": "User blocked.",
+    "block_failed_title": "Block Failed",
+    "block_failed": "Failed to block user."
+  },
+  "callback": {
+    "title": "Expert Callback",
+    "subtitle": "Request received",
+    "prompt": "How would you like to call back?",
+    "price": "Rs {{price}}/MIN",
+    "fallback_name": "Expert"
+  },
+  "permission": {
+    "mic": "Microphone permission",
+    "mic_camera": "Microphone & camera permission",
+    "bar": "{{what}} is required for calls",
+    "allow": "Allow",
+    "settings": "Settings"
+  },
+  "return_bar": {
+    "label": "Return to call",
+    "connecting": "Connecting..."
+  }
+}

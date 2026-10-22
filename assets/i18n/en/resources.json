@@ -1,0 +1,140 @@
+{
+  "errors": {
+    "missing_page": "This page isn't available.",
+    "no_host": "Host Profile not found for this account.",
+    "pick_one": "Please select at least one category."
+  },
+  "page": {
+    "untitled": "Page",
+    "empty": "No content available.",
+    "refresh": "Refresh"
+  },
+  "about": {
+    "title": "About App"
+  },
+  "support": {
+    "title": "Support",
+    "fallback_intro": "Support details are available below:",
+    "email": "Email",
+    "phone": "Phone",
+    "whatsapp": "WhatsApp"
+  },
+  "links": {
+    "error_title": "Error",
+    "open_failed": "Unable to open link"
+  },
+  "menu": {
+    "subtitle": "PROFILE SETTINGS",
+    "not_found": "Category not found",
+    "go_back": "Go Back",
+    "categories": {
+      "identity": "IDENTITY",
+      "hub": "HOST HUB",
+      "resources": "RESOURCES"
+    },
+    "items": {
+      "gst": "GST Details",
+      "referral": "Referral Program",
+      "favourites": "Favourites",
+      "about": "About Vibe",
+      "support": "Help & Support",
+      "privacy": "Account Privacy",
+      "blocked": "Blocked Users",
+      "delete": "Delete Account",
+      "logout": "Logout Session"
+    }
+  },
+  "logout": {
+    "title": "Logout",
+    "message": "Are you sure you want to logout?",
+    "confirm": "Logout"
+  },
+  "delete": {
+    "title": "Delete Account",
+    "message": "Are you sure you want to permanently delete your account?\n\nOnce you confirm, you will be automatically signed out and your account will be scheduled for deletion.\n\nGrace Period: Your account will remain in a recoverable state for 30 days. During this period, you may cancel the deletion request by logging back into the app and restoring your account.\n\nIf you need assistance, please contact our support team.",
+    "confirm": "Delete Account"
+  },
+  "webview": {
+    "fallback_title": "Web page",
+    "not_secure": "Not secure · {{-host}}",
+    "opening": "Opening page…",
+    "invalid": "This link could not be opened.",
+    "no_app": "No app found to open this link.",
+    "failed_title": "This page couldn't load",
+    "failed_message": "Please try again in a moment.",
+    "offline_title": "You're offline",
+    "offline_message": "Check your internet connection and try again.",
+    "reload": "Reload",
+    "open_browser": "Open in browser"
+  },
+  "categories": {
+    "title": "Categories",
+    "hint": "Select up to 10 categories for your expertise.",
+    "search": "Search categories...",
+    "selected": "SELECTED ({{n}}/10)",
+    "empty": "No categories found.",
+    "save": "SAVE CHANGES ({{n}}/10)",
+    "saving": "SAVING...",
+    "saved_title": "Categories",
+    "saved_message": "Categories updated successfully.",
+    "continue": "CONTINUE"
+  },
+  "blocked": {
+    "title": "Blocked Users",
+    "unblock": "Unblock",
+    "blocked_on": "Blocked on {{date}}",
+    "user": "User",
+    "confirm_title": "Unblock {{-name}}?",
+    "confirm_message": "They will be able to find your profile and contact you again.",
+    "done_title": "Success",
+    "done_message": "User unblocked.",
+    "empty_title": "No Blocked Users",
+    "empty_message": "Users you block will appear here. Neither of you will be able to see each other in search, listings, or start calls."
+  },
+  "favourites": {
+    "title": "Favourites",
+    "refresh": "Refresh favourites",
+    "remove": "Remove from favourites",
+    "professional": "Professional",
+    "empty_title": "No favourites yet",
+    "empty_message": "Hosts you mark as favourite will appear here."
+  },
+  "gst": {
+    "title": "GST Details",
+    "edit": "Edit GST details",
+    "section": "GST CONFIGURATION",
+    "submitted_banner": "GST details are already submitted. Tap edit to update.",
+    "toggle_title": "Do you have GST registration?",
+    "toggle_hint": "Toggle to switch GST registration mode.",
+    "number": "GST Number",
+    "number_placeholder": "Eg. 42AGFJH-JHJ1Z5",
+    "business": "Business Name",
+    "business_placeholder": "Enter business name",
+    "address": "Business Address",
+    "address_placeholder": "Enter business address",
+    "zipcode": "Zipcode (Optional)",
+    "zipcode_placeholder": "PIN / Zipcode",
+    "state": "State (Optional)",
+    "state_placeholder": "Select your state",
+    "district": "District / City (Optional)",
+    "district_placeholder": "Select district/city",
+    "district_needs_state": "Select state first",
+    "certificate": "GST CERTIFICATE",
+    "upload_file": "Upload File",
+    "logo": "BUSINESS LOGO",
+    "upload_logo": "Upload Logo",
+    "declaration": "I confirm I am not registered under GST and registration is not required currently.",
+    "declaration_statement": "As per the GST Act, registration is required when turnover crosses prescribed limits. I confirm GST registration is not required for my current business activity.",
+    "save": "SAVE GST DETAILS",
+    "submitted": "DETAILS SUBMITTED",
+    "saved_message": "GST details saved successfully.",
+    "continue": "CONTINUE",
+    "errors": {
+      "number_required": "GST number is required",
+      "number_invalid": "Enter a valid 15-character GST number",
+      "business_required": "Business name is required",
+      "address_required": "Business address is required",
+      "declaration_required": "Please confirm non-registration declaration"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "errors": {
+    "profile_unavailable": "यह प्रोफ़ाइल अभी उपलब्ध नहीं है।"
+  },
+  "host": {
+    "unknown_name": "अज्ञात",
+    "default_city": "भारत",
+    "default_tag": "प्रोफ़ेशनल"
+  },
+  "search": {
+    "default_name": "एक्सपर्ट"
+  }
+}

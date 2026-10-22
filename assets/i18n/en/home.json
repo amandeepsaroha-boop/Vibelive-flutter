@@ -1,0 +1,38 @@
+{
+  "tabs": {
+    "all": "All",
+    "popular": "Popular"
+  },
+  "empty": {
+    "all": "No users found",
+    "popular": "No popular hosts yet",
+    "topic": "No host available for this topic"
+  },
+  "nav": {
+    "discover": "Discover",
+    "history": "History",
+    "me": "Profile"
+  },
+  "header": {
+    "theme": "Switch theme",
+    "theme_system": "Switched to the system theme",
+    "search": "Search hosts",
+    "filter": "Filters",
+    "wallet": "WALLET",
+    "amount": "Rs {{amount}}"
+  },
+  "me": {
+    "title": "Profile",
+    "company_title": "Company Profile",
+    "menu": "More"
+  },
+  "card": {
+    "price": "Rs {{price}}/M",
+    "city_rating": "{{city}}  •  {{rating}} STAR"
+  },
+  "feed": {
+    "end": "END OF RESULTS",
+    "load_error": "Couldn't load hosts. Check your connection.",
+    "try_again": "Try again"
+  }
+}

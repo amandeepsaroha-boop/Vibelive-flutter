@@ -1,0 +1,40 @@
+{
+  "establishing_sync": "Establishing sync",
+  "skip": "Skip",
+  "continue": "CONTINUE",
+  "get_started": "GET STARTED",
+  "preparing": "PREPARING...",
+  "slides": {
+    "talk": {
+      "title": "Talk it through.",
+      "desc": "Private 1-to-1 sessions with people who help with relationships, breakups and confidence."
+    },
+    "pay": {
+      "title": "Pay by the minute.",
+      "desc": "No subscription. You pay only for the minutes a session actually runs."
+    },
+    "choose": {
+      "title": "Choose who helps.",
+      "desc": "Browse by what you need help with, see each person’s focus and rate, then call by voice or video."
+    }
+  },
+  "pay": {
+    "per_minute": "Per minute",
+    "only_when_talking": "Only for the time you talk"
+  },
+  "choose": {
+    "badge": "Voice or video"
+  },
+  "topics": {
+    "t0": "Healing from a breakup",
+    "t1": "Dating advice",
+    "t2": "Saving my relationship",
+    "t3": "Self-love & confidence",
+    "t4": "Moving on",
+    "t5": "Communication problems",
+    "t6": "Long-distance relationship",
+    "t7": "Trust & jealousy",
+    "t8": "Marriage problems",
+    "t9": "How to text my crush"
+  }
+}

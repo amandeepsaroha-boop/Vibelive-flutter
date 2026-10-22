@@ -1,0 +1,29 @@
+{
+  "errors": {
+    "busy_title": "User busy",
+    "failed_title": "Call failed",
+    "unable_title": "Unable to start call",
+    "missing_expert": "Missing caller or expert details."
+  },
+  "permission": {
+    "mic_title": "Microphone permission required",
+    "mic_camera_title": "Microphone & camera permission required",
+    "mic_blocked": "Microphone permission is turned off for Vibe Live. Enable it in Settings to start a call.",
+    "mic_camera_blocked": "Microphone & camera permission is turned off for Vibe Live. Enable it in Settings to start a call.",
+    "mic_denied": "Microphone permission is required to start a call.",
+    "mic_camera_denied": "Microphone & camera permission is required to start a call.",
+    "open_settings": "Open Settings"
+  },
+  "safety": {
+    "thanks_title": "Thanks for telling us",
+    "reported": "The call has ended and our team will review this report.",
+    "blocked": "The call has ended and this person is blocked.",
+    "no_target": "The call has ended. Please try again from their profile so we can identify the account.",
+    "report_failed": "The call has ended, but we could not submit the report. Please try from their profile.",
+    "block_failed": "The call has ended, but we could not block them. Please try from their profile."
+  },
+  "low_balance": {
+    "warning": "Low balance: you have about 5 minutes left. Recharge to continue.",
+    "ended": "Call ended due to low balance."
+  }
+}

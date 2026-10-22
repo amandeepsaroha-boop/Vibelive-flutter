@@ -1,0 +1,39 @@
+{
+  "header": {
+    "placeholder": "Search experts, categories…",
+    "clear": "Clear search",
+    "filter": "Filters"
+  },
+  "idle": "Search by name, category or location",
+  "sections": {
+    "experts": "Experts",
+    "categories": "Categories",
+    "category_locations": "Categories by location"
+  },
+  "results": {
+    "currency": "₹",
+    "per_min": "/MIN",
+    "calls_handled": "{{minutes}} MIN CALLS HANDLED",
+    "calls_count": "{{count}} call",
+    "calls_count_plural": "{{count}} calls",
+    "category_in_location": "{{category}} in {{location}}",
+    "profile_title": "Profile"
+  },
+  "empty": {
+    "title": "No results",
+    "message": "No results for “{{query}}”"
+  },
+  "filter": {
+    "title": "Filter Experts",
+    "close": "Close",
+    "language": "🌐  Language",
+    "topic": "🏷️  Topic",
+    "all_languages": "All Languages",
+    "all_topics": "All Topics",
+    "reset": "Reset",
+    "clear_all": "Clear All",
+    "apply": "Apply Filters",
+    "no_languages": "No languages available",
+    "languages_failed": "Couldn't load languages."
+  }
+}
