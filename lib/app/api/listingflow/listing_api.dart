@@ -1,6 +1,9 @@
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/strapi.dart';
+import '../../../core/session/session_store.dart';
+import '../hosthub/profile_api.dart';
+import '../hosthub/strapi_lookup.dart';
 import 'listing_models.dart';
 
 /// Reading other hosts' expert profiles. Single-host reads go through the
@@ -93,48 +96,109 @@ abstract final class ListingApi {
   }
 
   /// Profile behind a shared link / `openUserId`: [targetId] may be a user
-  /// documentId, an expert-profile documentId or a handler. Only an approved
-  /// host opens, so a link cannot reach a profile a tap never could — except
-  /// the viewer's own ([isOwnProfile]).
+  /// documentId, a numeric user id, an expert-profile documentId or a
+  /// handler. See [findProfile].
   static Future<HostCard> findHostByLink(
     String targetId, {
-    bool isOwnProfile = false,
-  }) async {
+    String? ownUserDocumentId,
+  }) {
     final target = targetId.trim();
     if (target.isEmpty) throw _unavailable;
-    const query = {
-      ...hostCardPopulate,
-      'populate[expert_profile_approvals]': 'true',
-      ..._singleRow,
-    };
+    final numeric = StrapiLookup.isNumericId(target);
+    return findProfile(
+      userDocumentId: numeric ? null : target,
+      userId: numeric ? target : null,
+      expertDocumentId: numeric ? null : target,
+      handler: target,
+      ownUserDocumentId: ownUserDocumentId,
+    );
+  }
 
-    final lower = target.toLowerCase();
-    bool isTarget(JsonMap row) {
-      final user = Strapi.map(row['user']) ?? const {};
-      return (J.str(row['handler']) ?? '').toLowerCase() == lower ||
-          (J.str(row['documentId']) ?? '').toLowerCase() == lower ||
-          (J.str(user['documentId']) ?? '').toLowerCase() == lower;
+  /// The host profile to open from a call-log row, a link or a nudge. Any
+  /// host opens (approved or not: the list is the gate, not the client).
+  /// Lookups, in order: user documentId, expert-profile documentId, numeric
+  /// user id, handler; each row must match what it was looked up by (a
+  /// backend that ignores a filter returns everyone). [ownUserDocumentId]
+  /// (the viewer's own profile) goes through the owner lookup first: the
+  /// public list hides a profile that is still pending approval.
+  static Future<HostCard> findProfile({
+    String? userDocumentId,
+    String? userId,
+    String? expertDocumentId,
+    String? handler,
+    String? ownUserDocumentId,
+  }) async {
+    final own = ownUserDocumentId?.trim() ?? '';
+    if (own.isNotEmpty) {
+      final mine = await _ownProfile(own);
+      if (mine != null) return mine;
     }
+    String? clean(String? v) => (v?.trim().isEmpty ?? true) ? null : v!.trim();
+    final userDoc = clean(userDocumentId), expertDoc = clean(expertDocumentId);
+    final handle = clean(handler)?.toLowerCase();
+    final user = clean(userId);
+    final uid = user != null && StrapiLookup.isNumericId(user) ? user : null;
 
-    JsonMap? row;
-    for (final filter in [
-      {r'filters[user][documentId][$eq]': target},
-      {r'filters[documentId][$eq]': target},
-      {r'filters[handler][$eq]': target},
-    ]) {
-      row = (await _rows(filter, query)).where(isTarget).firstOrNull;
-      if (row != null) break;
+    String? low(Object? v) => J.str(v)?.toLowerCase();
+    JsonMap userOf(JsonMap row) => Strapi.map(row['user']) ?? const {};
+    final lookups = <(Map<String, dynamic>, bool Function(JsonMap))>[
+      if (userDoc != null)
+        (
+          {r'filters[user][documentId][$eq]': userDoc},
+          (r) => low(userOf(r)['documentId']) == userDoc.toLowerCase(),
+        ),
+      if (expertDoc != null)
+        (
+          {r'filters[documentId][$eq]': expertDoc},
+          (r) => low(r['documentId']) == expertDoc.toLowerCase(),
+        ),
+      if (uid != null)
+        (
+          {r'filters[user][id][$eq]': uid},
+          (r) => J.str(userOf(r)['id']) == uid,
+        ),
+      if (handle != null)
+        (
+          {r'filters[handler][$eq]': handler!.trim()},
+          (r) => low(r['handler']) == handle,
+        ),
+    ];
+    for (final (filter, matches) in lookups) {
+      final row = (await _profileRows(filter)).where(matches).firstOrNull;
+      if (row == null) continue;
+      final host = HostCard.fromJson(row);
+      if (host.userDocumentId != null ||
+          host.documentId != null ||
+          host.receiverId != null) {
+        return host;
+      }
     }
-    if (row == null) throw _unavailable;
+    throw _unavailable;
+  }
 
-    final host = HostCard.fromJson(row);
-    if (!isOwnProfile && !host.isApprovedHost) throw _unavailable;
-    if (host.userDocumentId == null &&
-        host.documentId == null &&
-        host.receiverId == null) {
-      throw _unavailable;
+  /// The viewer's own profile through the owner lookup (Host Hub's read),
+  /// with the session user as its `user` when the row carries none.
+  static Future<HostCard?> _ownProfile(String userDocumentId) async {
+    final mine = await HostProfileApi.fetchByUser(userDocumentId);
+    if (mine == null) return null;
+    final row = {...mine.raw};
+    if (Strapi.map(row['user']) == null) {
+      final user = SessionStore.instance.value.user;
+      if (user != null) row['user'] = user;
     }
-    return host;
+    return HostCard.fromJson(row);
+  }
+
+  /// One profile row for [filter] with everything the sheet reads; a
+  /// populate the role may not read ("400 Invalid key") retries with the
+  /// minimal one the callback lookup is proven with.
+  static Future<List<JsonMap>> _profileRows(Map<String, dynamic> filter) async {
+    try {
+      return await _rows(filter, const {...hostCardPopulate, ..._singleRow});
+    } on ApiException catch (e) {
+      if (e.type != ApiErrorType.rejected) rethrow;
+      return _rows(filter, _callbackPopulate);
+    }
   }
 
   /// Host of a "call me back" nudge (`PING_CLIENT` push): by expert-profile

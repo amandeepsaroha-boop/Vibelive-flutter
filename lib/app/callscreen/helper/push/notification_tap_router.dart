@@ -187,8 +187,10 @@ abstract final class NotificationTapRouter {
         );
         return true;
       case TapDestination.callback:
-        CallSignals.onCallbackRequest(m.raw);
+        // Home first: a sheet shown before that navigation would be
+        // dropped with the page it sat on.
         DeepLinks.instance.queueRoute(AppRoutes.home);
+        CallSignals.onCallbackRequest(m.raw);
         return true;
       case TapDestination.wallet:
         await WalletNotifications.requestRefresh(background: false);

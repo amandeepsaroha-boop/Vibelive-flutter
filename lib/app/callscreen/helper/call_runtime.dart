@@ -205,8 +205,10 @@ abstract final class CallRuntime {
     final timers = CallTimers.instance;
     switch (event) {
       case EngineJoined():
+        Log.w('CallFlow', 'Agora joined $callId (receiver=${s.isReceiver})');
         if (s.isReceiver) CallController.instance.setAccepted(); // R4
       case EngineRemoteJoined():
+        Log.w('CallFlow', 'remote joined $callId: connected');
         timers.cancel(CallTimers.remoteDrop);
         if (s.isCaller) {
           unawaited(CallRingtone.stop(CallTone.ringback));
@@ -249,7 +251,8 @@ abstract final class CallRuntime {
         timers.cancel(CallTimers.reconnecting);
       case EngineTokenExpiring():
         unawaited(EndFlow.hangup()); // E-88: no renew endpoint
-      case EngineJoinFailed():
+      case EngineJoinFailed(:final reason):
+        Log.w('CallFlow', 'Agora join failed $callId: $reason');
         unawaited(EndFlow.joinFailed());
       case EngineConnectionLost():
         // Same uid joined elsewhere (another device of ours answered too):

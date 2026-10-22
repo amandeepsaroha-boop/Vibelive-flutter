@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 
+import '../call_payload.dart';
 import '../push/push_strings.dart';
 
 /// CallKit / plugin ids for a call.
@@ -69,7 +70,9 @@ abstract final class CallKitParamsBuilder {
       id: callId,
       nameCaller: callerName(data),
       appName: appName,
-      avatar: _str(data['ProfilePic']) ?? _str(data['profilePic']),
+      // Absolute: the plugin turns anything not http(s) into an app asset
+      // path, so a Strapi `/uploads/...` path showed no photo.
+      avatar: CallPayload.avatarOf(data),
       handle: category == null ? base : '$base • $category',
       type: video ? 1 : 0,
       duration: ring.inMilliseconds.clamp(
@@ -95,6 +98,7 @@ abstract final class CallKitParamsBuilder {
     id: callId,
     nameCaller: name,
     appName: appName,
+    avatar: CallPayload.avatarOf(extra),
     handle: PushStrings.t(video ? 'call.ongoing_video' : 'call.ongoing_voice'),
     type: video ? 1 : 0,
     duration: 60 * 60 * 1000,

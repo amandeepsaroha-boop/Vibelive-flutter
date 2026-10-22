@@ -104,6 +104,7 @@ abstract final class NativeCallEvents {
     String callId,
     Map<String, dynamic> extra,
   ) async {
+    Log.w('CallAccept', 'plugin ACCEPT event $callId (UI isolate)');
     if (callId.isEmpty) return;
     if (Platform.isIOS) {
       // The live event delivered it: the cold-start snapshot must not replay.
@@ -252,9 +253,16 @@ abstract final class NativeCallEvents {
         final failed = updateFailed.remove(accepted);
         await _bounded(() => _coldAccept(pending, updateFailed: failed));
       }
-      for (final call in await CallKitService.activeCalls()) {
+      final active = await CallKitService.activeCalls();
+      Log.w(
+        'CallFlow',
+        'reconcile: ${active.length} plugin call(s) '
+            '${active.map((c) => '${c.callId}${c.isAccepted ? '(accepted)' : ''}').join(',')}',
+      );
+      for (final call in active) {
         if (call.isCompliance || call.callId.isEmpty) continue;
         if (call.isAccepted) {
+          Log.w('CallAccept', 'reconcile: accepted ${call.callId} → logic');
           if (call.callId == accepted) continue;
           // Dropped by the logic when > 5 min old or closed on the server.
           final failed = updateFailed.remove(call.callId);

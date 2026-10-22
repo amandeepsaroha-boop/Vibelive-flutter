@@ -46,3 +46,6 @@ app.*.map.json
 
 # Build-time secrets (copy config/env.example.json)
 /config/env.json
+
+# Stray empty clone of another repo (its own .git): never commit it.
+/Vibelive-flutter/

@@ -51,8 +51,8 @@ QueryResult<HostCard, ApiException> useHostDetail(
   );
 }
 
-/// Profile behind a shared link / `openUserId`. The viewer's own profile
-/// opens even when not approved.
+/// Profile behind a shared link / `openUserId`. Any host opens; the
+/// viewer's own (even pending approval) through the owner lookup.
 QueryResult<HostCard, ApiException> useHostByLink(
   BuildContext context,
   String? targetId, {
@@ -62,7 +62,7 @@ QueryResult<HostCard, ApiException> useHostByLink(
   final own = _isOwnTarget(target);
   return useApiQuery<HostCard>(
     ListingKeys.hostByLink(target, own),
-    () => ListingApi.findHostByLink(target, isOwnProfile: own),
+    () => ListingApi.findHostByLink(target, ownUserDocumentId: _ownDoc(own)),
     context: context,
     enabled: enabled && target.isNotEmpty,
     staleDuration: StaleTime.short,
@@ -144,7 +144,34 @@ Future<HostCard> ensureHostByLink(String targetId) {
   final own = _isOwnTarget(target);
   return queryCache.fetchQuery<HostCard>(
     ListingKeys.hostByLink(target, own),
-    () => ListingApi.findHostByLink(target, isOwnProfile: own),
+    () => ListingApi.findHostByLink(target, ownUserDocumentId: _ownDoc(own)),
+  );
+}
+
+/// Outside widgets: the profile of a call-log counterpart or a nudging
+/// host, by user documentId → expert-profile documentId → numeric user id
+/// ([ListingApi.findProfile]). The viewer's own opens via the owner lookup.
+Future<HostCard> ensureProfile({
+  String? userDocumentId,
+  String? userId,
+  String? expertDocumentId,
+}) {
+  final own =
+      _isOwnTarget(userDocumentId?.trim() ?? '') ||
+      _isOwnTarget(userId?.trim() ?? '');
+  return queryCache.fetchQuery<HostCard>(
+    ListingKeys.profile(
+      userDocumentId: userDocumentId,
+      userId: userId,
+      expertDocumentId: expertDocumentId,
+      own: own,
+    ),
+    () => ListingApi.findProfile(
+      userDocumentId: userDocumentId,
+      userId: userId,
+      expertDocumentId: expertDocumentId,
+      ownUserDocumentId: _ownDoc(own),
+    ),
   );
 }
 
@@ -161,13 +188,17 @@ Future<HostCard> ensureCallbackHost({
   ),
 );
 
-/// RN rule: a link to the viewer's own documentId or handler.
+/// RN rule: a link to the viewer's own documentId or handler (or id).
 bool _isOwnTarget(String target) {
   if (target.isEmpty) return false;
   final user = SessionStore.instance.value.user;
   return target == J.str(user?['documentId']) ||
-      target == J.str(user?['handler']);
+      target == J.str(user?['handler']) ||
+      target == J.str(user?['id']);
 }
+
+String? _ownDoc(bool own) =>
+    own ? SessionStore.instance.value.userDocumentId : null;
 
 QueryResult<T, ApiException> _withData<T>(
   QueryResult<T, ApiException> r,

@@ -176,6 +176,9 @@ class _Backend implements HttpClientAdapter {
   int failCalls;
   final callPages = <int>[];
   final requests = <String>[];
+
+  /// Query parameters of every `/expert-profiles` read.
+  final profileQueries = <Map<String, dynamic>>[];
   final posts = <String, Object?>{};
 
   @override
@@ -212,6 +215,7 @@ class _Backend implements HttpClientAdapter {
       return (200, _calls(page));
     }
     if (o.path == '/api/expert-profiles') {
+      profileQueries.add(o.queryParameters);
       final user = o.queryParameters[r'filters[user][documentId][$eq]'];
       final row = hosts[user];
       return (
@@ -618,7 +622,7 @@ void main() {
     home.dispose();
   });
 
-  testWidgets('a row that is not an approved host opens nothing', (
+  testWidgets('a client row that is no host opens nothing, silently', (
     tester,
   ) async {
     await open(tester);
@@ -912,8 +916,8 @@ void main() {
       await finish(tester);
     });
 
-    testWidgets('an unapproved host, or your own unapproved profile, opens '
-        'nothing', (tester) async {
+    testWidgets('a host pending approval, and your own pending profile, '
+        'open', (tester) async {
       ApiClient.dio.httpClientAdapter = backend = _Backend(
         extra: [
           _call(
@@ -928,11 +932,23 @@ void main() {
       );
       await open(tester);
       await _pump(tester, 400);
-      // Your own row first: it is at the top of the list.
-      await _tap(tester, find.text('Asha'), ms: 800);
-      expect(find.text('₹20/min'), findsNothing);
-      await _tap(tester, find.text('Host Three'), ms: 800);
-      expect(find.text('₹20/min'), findsNothing);
+      // Your own row first: it is at the top of the list. It opens through
+      // the owner lookup (Host Hub's read), which finds a pending profile.
+      await _tap(tester, find.text('Asha'), ms: 1200);
+      expect(find.text('ASHA'), findsWidgets);
+      expect(
+        backend.profileQueries.any(
+          (q) =>
+              q[r'filters[user][documentId][$eq]'] == 'u1' &&
+              q['sort[0]'] == 'createdAt:desc',
+        ),
+        isTrue,
+      );
+      Navigator.of(rootNavigatorKey.currentContext!).pop();
+      await _pump(tester, 800);
+      await _tap(tester, find.text('Host Three'), ms: 1200);
+      expect(find.text('HOST THREE'), findsWidgets);
+      expect(find.text('₹20/min'), findsOneWidget);
       expect(find.text('Something went wrong'), findsNothing);
       await finish(tester);
     });

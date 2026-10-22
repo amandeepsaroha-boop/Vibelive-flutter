@@ -86,6 +86,9 @@ class HostProfileController {
   }
 
   /// Audio / video button: every RN check in order, then the hand-off.
+  /// Which call button started the current [preparingCall] (spinner).
+  bool pendingVideo = false;
+
   Future<void> placeCall(
     HostCard host, {
     required bool video,

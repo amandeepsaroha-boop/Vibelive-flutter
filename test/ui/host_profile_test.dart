@@ -439,7 +439,7 @@ void main() {
     await _tap(tester, find.text('₹30/min'));
     await _pump(tester, 400);
     expect(find.text('Before you connect'), findsOneWidget);
-    expect(find.text('CONNECTING...'), findsNWidgets(2));
+    expect(find.text('CONNECTING...'), findsOneWidget);
 
     await tester.tap(find.text('Start'));
     await _pump(tester, 800);

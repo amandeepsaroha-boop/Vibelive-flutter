@@ -72,6 +72,7 @@ Future<void> onCallKitBackgroundEvent(CallEvent event) async {
         // The plugin is launching the UI isolate; the call logic's
         // reconcile takes the accept from here (`/UpdateCall` not sent).
         await CallSignals.savePendingAccept(s.extra, apiDone: false);
+        Log.w('CallAccept', 'background isolate: accept ${s.callId} saved');
       case CallKitAction.declined:
         await HeadlessCallEnd.decline(s.callId, s.extra);
         await CallSignals.onNativeDeclined(

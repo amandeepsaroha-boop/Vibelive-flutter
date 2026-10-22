@@ -90,11 +90,15 @@ class _SheetFrame extends StatelessWidget {
             Flexible(
               flex: 92,
               child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 420.ms, end: 0),
+                // Slides up from fully below the screen's bottom edge (a
+                // fixed 420 px start showed tall sheets popping in midway).
+                tween: Tween(begin: 1, end: 0),
                 duration: AuthSheet.duration,
                 curve: Curves.easeInOut,
-                builder: (_, dy, sheet) =>
-                    Transform.translate(offset: Offset(0, dy), child: sheet),
+                builder: (_, f, sheet) => FractionalTranslation(
+                  translation: Offset(0, f),
+                  child: sheet,
+                ),
                 // Painted once: each slide frame only moves this layer.
                 child: RepaintBoundary(
                   child: DecoratedBox(
@@ -113,7 +117,7 @@ class _SheetFrame extends StatelessWidget {
                     ),
                     child: _BottomSafe(
                       top: 10.ms,
-                      extra: 20.ms,
+                      extra: 12.ms,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [

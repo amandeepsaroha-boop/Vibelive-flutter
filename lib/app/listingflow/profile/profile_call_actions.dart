@@ -35,12 +35,16 @@ class ProfileCallActions extends StatelessWidget {
     final showAudio = audioRate || (isCompany && !videoRate);
     final showVideo = videoRate;
 
-    void call(bool video) => controller.placeCall(
-      host,
-      video: video,
-      isMe: isMe,
-      isCompany: isCompany,
-    );
+    void call(bool video) {
+      if (controller.preparingCall.value) return;
+      controller.pendingVideo = video; // only the tapped button spins
+      controller.placeCall(
+        host,
+        video: video,
+        isMe: isMe,
+        isCompany: isCompany,
+      );
+    }
 
     return Padding(
       padding: EdgeInsets.only(bottom: 26.ms),
@@ -80,7 +84,7 @@ class ProfileCallActions extends StatelessWidget {
                     child: _CallButton(
                       video: false,
                       filled: !showVideo,
-                      busy: busy,
+                      busy: busy && !controller.pendingVideo,
                       enabled: !busy && (isCompany || audioRate),
                       label: isCompany ? 'host:call.audio' : null,
                       price: host.aPrice,
@@ -93,7 +97,7 @@ class ProfileCallActions extends StatelessWidget {
                     child: _CallButton(
                       video: true,
                       filled: true,
-                      busy: busy,
+                      busy: busy && controller.pendingVideo,
                       enabled: !busy,
                       label: isCompany ? 'host:call.video' : null,
                       price: host.vPrice,

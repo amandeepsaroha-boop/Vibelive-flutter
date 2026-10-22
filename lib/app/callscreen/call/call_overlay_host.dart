@@ -69,6 +69,8 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
   void initState() {
     super.initState();
     _requests.addListener(_onRequest);
+    // A nudge tapped before sign-in was restored shows once it is.
+    SessionStore.instance.addListener(_onRequest);
     // A nudge that arrived before the app was up (notification tap).
     WidgetsBinding.instance.addPostFrameCallback((_) => _onRequest());
   }
@@ -86,6 +88,7 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
   @override
   void dispose() {
     _requests.removeListener(_onRequest);
+    SessionStore.instance.removeListener(_onRequest);
     _unwatch();
     super.dispose();
   }
@@ -101,10 +104,12 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
 
   /// The sheet never covers the incoming / call screen (and its Call
   /// button never starts a call over a live one): while a call page is on
-  /// top, [request] waits for the user to leave.
+  /// top, [request] waits for the user to leave. A cold-start tap waits
+  /// the same way for splash / login to hand over to the app: a sheet
+  /// pushed there is dropped when the router replaces those pages.
   bool _holdOnCallRoutes(CallbackRequest request) {
     final router = _router;
-    if (router == null || !onCallRoutes(router)) return false;
+    if (router == null || !_mustWait(router)) return false;
     _held = request;
     if (!identical(_watched, router)) {
       _unwatch();
@@ -115,7 +120,7 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
 
   void _onRoute() {
     final held = _held;
-    if (held == null || !mounted || onCallRoutes(_watched)) return;
+    if (held == null || !mounted || _mustWait(_watched)) return;
     _held = null;
     _unwatch();
     // Mid-navigation: a sheet pushed now would sit on the page that is
@@ -124,6 +129,14 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
       if (!mounted || !SessionStore.instance.value.isAuthenticated) return;
       unawaited(_show(held));
     });
+  }
+
+  static bool _mustWait(GoRouter? router) {
+    final top = callTopLocation(router);
+    return onCallRoutes(router) ||
+        top == AppRoutes.splash ||
+        top.startsWith(AppRoutes.login) ||
+        top.startsWith('/onboarding');
   }
 
   void _unwatch() {

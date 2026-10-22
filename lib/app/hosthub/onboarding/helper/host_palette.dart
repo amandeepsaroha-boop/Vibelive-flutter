@@ -43,7 +43,7 @@ class HostPalette {
     text: c.text,
     muted: c.textMuted,
     faint: c.textMuted.withValues(alpha: c.textMuted.a * 0.75),
-    bg: c.bg,
+    bg: c.isDark ? c.bg : c.background,
     card: c.surface,
     cardBorder: c.border,
     field: c.surface,

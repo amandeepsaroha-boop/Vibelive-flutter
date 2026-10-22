@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../../core/config/env.dart';
 import 'call_session.dart';
 
@@ -87,9 +89,7 @@ class CallPayload {
           name: displayName(
             _pick(d, const ['callerName', 'caller_name', 'name', 'handle']),
           ),
-          avatarUrl: absoluteUrl(
-            _pick(d, const ['ProfilePic', 'profilePic', 'callerImage']),
-          ),
+          avatarUrl: avatarOf(d),
           isCompany: company,
         ),
         callerId: callerId,
@@ -128,12 +128,68 @@ class CallPayload {
     return s == null || s.isEmpty ? null : s;
   }
 
-  /// Relative upload paths get the API host (E-72).
-  static String? absoluteUrl(String? raw) {
-    final s = raw?.trim();
-    if (s == null || s.isEmpty) return null;
+  /// Keys a ring payload carries the caller's photo under (the backend
+  /// sends `ProfilePic`).
+  static const avatarKeys = [
+    'ProfilePic',
+    'profilePic',
+    'callerImage',
+    'callerPic',
+    'callerProfilePic',
+    'avatar',
+  ];
+
+  /// The caller's photo in [d] (raw push / plugin `extra`) as an absolute
+  /// URL, or null. Shared by the call screens ([parse]) and the Android
+  /// system ringer, which can only load `http(s)` URLs (a relative path
+  /// there becomes `file:///android_asset/...` and shows nothing).
+  static String? avatarOf(Map<dynamic, dynamic> d) {
+    for (final k in avatarKeys) {
+      final url = absoluteUrl(d[k]);
+      if (url != null) return url;
+    }
+    return null;
+  }
+
+  /// Relative upload paths get the API host (E-72). Also takes a
+  /// protocol-relative URL and a Strapi media node (a map, or one sent as a
+  /// JSON string). Null for anything without a usable URL.
+  static String? absoluteUrl(Object? raw) {
+    if (raw is Map) return absoluteUrl(_mediaUrl(raw));
+    if (raw == null || raw is List) return null;
+    final s = '$raw'.trim();
+    if (s.isEmpty) return null;
+    final lower = s.toLowerCase();
+    if (lower == 'null' || lower == 'undefined') return null;
+    if (s.startsWith('{')) {
+      try {
+        final decoded = jsonDecode(s);
+        return decoded is Map ? absoluteUrl(_mediaUrl(decoded)) : null;
+      } on FormatException {
+        return null;
+      }
+    }
     if (RegExp(r'^https?://', caseSensitive: false).hasMatch(s)) return s;
+    if (s.startsWith('//')) return 'https:$s';
     return '${Env.apiBaseUrl}${s.startsWith('/') ? s : '/$s'}';
+  }
+
+  /// `url` of a Strapi media node (v4 `data.attributes` or v5 flat),
+  /// original first, then the largest format.
+  static Object? _mediaUrl(Map<dynamic, dynamic> m) {
+    final data = m['data'];
+    if (data is Map) return _mediaUrl(data);
+    final attrs = m['attributes'];
+    if (attrs is Map) return _mediaUrl(attrs);
+    final url = m['url'];
+    if (url != null) return url;
+    final formats = m['formats'];
+    if (formats is! Map) return null;
+    for (final f in const ['large', 'medium', 'small', 'thumbnail']) {
+      final v = formats[f];
+      if (v is Map && v['url'] != null) return v['url'];
+    }
+    return null;
   }
 
   /// Epoch seconds or milliseconds (`> 2e10` = ms, RN incoming route).

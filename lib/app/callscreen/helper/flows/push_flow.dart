@@ -101,8 +101,12 @@ abstract final class PushFlow {
         !foreground || nativeUp || source == CallPushSource.notificationTap;
     if (systemRinging) IncomingFlow.markNativeRinging(callId);
     // A notification-body tap dismisses the plugin's ringer: the app rings
-    // instead (A8). Otherwise a system ringer up means no in-app ring.
-    final ring = source == CallPushSource.notificationTap || !systemRinging;
+    // instead (A8), unless the ringer was kept (locked screen: the system
+    // ringtone keeps going, RN `wasOpenedLocked`). Otherwise a system ringer
+    // up means no in-app ring.
+    final ring =
+        (source == CallPushSource.notificationTap && !nativeUp) ||
+        !systemRinging;
     if (foreground) await present(callId, ring: ring);
   }
 

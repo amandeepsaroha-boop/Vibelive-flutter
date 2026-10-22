@@ -29,6 +29,10 @@ import 'push_flow.dart';
 abstract final class NativeFlow {
   static CallController get _calls => CallController.instance;
 
+  /// Breadcrumb tag of the system-UI accept path (filter the device log on
+  /// it to see where an accept stopped).
+  static const _crumb = 'CallAccept';
+
   /// Answered while the app was not in front: show `/call` on resume.
   static String? _routeOnResume;
 
@@ -40,12 +44,25 @@ abstract final class NativeFlow {
     CallRuntime.ensureStarted();
     final payload = CallPayload.parse(raw, selfId: CallIdentity.userId);
     // Never drive a call without join creds (RN deep-link rule).
-    if (payload == null || !payload.hasJoinCreds) return;
+    if (payload == null || !payload.hasJoinCreds) {
+      Log.w(
+        _crumb,
+        'accept dropped: ${payload == null ? 'no callId' : 'no channel/token'} '
+        '(keys: ${raw.keys.join(',')})',
+      );
+      return;
+    }
     final callId = payload.callId;
     if (CallDedup.instance.isEnded(callId)) {
+      Log.w(_crumb, 'accept $callId dropped: call already ended');
       EndFlow.endNativeOnce(callId); // E-17: a replayed accept of a dead call
       return;
     }
+    Log.w(
+      _crumb,
+      'accept $callId apiDone=$apiDone fg=${CallDevice.isForeground} '
+      'uid=${payload.session.localUid} video=${payload.session.isVideo}',
+    );
     IncomingFlow.clearNativeRinging(callId);
     CallDedup.instance
       ..markAnswered(callId)
@@ -74,7 +91,12 @@ abstract final class NativeFlow {
     final s = _calls.value;
     // A rejoin (`__isOngoingCall`) never re-hits UpdateCall (RN §7.3).
     if (!payload.ongoing) {
-      unawaited(IncomingFlow.reportOngoing(s, answering: true));
+      unawaited(
+        IncomingFlow.reportOngoing(
+          s,
+          answering: true,
+        ).then((ok) => Log.w(_crumb, 'UpdateCall $callId ok=$ok')),
+      );
     }
     _join(s);
     IncomingFlow.armPeerFallback(callId);
@@ -125,15 +147,29 @@ abstract final class NativeFlow {
     final uid = s.localUid; // receiverId from the payload, never user.id
     final channel = s.channelName;
     final token = s.token;
-    if (uid == null || channel == null || token == null) return;
-    if (!CallDevice.isIOS && CallDevice.isForeground) {
+    if (uid == null || channel == null || token == null) {
+      Log.w(
+        _crumb,
+        'no join: uid=$uid channel=$channel token=${token != null}',
+      );
+      return;
+    }
+    if (!CallDevice.isIOS) {
+      // Android has no audio session to wait for: join now. Out of the
+      // foreground (the activity is still starting) audio only; the camera
+      // follows on resume ([onAppResumed]).
+      final fg = CallDevice.isForeground;
+      Log.w(_crumb, 'join $channel uid=$uid video=${s.isVideo} fg=$fg');
       unawaited(
-        CallEngine.instance.join(
-          channel: channel,
-          token: token,
-          uid: uid,
-          video: s.isVideo,
-        ),
+        CallEngine.instance
+            .join(
+              channel: channel,
+              token: token,
+              uid: uid,
+              video: s.isVideo,
+              headless: !fg,
+            )
+            .then((ok) => Log.w(_crumb, 'join $channel started=$ok')),
       );
       return;
     }
@@ -230,6 +266,13 @@ abstract final class NativeFlow {
         CallNavigator.toCall();
       }
       _routeOnResume = null;
+      // Android safety net: a receiver's call that is not in the channel
+      // (a join lost to a race or never started) joins now; an equal join
+      // only claims the camera (idempotent, E-6).
+      if (!CallDevice.isIOS && s.isReceiver && !CallEngine.instance.isJoined) {
+        Log.w(_crumb, 'resume: ${s.callId} not joined yet, joining');
+        _join(s);
+      }
       unawaited(CallEngine.instance.ensureVideoIfNeeded());
       if (s.isReceiver) unawaited(IncomingFlow.ensureMediaAccess(s));
     } else if (s.isReceiver &&
@@ -249,15 +292,59 @@ abstract final class NativeFlow {
     Map<String, dynamic> raw, {
     bool apiDone = true,
   }) async {
+    CallRuntime.ensureStarted();
     final payload = CallPayload.parse(raw, selfId: CallIdentity.userId);
-    if (payload == null || !payload.hasJoinCreds) return;
-    if (payload.isStale(CallTimings.coldStartTtl) ||
-        await _closedOnServer(payload.callId)) {
-      CallDedup.instance.markEnded(payload.callId);
-      EndFlow.endNativeOnce(payload.callId);
+    if (payload == null || !payload.hasJoinCreds) {
+      Log.w(_crumb, 'cold accept dropped: no callId / channel / token');
+      return;
+    }
+    final callId = payload.callId;
+    if (payload.isStale(CallTimings.coldStartTtl)) {
+      Log.w(
+        _crumb,
+        'cold accept $callId dropped: stale (sent ${payload.session.sentAt})',
+      );
+      CallDedup.instance.markEnded(callId);
+      EndFlow.endNativeOnce(callId);
+      return;
+    }
+    // Android: the user already pressed Accept, so the call screen goes up
+    // now ("connecting") instead of the splash for the status check; the
+    // API and the join still wait for it.
+    final shown = !CallDevice.isIOS && _showAccepted(payload);
+    if (await _closedOnServer(callId)) {
+      Log.w(_crumb, 'cold accept $callId dropped: closed on the server');
+      CallDedup.instance.markEnded(callId);
+      EndFlow.endNativeOnce(callId);
+      final live = _calls.value;
+      if (shown && live.isSameCall(callId) && live.phase.isActive) {
+        _calls.reset(); // the call screen leaves for Home (E-60)
+      }
       return;
     }
     await onNativeAccepted(raw, apiDone: apiDone);
+  }
+
+  /// The accepted call in the store and `/call` on screen (parked until the
+  /// router exists). False when another call holds the slot or this one is
+  /// over.
+  static bool _showAccepted(CallPayload payload) {
+    final callId = payload.callId;
+    if (CallDedup.instance.isEnded(callId)) return false;
+    final live = _calls.value;
+    if (!live.isSameCall(callId) || !live.phase.isActive) {
+      if (!_calls.receive(payload.session.copyWith(autoAccept: true))) {
+        return false;
+      }
+    }
+    _calls.setAccepted();
+    if (payload.ongoing) _calls.setConnected();
+    Log.w(
+      _crumb,
+      'cold accept $callId: /call (router ${CallNavigator.isReady ? 'ready' : 'parked'})',
+    );
+    CallNavigator.toCall();
+    return true;
   }
 
   /// A call still ringing on the system UI at boot: adopt it (store +
@@ -288,6 +375,10 @@ abstract final class NativeFlow {
     CallRuntime.ensureStarted();
     try {
       final pending = await CallStore.takePendingAccept();
+      Log.w(
+        _crumb,
+        'reconcile: pending accept ${pending == null ? 'none' : '${pending.payload['callId']} apiDone=${pending.apiDone}'}',
+      );
       if (pending != null) {
         await onColdStartAccept(pending.payload, apiDone: pending.apiDone);
       }

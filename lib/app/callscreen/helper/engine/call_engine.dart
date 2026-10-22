@@ -97,6 +97,14 @@ class CallEngine {
   bool _flipping = false;
   ({String channel, int uid})? _joined;
   _JoinArgs? _args;
+
+  /// Bumped by every NEW join and by [leave]: an in-flight join whose
+  /// generation is no longer current gives up. Merging flags into the
+  /// running join (a repeated accept, [ensureVideoIfNeeded]) replaces
+  /// [_args] but keeps the generation, so it never cancels the join (a
+  /// cold-start accept arrives 2-3 times; each used to abort the previous
+  /// join and the call sat on "Connecting..." forever).
+  int _joinGen = 0;
   String? _fingerprint;
   final _remoteUids = <int>{};
   Timer? _releaseTimer;
@@ -142,6 +150,10 @@ class CallEngine {
           headless: current.headless && headless,
         );
       }
+      Log.d(
+        'CallEngine',
+        'join $channel uid=$uid: already ${joined != null ? 'joined' : 'joining'}',
+      );
       if (!headless) await ensureVideoIfNeeded();
       return true;
     }
@@ -162,13 +174,19 @@ class CallEngine {
     _fingerprint = '$channel|$uid|${_tail(repaired)}';
     _minus17Recovered = false;
     _args = args;
+    final gen = ++_joinGen;
+    Log.w(
+      'CallEngine',
+      'join $channel uid=$uid video=$video headless=$headless',
+    );
     // Before any await: a release scheduled meanwhile must see it (E-43).
     if (headless) _headlessActive = true;
     final eng = await _ensureEngine(token: repaired);
-    if (!identical(_args, args)) return false;
+    if (gen != _joinGen) return _superseded(channel);
     if (eng == null) return _joinFailed('engine_unavailable');
     // Video module on before the join; the camera itself waits (CE).
-    if (video && headless) await _quiet(eng.enableVideo);
+    final want = _args ?? args;
+    if (want.video && want.headless) await _quiet(eng.enableVideo);
     final other = _joined;
     if (other != null && other.channel != channel) {
       await _quiet(eng.leaveChannel);
@@ -178,17 +196,31 @@ class CallEngine {
     await _quiet(eng.enableAudio);
     await _quiet(() => eng.enableLocalAudio(true));
     await _quiet(() => eng.muteLocalAudioStream(_media.value.muted));
-    return _performJoin(eng, args);
+    if (gen != _joinGen) return _superseded(channel);
+    return _performJoin(eng, gen);
   }
 
-  Future<bool> _performJoin(RtcEngine eng, _JoinArgs args) async {
-    if (args.publishCamera) await _startCapture(eng);
+  /// A newer join or a leave took over while this one awaited.
+  bool _superseded(String channel) {
+    Log.w('CallEngine', 'join $channel superseded (newer join or leave)');
+    return false;
+  }
+
+  /// Joins with the CURRENT [_args] (a merged repeat may have asked for the
+  /// camera meanwhile), unless generation [gen] is no longer current.
+  Future<bool> _performJoin(RtcEngine eng, int gen) async {
+    final first = _args;
+    if (first == null || gen != _joinGen) return false;
+    if (first.publishCamera) await _startCapture(eng);
     final initAt = _initAt;
     if (initAt != null &&
         DateTime.now().difference(initAt) < CallTimings.coldBootWindow) {
       await Future.delayed(CallTimings.coldBootSettle); // E-55
     }
-    if (!identical(_args, args)) return false;
+    final args = _args;
+    if (args == null || gen != _joinGen) return _superseded(first.channel);
+    if (args.publishCamera && !_hasVideo) await _startCapture(eng);
+    if (gen != _joinGen) return _superseded(args.channel);
     _joining = true;
     _publishingCamera = args.publishCamera;
     try {
@@ -210,7 +242,7 @@ class CallEngine {
       return true;
     } on AgoraRtcException catch (e) {
       if (e.code.abs() == 17 && !_minus17Recovered) {
-        return _recoverAlreadyJoining(eng, args);
+        return _recoverAlreadyJoining(eng, gen);
       }
       return _joinFailed('join_failed_code_${e.code}');
     } catch (e) {
@@ -220,7 +252,7 @@ class CallEngine {
 
   /// -17 "already joining" (E-53): connecting / connected / reconnecting is
   /// a success; otherwise leave, settle, rejoin once.
-  Future<bool> _recoverAlreadyJoining(RtcEngine eng, _JoinArgs args) async {
+  Future<bool> _recoverAlreadyJoining(RtcEngine eng, int gen) async {
     ConnectionStateType? state;
     try {
       state = await eng.getConnectionState();
@@ -233,8 +265,8 @@ class CallEngine {
     _minus17Recovered = true;
     await _quiet(eng.leaveChannel);
     await Future.delayed(CallTimings.minus17Settle);
-    if (!identical(_args, args)) return false;
-    return _performJoin(eng, args);
+    if (gen != _joinGen) return false;
+    return _performJoin(eng, gen);
   }
 
   bool _joinFailed(String reason) {
@@ -249,6 +281,7 @@ class CallEngine {
   /// Leaves the channel; the engine stays for [scheduleRelease]. Clears the
   /// headless flag (RN `leave` + `leaveAgoraHeadless`).
   Future<void> leave() async {
+    _joinGen++;
     _headlessActive = false;
     _joining = false;
     _joined = null;

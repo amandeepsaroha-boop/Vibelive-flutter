@@ -213,5 +213,6 @@ class VibeCallPlatform extends CallPlatform {
     'calleridDocID': ?call.callerDocId,
     'type': call.isVideo ? 'videoCall' : 'voiceCall',
     'callerName': ?call.remote.name,
+    'ProfilePic': ?call.remote.avatarUrl,
   };
 }

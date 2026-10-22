@@ -117,6 +117,7 @@ abstract final class CallFlow {
   /// background launch resumes later, through the lifecycle listener).
   static Future<void> afterRunApp() async {
     await _reconciled;
+    Log.w(_tag, 'native reconcile done, logic reconcile next');
     await _step('logic reconcile', CallSignals.reconcile);
     if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
       await _resumed();

@@ -34,6 +34,9 @@ class MainActivity : FlutterActivity() {
     private companion object {
         const val TAG = "VibeMainActivity"
 
+        /** Breadcrumb tag shared with Dart's accept path (`adb logcat -s CallAccept`). */
+        const val ACCEPT_TAG = "CallAccept"
+
         /** Dart: `lib/app/callscreen/helper/native/native_call_bridge.dart`. */
         const val CHANNEL = "com.angrymamba.vibelive/call_ui"
         const val SURFACE = 0xFF080808.toInt()
@@ -60,6 +63,7 @@ class MainActivity : FlutterActivity() {
         if (incoming) {
             lockedForCall = true
             applyLockFlags(true)
+            logCallLaunch("cold", intent)
         }
         super.onCreate(savedInstanceState)
         preferHighestRefreshRate()
@@ -160,6 +164,7 @@ class MainActivity : FlutterActivity() {
         lastIntentAt = now
         if (bounce) return
         if (IncomingCallRedirect.isIncomingCallLaunch(intent)) {
+            logCallLaunch("warm", intent)
             setLockedActivity(true)
             // The cover only hides the previous screen until the in-app incoming screen draws,
             // and only a tap on the notification (our redirect) leads there; Dart drops it.
@@ -207,6 +212,14 @@ class MainActivity : FlutterActivity() {
         } catch (error: Throwable) {
             Log.w(TAG, "setLockedActivity failed", error)
         }
+    }
+
+    private fun logCallLaunch(how: String, intent: Intent?) {
+        Log.d(
+            ACCEPT_TAG,
+            "MainActivity $how launch action=${intent?.action?.substringAfterLast('.')} " +
+                "locked=${isDeviceLocked()} (show-when-locked on)",
+        )
     }
 
     private fun isDeviceLocked(): Boolean {

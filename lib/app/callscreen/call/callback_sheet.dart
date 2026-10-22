@@ -10,7 +10,8 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
-import '../../api/listingflow/listing_api.dart';
+import '../../../core/utils/log.dart';
+import '../../api/listingflow/listing_queries.dart';
 import '../../component/c_alert.dart';
 import '../../component/c_image.dart';
 import '../../component/c_text.dart';
@@ -124,7 +125,11 @@ class _CallbackSheet extends HookWidget {
     Future<void> openProfile() async {
       _close(context);
       try {
-        final host = await ListingApi.findCallbackHost(
+        // The full profile (callback lookup's populate is prices only):
+        // user documentId, else expert-profile documentId (`expertDocId`),
+        // else the host's numeric user id (`expertId`).
+        final host = await ensureProfile(
+          userDocumentId: data.expertUserDocId,
           expertDocumentId: data.expertDocId,
           userId: data.expertId,
         );
@@ -136,8 +141,8 @@ class _CallbackSheet extends HookWidget {
         await Future<void>.delayed(_profileDelay);
         final root = rootNavigatorKey.currentContext;
         if (root != null && root.mounted) await showHostProfile(root, host);
-      } catch (_) {
-        // RN only logged a failed lookup.
+      } catch (e) {
+        Log.w('Callback', 'profile lookup failed: $e'); // RN only logged
       }
     }
 

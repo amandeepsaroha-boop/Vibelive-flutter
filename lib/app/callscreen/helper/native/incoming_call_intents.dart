@@ -10,6 +10,7 @@ import '../push/call_push_handler.dart';
 import 'callkit_service.dart';
 import 'native_call_bridge.dart';
 import 'native_call_marks.dart';
+import '../call_platform.dart';
 
 /// Android: a tap on the incoming-call notification (or its full-screen
 /// intent) opens OUR incoming screen (CE `IncomingCallIntents`; RN pointed
@@ -66,7 +67,12 @@ abstract final class IncomingCallIntents {
         return;
       }
       final id = '${payload['callId'] ?? callId}';
-      await CallKitService.hideIncoming(id);
+      // Locked (full-screen intent): keep the plugin's ringtone. Android
+      // won't reliably play the app's own ringtone over the keyguard, so
+      // hiding it cut the ring after ~2 s (RN kept the native ring too).
+      if (!await CallPlatform.instance.isDeviceLocked()) {
+        await CallKitService.hideIncoming(id);
+      }
       await CallPushHandler.adoptBackgroundAck(id);
       await CallSignals.onInvite(
         payload,

@@ -16,13 +16,21 @@ abstract final class ListingKeys {
     String? handler,
   }) => ['listing', 'host', expertDocumentId, userDocumentId, handler];
 
-  /// `HostCard` (shared link; approvals populated).
+  /// `HostCard` (shared link).
   static List<Object?> hostByLink(String targetId, bool isOwnProfile) => [
     'listing',
     'host-link',
     targetId,
     isOwnProfile,
   ];
+
+  /// `HostCard` (call-log row / nudge profile to open).
+  static List<Object?> profile({
+    String? userDocumentId,
+    String? userId,
+    String? expertDocumentId,
+    bool own = false,
+  }) => ['listing', 'profile', userDocumentId, userId, expertDocumentId, own];
 
   /// `HostCard` (callback nudge; minimal populate).
   static List<Object?> callbackHost({
