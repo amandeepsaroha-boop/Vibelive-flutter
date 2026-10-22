@@ -120,7 +120,7 @@ class _TransferSheet extends HookWidget {
     }
 
     return Container(
-      constraints: BoxConstraints(minHeight: 450.ms),
+      constraints: const BoxConstraints(),
       padding: EdgeInsets.symmetric(horizontal: 20.ms),
       decoration: BoxDecoration(
         color: p.bg,
@@ -129,7 +129,9 @@ class _TransferSheet extends HookWidget {
       child: SingleChildScrollView(
         physics: const ClampingScrollPhysics(),
         // RN ScrollView paddingBottom 40, no safe-area inset.
-        padding: EdgeInsets.only(bottom: 40.ms),
+        padding: EdgeInsets.only(
+          bottom: 10.ms + MediaQuery.paddingOf(context).bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -138,15 +140,18 @@ class _TransferSheet extends HookWidget {
               child: Container(
                 width: 40.ms,
                 height: 4.ms,
-                margin: EdgeInsets.only(top: 14.ms, bottom: 22.ms),
+                margin: EdgeInsets.only(top: 8.ms, bottom: 8.ms),
                 decoration: BoxDecoration(
-                  color: AppColors.whiteA(0.12),
+                  // RN's white handle vanished on the light sheet.
+                  color: p.dark
+                      ? AppColors.whiteA(0.12)
+                      : AppColors.blackA(0.12),
                   borderRadius: BorderRadius.circular(2.ms),
                 ),
               ),
             ),
             Padding(
-              padding: EdgeInsets.only(bottom: 16.ms),
+              padding: EdgeInsets.only(bottom: 4.ms),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -177,7 +182,7 @@ class _TransferSheet extends HookWidget {
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(20.ms, 0, 20.ms, 24.ms),
+              padding: EdgeInsets.fromLTRB(20.ms, 0, 20.ms, 10.ms),
               child: CText(
                 'payment:transfer.subtitle',
                 size: 12,
@@ -188,16 +193,16 @@ class _TransferSheet extends HookWidget {
               ),
             ),
             TransferWallets(cash: cash, earnings: earnings),
-            SizedBox(height: 28.ms),
+            SizedBox(height: 12.ms),
             TransferAmountBox(
               quote: quote,
               selectedPreset: preset.value,
               onMax: pickMax,
               onPreset: pickPreset,
             ),
-            SizedBox(height: 28.ms),
+            SizedBox(height: 12.ms),
             TransferSummary(quote: quote),
-            SizedBox(height: 32.ms),
+            SizedBox(height: 14.ms),
             CButton(
               title: 'payment:transfer.confirm',
               loading: transfer.isPending,

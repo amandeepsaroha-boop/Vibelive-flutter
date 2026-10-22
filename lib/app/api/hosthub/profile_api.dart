@@ -1,7 +1,6 @@
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/strapi.dart';
-import '../../../core/utils/log.dart';
 import 'profile_models.dart';
 import 'strapi_lookup.dart';
 
@@ -27,16 +26,21 @@ abstract final class HostProfileApi {
     String expertId, {
     String? ownerUserDocumentId,
   }) async {
-    try {
-      final body = await ApiClient.get(
-        '/expert-profiles/${Uri.encodeComponent(expertId)}',
-        query: populate,
-      );
-      return HostProfile.fromResponse(body);
-    } on ApiException catch (e) {
-      if (e.statusCode != 404) rethrow;
-      return _recover(expertId, ownerUserDocumentId);
+    // GET /expert-profiles/:id always answers 404 on this backend, and the
+    // list hides unapproved profiles: for the signed-in host, the owner
+    // lookup is the one read that finds it, so it goes first (1 request
+    // instead of 3).
+    final owner = ownerUserDocumentId;
+    if (owner != null && owner.isNotEmpty) {
+      final mine = await fetchByUser(owner);
+      if (mine != null && mine.isSameRecord(expertId)) return mine;
     }
+    final row = await StrapiLookup.fetchLatest(
+      '/expert-profiles',
+      StrapiLookup.ownIdFilters(expertId),
+      query: populate,
+    );
+    return HostProfile.from(row);
   }
 
   /// The host profile owned by a user (null for a non-host).
@@ -94,32 +98,6 @@ abstract final class HostProfileApi {
           data: {'data': data},
         ),
       );
-    }
-  }
-
-  /// GET /expert-profiles/:id is scoped on this backend: a freshly created
-  /// host profile answers 404 although it exists, which made the first save
-  /// of every new host look failed. Try the list endpoint, then the owner's
-  /// own profile, accepted only when it is the record asked for (this path
-  /// is also reached for other hosts). Both are best effort, as in RN.
-  static Future<HostProfile?> _recover(String expertId, String? owner) async {
-    try {
-      final row = await StrapiLookup.fetchLatest(
-        '/expert-profiles',
-        StrapiLookup.ownIdFilters(expertId),
-        query: populate,
-      );
-      if (row != null) return HostProfile.from(row);
-    } on ApiException catch (e) {
-      Log.w('HostProfileApi', 'list fallback failed: $e');
-    }
-    if (owner == null || owner.isEmpty) return null;
-    try {
-      final mine = await fetchByUser(owner);
-      return mine != null && mine.isSameRecord(expertId) ? mine : null;
-    } on ApiException catch (e) {
-      Log.w('HostProfileApi', 'owner fallback failed: $e');
-      return null;
     }
   }
 }

@@ -24,7 +24,7 @@ class TransferWallets extends StatelessWidget {
     final p = WalletPalette.of(context);
     Widget card(String label, double amount) => Expanded(
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 16.ms, horizontal: 12.ms),
+        padding: EdgeInsets.symmetric(vertical: 10.ms, horizontal: 10.ms),
         decoration: BoxDecoration(
           color: p.cardBg,
           borderRadius: BorderRadius.circular(20.ms),
@@ -119,7 +119,7 @@ class TransferAmountBox extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: 12.ms),
+        SizedBox(height: 6.ms),
         // RN: box with paddingLeft 32 / paddingRight 80, "₹" absolute at
         // (16, 14), MAX absolute at right 8, top 8.
         SizedBox(
@@ -238,7 +238,7 @@ class TransferSummary extends StatelessWidget {
       required Color color,
       double size = 13,
     }) => Padding(
-      padding: EdgeInsets.only(bottom: 8.ms),
+      padding: EdgeInsets.only(bottom: 6.ms),
       child: Row(
         children: [
           Expanded(child: label),
@@ -254,7 +254,7 @@ class TransferSummary extends StatelessWidget {
 
     return Container(
       // RN: padding 20 and every row keeps its 8 bottom margin.
-      padding: EdgeInsets.all(20.ms),
+      padding: EdgeInsets.fromLTRB(14.ms, 12.ms, 14.ms, 4.ms),
       decoration: BoxDecoration(
         color: p.cardBg,
         borderRadius: BorderRadius.circular(24.ms),
@@ -284,7 +284,7 @@ class TransferSummary extends StatelessWidget {
             color: p.text,
           ),
           Padding(
-            padding: EdgeInsets.symmetric(vertical: 12.ms),
+            padding: EdgeInsets.symmetric(vertical: 6.ms),
             child: Container(height: 1, color: p.cardBorder),
           ),
           row(

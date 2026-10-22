@@ -21,8 +21,9 @@ class HostFlowController {
   final HostDraftController draft;
   final PageController pages;
 
-  /// The whole submit; true when the profile went in.
-  final Future<bool> Function() submit;
+  /// The whole submit: null when the profile went in, else the step to send
+  /// the user back to (the one owning the field the server rejected).
+  final Future<HostStep?> Function() submit;
 
   /// Leave the flow (back on the intro / success screen).
   final VoidCallback exit;
@@ -104,8 +105,11 @@ class HostFlowController {
     if (step == HostStep.basic && !await _handleIsFree()) return;
     if (step == HostStep.guidelines) {
       busy.value = true;
-      final ok = await submit().whenComplete(() => busy.value = false);
-      if (!ok) return;
+      final failedAt = await submit().whenComplete(() => busy.value = false);
+      if (failedAt != null) {
+        if (failedAt != step) await goTo(failedAt);
+        return;
+      }
     }
     await goTo(_takeReturn() ?? step.next!);
   }

@@ -39,6 +39,9 @@ abstract final class SocialSignIn {
       account = await GoogleSignIn.instance.authenticate();
     } on GoogleSignInException catch (e) {
       if (e.code == GoogleSignInExceptionCode.canceled) return null;
+      // e.g. "[28444] Developer console is not set up correctly": this
+      // build's SHA-1 is not registered for the app in Firebase.
+      Log.w('SocialSignIn', 'Google failed: ${e.code.name} ${e.description}');
       rethrow;
     }
     final idToken = account.authentication.idToken;

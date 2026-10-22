@@ -1,3 +1,12 @@
+import java.util.Properties
+
+// Release signing = the RN app's upload key (android/key.properties, never
+// committed), so Play accepts this build as an update of the same app.
+val keystoreProperties = Properties().apply {
+    val f = rootProject.file("key.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -30,11 +39,31 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        // RN's debug keystore (same SHA-1 as the RN debug builds).
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+        create("release") {
+            if (keystoreProperties.isNotEmpty()) {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (keystoreProperties.isNotEmpty()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             // Added to Flutter's own rules, not instead of them.
             proguardFiles("proguard-rules.pro")
         }

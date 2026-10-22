@@ -10,7 +10,9 @@ abstract final class Log {
   }
 
   static void w(String tag, Object? message) {
-    if (kDebugMode) developer.log('⚠️ $message', name: tag, level: 900);
+    if (!kDebugMode) return;
+    developer.log('⚠️ $message', name: tag, level: 900);
+    debugPrint('[$tag] ⚠️ $message'); // visible in `flutter run` / logcat
   }
 
   static void e(String tag, Object? error, [StackTrace? stackTrace]) {
@@ -21,5 +23,6 @@ abstract final class Log {
       error: error,
       stackTrace: stackTrace,
     );
+    if (kDebugMode) debugPrint('[$tag] ❌ $error');
   }
 }

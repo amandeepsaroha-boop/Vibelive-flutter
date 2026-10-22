@@ -254,7 +254,8 @@ class _Split extends StatelessWidget {
   }
 }
 
-/// Glowing circle between the two wallets: opens the transfer sheet.
+/// Crisp ringed circle between the two wallets (no glow): opens the
+/// transfer sheet.
 class _TransferButton extends StatelessWidget {
   const _TransferButton({required this.onPressed});
   final VoidCallback onPressed;
@@ -278,16 +279,10 @@ class _TransferButton extends StatelessWidget {
                 shape: CircleBorder(
                   side: BorderSide(
                     color: p.accent,
-                    width: 1.5,
+                    width: 2.5,
                     strokeAlign: BorderSide.strokeAlignInside,
                   ),
                 ),
-                shadows: [
-                  BoxShadow(
-                    color: p.accent.withValues(alpha: 0.4),
-                    blurRadius: 10.ms,
-                  ),
-                ],
               ),
               child: Center(
                 child: Icon(

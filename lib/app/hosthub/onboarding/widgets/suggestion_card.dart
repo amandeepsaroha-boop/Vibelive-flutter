@@ -92,28 +92,7 @@ class HostSuggestionCard extends StatelessWidget {
                 ],
               ),
             ),
-          Pressable(
-            onPressed: onAnother,
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 10.ms),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(LucideIcons.refreshCw, size: 16.ms, color: p.accent),
-                  SizedBox(width: 8.ms),
-                  Flexible(
-                    child: CText(
-                      'hostflow:suggest.another',
-                      size: 13.5,
-                      weight: FontWeight.w700,
-                      color: p.accent,
-                      maxLines: 1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          // "Try another suggestion" is hidden (product ask).
         ],
       ),
     );

@@ -198,7 +198,8 @@
     "rate_video_min": "Your video rate must be at least ₹{{min}} per minute.",
     "availability": "Turn on \"I'm available now\" or vacation mode, or choose at least one day.",
     "slot_short": "Choose at least 30 minutes.",
-    "agree": "Please agree to the Host Guidelines to continue."
+    "agree": "Please agree to the Host Guidelines to continue.",
+    "server": "{{message}} Please fix this and try again."
   },
   "approved": {
     "title": "You're approved! 🎉",
@@ -266,7 +267,7 @@
     "rejected": "Changes needed",
     "not_sent": "Not sent",
     "verified": "Verified",
-    "segment": "Expert Hub"
+    "segment": "Host Hub"
   },
   "approval": {
     "title": "Approval Status",

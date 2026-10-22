@@ -35,6 +35,7 @@ import 'steps/submitted_step.dart';
 import 'steps/tagline_step.dart';
 import 'widgets/continue_bar.dart';
 import 'widgets/progress_header.dart';
+import 'helper/submit_errors.dart';
 
 /// "Become a Host": intro, eight form steps, success. The draft is saved
 /// per account as the user goes, so the flow resumes where it was left.
@@ -75,9 +76,9 @@ class HostOnboardingScreen extends HookWidget {
       }
     }
 
-    Future<bool> runSubmit() async {
+    Future<HostStep?> runSubmit() async {
       final user = session.userDocumentId;
-      if (user == null) return false;
+      if (user == null) return HostStep.guidelines;
       try {
         final form = await ensureInterestForm();
         final input = HostSubmitPlan.build(
@@ -92,10 +93,17 @@ class HostOnboardingScreen extends HookWidget {
         );
         await submit.mutateAsync(input);
         await draft.clear();
-        return true;
+        return null;
       } on ApiException catch (e) {
-        await CAlert.error(e);
-        return false;
+        // A field the server rejected: back to its step with the error
+        // shown there (e.g. a handle another profile already owns).
+        final target = HostSubmitErrors.stepFor(e);
+        if (target == null) {
+          await CAlert.error(e);
+          return HostStep.guidelines;
+        }
+        draft.notice.value = HostSubmitErrors.noticeFor(e, target);
+        return target;
       }
     }
 
@@ -198,7 +206,7 @@ class _Flow extends HookWidget {
   });
 
   final HostDraftController draft;
-  final Future<bool> Function() submit;
+  final Future<HostStep?> Function() submit;
   final VoidCallback exit;
   final VoidCallback explore;
   final (double, double) Function() rateFloors;

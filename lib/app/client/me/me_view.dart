@@ -19,7 +19,6 @@ import '../../component/c_toast.dart';
 import '../../component/infinite_scroll.dart';
 import '../../homescreen/helper/home_controller.dart';
 import '../../hosthub/approved/host_status_section.dart';
-import '../../hosthub/hub/host_info_chips.dart';
 import '../../navbar/bottombar/navbar_collapse.dart';
 import 'helper/me_actions.dart';
 import 'helper/me_data.dart';
@@ -109,13 +108,7 @@ class MeView extends HookWidget {
           ValueListenableBuilder<MeSection>(
             valueListenable: section,
             builder: (_, s, _) => s == MeSection.dashboard
-                ? MeHostDashboard(
-                    key: const ValueKey(MeSection.dashboard),
-                    footer: HostInfoChips(
-                      host: data.host!,
-                      open: (route) => MeActions.open(context, route),
-                    ),
-                  )
+                ? const MeHostDashboard(key: ValueKey(MeSection.dashboard))
                 : MeSettingsList(
                     key: const ValueKey(MeSection.settings),
                     data: data,

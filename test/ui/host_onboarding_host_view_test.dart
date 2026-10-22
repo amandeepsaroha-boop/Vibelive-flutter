@@ -253,29 +253,14 @@ void main() {
       matching: find.byType(Scrollable),
     );
 
-    // Live host: Expert Hub (figures, then rate / availability chips).
+    // Live host: Expert Hub (figures only; no rate / schedule fields).
     await openMe(_host(active: true));
-    expect(find.text('Expert Hub'), findsOneWidget);
+    expect(find.text('Host Hub'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('₹2,450'), findsOneWidget); // lifetime earnings
-    await tester.scrollUntilVisible(
-      find.text('Custom hours'),
-      300,
-      scrollable: list,
-    );
-    expect(find.text('₹25/min'), findsOneWidget);
-    expect(find.text('₹35/min'), findsOneWidget);
-    // Side by side (the wide test font wraps the third one cleanly).
-    expect(
-      tester.getCenter(find.text('₹25/min')).dy,
-      tester.getCenter(find.text('₹35/min')).dy,
-    );
+    expect(find.text('₹25/min'), findsNothing);
+    expect(find.text('Custom hours'), findsNothing);
     expect(find.text('Approval Status'), findsNothing); // hub: Settings only
-    await tester.scrollUntilVisible(
-      find.text('Settings'),
-      -300,
-      scrollable: list,
-    );
     await tester.tap(find.text('Settings'));
     await pumpFor(tester, 400);
     expect(find.text('MY WALLET'), findsOneWidget);
@@ -288,11 +273,11 @@ void main() {
     expect(find.text('Professional Details'), findsOneWidget);
     expect(find.text('Live'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('Expert Hub'),
+      find.text('Host Hub'),
       -300,
       scrollable: list,
     );
-    await tester.tap(find.text('Expert Hub'));
+    await tester.tap(find.text('Host Hub'));
     await pumpFor(tester, 400);
     expect(find.text('₹2,450'), findsOneWidget);
     expect(find.text('MY WALLET'), findsNothing);
@@ -306,7 +291,7 @@ void main() {
       ],
     );
     expect(find.text('Profile under review'), findsOneWidget);
-    expect(find.text('Expert Hub'), findsOneWidget);
+    expect(find.text('Host Hub'), findsOneWidget);
     await finishHost(tester);
 
     await openMe(
@@ -319,6 +304,9 @@ void main() {
     await finishHost(tester);
 
     await openMe({..._host(active: true), 'vocationMode': true});
+    // Shown on the Host Hub's My Schedule row (Settings segment).
+    await tester.tap(find.text('Settings'));
+    await pumpFor(tester, 400);
     await tester.scrollUntilVisible(
       find.text('Vacation mode'),
       200,
@@ -329,7 +317,7 @@ void main() {
 
     // A client keeps the client layout: no segments.
     await openMe(null);
-    expect(find.text('Expert Hub'), findsNothing);
+    expect(find.text('Host Hub'), findsNothing);
     expect(find.text('MY WALLET'), findsOneWidget);
     await finishHost(tester);
   });
@@ -348,7 +336,7 @@ void main() {
       );
       appRouter.go('${AppRoutes.home}?tab=me');
       await pumpFor(tester, 1000);
-      for (final label in ['Expert Hub', 'Settings']) {
+      for (final label in ['Host Hub', 'Settings']) {
         final text = tester.getRect(find.text(label));
         final pill = tester.getRect(
           find
