@@ -188,13 +188,18 @@ Future<HostCard> ensureCallbackHost({
   ),
 );
 
-/// RN rule: a link to the viewer's own documentId or handler (or id).
+/// RN rule: a link to the viewer's own documentId or handler (or user id,
+/// or their expert profile's documentId / handler).
 bool _isOwnTarget(String target) {
   if (target.isEmpty) return false;
-  final user = SessionStore.instance.value.user;
+  final session = SessionStore.instance.value;
+  final user = session.user, expert = session.expert;
+  final lower = target.toLowerCase();
   return target == J.str(user?['documentId']) ||
-      target == J.str(user?['handler']) ||
-      target == J.str(user?['id']);
+      target == J.str(user?['id']) ||
+      target == J.str(expert?['documentId']) ||
+      lower == J.str(user?['handler'])?.toLowerCase() ||
+      lower == J.str(expert?['handler'])?.toLowerCase();
 }
 
 String? _ownDoc(bool own) =>

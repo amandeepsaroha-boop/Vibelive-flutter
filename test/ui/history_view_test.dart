@@ -905,6 +905,15 @@ void main() {
       await finish(tester);
     });
 
+    testWidgets('a host that cannot be found says so', (tester) async {
+      await open(tester);
+      await _pump(tester, 400);
+      await _tap(tester, find.text('Host 4'), ms: 1200);
+      expect(find.text('Unable to open profile right now.'), findsOneWidget);
+      await _tap(tester, find.text('OK'));
+      await finish(tester);
+    });
+
     testWidgets('See Profile in the menu opens the same profile', (
       tester,
     ) async {
