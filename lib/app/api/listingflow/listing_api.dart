@@ -63,6 +63,26 @@ abstract final class ListingApi {
     ];
   }
 
+  /// Full cards of many hosts in ONE read (never one request per row), by
+  /// expert-profile documentIds or, with [byUser], user documentIds: search
+  /// hits, call-log counterparts, favourites. Hosts the public list hides
+  /// (pending approval) are simply missing.
+  static Future<List<HostCard>> fetchCards(
+    List<String> ids, {
+    bool byUser = false,
+  }) async {
+    if (ids.isEmpty) return const [];
+    final field = byUser ? 'filters[user][documentId]' : 'filters[documentId]';
+    final rows = await _rows(
+      {for (var i = 0; i < ids.length; i++) '$field[\$in][$i]': ids[i]},
+      {...hostCardPopulate, 'pagination[pageSize]': ids.length},
+    );
+    return [
+      for (var i = 0; i < rows.length; i++)
+        HostCard.fromJson(rows[i], index: i),
+    ];
+  }
+
   /// Full profile for a search hit: by expert-profile documentId (what
   /// `/search` carries), then user documentId, then handler. One of the two
   /// ids is required; [handler] is only the last rung.
@@ -70,29 +90,15 @@ abstract final class ListingApi {
     String? expertDocumentId,
     String? userDocumentId,
     String? handler,
-  }) async {
-    final expertId = expertDocumentId?.trim() ?? '';
-    final userId = userDocumentId?.trim() ?? '';
-    if (expertId.isEmpty && userId.isEmpty) throw _unavailable;
-    const query = {...hostCardPopulate, ..._singleRow};
-
-    JsonMap? row;
-    if (expertId.isNotEmpty) {
-      row = _first(await _rows({r'filters[documentId][$eq]': expertId}, query));
-    }
-    if (row == null && userId.isNotEmpty) {
-      row = _first(
-        await _rows({r'filters[user][documentId][$eq]': userId}, query),
-      );
-    }
-    if (row == null && (handler ?? '').isNotEmpty) {
-      row = _first(await _rows({r'filters[handler][$eq]': handler}, query));
-    }
-    final host = HostCard.fromJson(row);
-    if (host.documentId == null && host.userDocumentId == null) {
-      throw _unavailable;
-    }
-    return host;
+  }) {
+    // Every row is checked against the id it was looked up by: taking the
+    // first row blindly opened a different host whenever the backend
+    // ignored a filter (search tapped one host, another one opened).
+    return findProfile(
+      expertDocumentId: expertDocumentId,
+      userDocumentId: userDocumentId,
+      handler: handler,
+    );
   }
 
   /// Profile behind a shared link / `openUserId`: [targetId] may be a user
@@ -208,23 +214,10 @@ abstract final class ListingApi {
   static Future<HostCard> findCallbackHost({
     String? expertDocumentId,
     String? userId,
-  }) async {
-    JsonMap? row;
-    if ((expertDocumentId ?? '').isNotEmpty) {
-      row = _first(
-        await _rows({
-          r'filters[documentId][$eq]': expertDocumentId,
-        }, _callbackPopulate),
-      );
-    }
-    if (row == null && (userId ?? '').isNotEmpty) {
-      row = _first(
-        await _rows({r'filters[user][id][$eq]': userId}, _callbackPopulate),
-      );
-    }
-    if (row == null) throw _unavailable;
-    return HostCard.fromJson(row);
-  }
+  }) =>
+      // Validated rows only (a first row taken blindly could be another
+      // host when a filter is ignored).
+      findProfile(expertDocumentId: expertDocumentId, userId: userId);
 
   static Future<List<JsonMap>> _rows(
     Map<String, dynamic> filter,
@@ -232,6 +225,4 @@ abstract final class ListingApi {
   ) async => Strapi.list(
     await ApiClient.get('/expert-profiles', query: {...filter, ...query}),
   );
-
-  static JsonMap? _first(List<JsonMap> rows) => rows.firstOrNull;
 }

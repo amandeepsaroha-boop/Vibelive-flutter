@@ -19,10 +19,8 @@ import '../../app/hosthub/approval/host_approval_screen.dart';
 import '../../app/hosthub/badge/host_badge_fee_screen.dart';
 import '../../app/hosthub/badge/host_badge_form_screen.dart';
 import '../../app/hosthub/badge/host_badge_screen.dart';
-import '../../app/hosthub/edit/host_edit_screen.dart';
-import '../../app/hosthub/expertise/host_expertise_screen.dart';
 import '../../app/hosthub/hub/host_profile_qr_screen.dart';
-import '../../app/hosthub/profile_edit/host_profile_edit_screen.dart';
+import '../../app/hosthub/onboarding/helper/host_steps.dart';
 import '../../app/hosthub/onboarding/host_onboarding_screen.dart';
 import '../../app/listingflow/search/search_screen.dart';
 import '../../app/resourcesscreen/categories/categories_screen.dart';
@@ -210,26 +208,29 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.hostSchedule,
       builder: (context, state) =>
-          const HostEditScreen(section: HostEditSection.schedule),
+          const HostOnboardingScreen(editStep: HostStep.availability),
     ),
-    // Host Hub (RN menu-data `hub` + profile QR).
+    // Host Hub (RN menu-data `hub` + profile QR). Profile sections open the
+    // onboarding flow itself on their step, in edit mode.
     GoRoute(
       path: AppRoutes.professionalDetails,
-      builder: (context, state) => const HostProfileEditScreen(),
+      builder: (context, state) =>
+          const HostOnboardingScreen(editStep: HostStep.basic),
     ),
     GoRoute(
       path: AppRoutes.expertise,
-      builder: (context, state) => const HostExpertiseScreen(),
+      builder: (context, state) =>
+          const HostOnboardingScreen(editStep: HostStep.interests),
     ),
     GoRoute(
       path: AppRoutes.schedule,
       builder: (context, state) =>
-          const HostEditScreen(section: HostEditSection.schedule),
+          const HostOnboardingScreen(editStep: HostStep.availability),
     ),
     GoRoute(
       path: AppRoutes.callRates,
       builder: (context, state) =>
-          const HostEditScreen(section: HostEditSection.rates),
+          const HostOnboardingScreen(editStep: HostStep.rates),
     ),
     GoRoute(
       path: AppRoutes.approval,
@@ -258,7 +259,7 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.hostRates,
       builder: (context, state) =>
-          const HostEditScreen(section: HostEditSection.rates),
+          const HostOnboardingScreen(editStep: HostStep.rates),
     ),
     // Call screens: no transition (RN `animation: 'none'`) and no
     // swipe-back (the screens hold a `PopScope`).

@@ -27,8 +27,10 @@ String? _me(String? userDocumentId) =>
 
 /// Every wallet of the user (cash, earnings, header total): the one balance
 /// query for the wallet screen, Discovery, Search, Explore, Favourites and
-/// the profile modal. On disk for an instant first frame, refetched on every
-/// mount since balances move.
+/// the profile modal. On disk for an instant first frame. Every balance
+/// change (call end, payment, transfer, wallet push, Home back on top)
+/// invalidates it, so a mount within a minute reuses it; the pre-call check
+/// ([ensureWalletBalance]) always reads it fresh.
 QueryResult<WalletBalance, ApiException> useWalletBalance(
   BuildContext context, {
   String? userDocumentId,
@@ -40,7 +42,7 @@ QueryResult<WalletBalance, ApiException> useWalletBalance(
     () => WalletApi.fetchBalance(uid!),
     context: context,
     enabled: enabled && uid != null,
-    staleDuration: StaleTime.none,
+    staleDuration: StaleTime.short,
     toJson: (balance) => balance.toJson(),
     fromJson: WalletBalance.fromJson,
   );
@@ -177,6 +179,10 @@ Future<List<WalletTransaction>> fetchWalletTransactionPage({
   return rows;
 }
 
+/// Warms the wallet screen's first page ("All") on the way there.
+void prefetchWalletTransactions() =>
+    fetchWalletTransactionPage().then((_) {}, onError: (Object _) {});
+
 RawQueryKey _firstPageKey(String uid, TransactionFilter filter) =>
     PaymentKeys.transactionPage(uid, filter, 1, TransactionApi.pageSize);
 
@@ -196,6 +202,12 @@ QueryResult<GstConfig, ApiException> useGstConfig(
   PricingApi.fetchGstConfig,
   context: context,
   enabled: enabled,
+  staleDuration: StaleTime.long,
+);
+
+Future<GstConfig> ensureGstConfig() => queryCache.fetchQuery<GstConfig>(
+  PaymentKeys.gst,
+  PricingApi.fetchGstConfig,
   staleDuration: StaleTime.long,
 );
 

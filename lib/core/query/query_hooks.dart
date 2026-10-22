@@ -6,16 +6,25 @@ import 'package:fquery_core/fquery_core.dart';
 import '../network/api_client.dart';
 import '../network/api_exception.dart';
 import 'query_client.dart';
+import 'query_observe.dart';
 import 'query_persist.dart';
 
 export 'package:fquery_core/fquery_core.dart'
-    show QueryResult, MutationResult, RawQueryKey, RefetchOnMount;
+    show
+        InfiniteQueryData,
+        InfiniteQueryResult,
+        QueryResult,
+        MutationResult,
+        RawQueryKey,
+        RefetchOnMount;
 
 export '../network/api_exception.dart';
 export 'query_client.dart' show StaleTime, queryCache, QueryCacheX;
 
 /// `useQuery` with the app conventions: error type is always
 /// [ApiException] and the fetcher is guarded so nothing else can escape.
+/// Cached data renders at once; one request per key at a time (shared with
+/// `queryCache.fetchQuery`); the widget rebuilds only for its own key.
 ///
 /// ```dart
 /// QueryResult<AppConfig, ApiException> useAppConfig(BuildContext context) =>
@@ -32,7 +41,7 @@ QueryResult<T, ApiException> useApiQuery<T>(
   Duration? refetchInterval,
   RefetchOnMount? refetchOnMount,
 }) {
-  return useQuery<T, ApiException>(
+  return useCacheQuery<T>(
     key,
     () => ApiClient.guard(fetcher),
     context: context,
@@ -43,6 +52,26 @@ QueryResult<T, ApiException> useApiQuery<T>(
     refetchOnMount: refetchOnMount,
   );
 }
+
+/// Paged list ([initialPage], [initialPage] + 1, …) with the conventions of
+/// [useApiQuery]. [hasMore] tells whether a page has a next one.
+InfiniteQueryResult<P, ApiException, int> useApiInfiniteQuery<P>(
+  RawQueryKey key,
+  Future<P> Function(int page) fetchPage, {
+  required BuildContext context,
+  required bool Function(P lastPage) hasMore,
+  int initialPage = 1,
+  bool enabled = true,
+  Duration? staleDuration,
+}) => useCacheInfiniteQuery<P>(
+  key,
+  (page) => ApiClient.guard(() => fetchPage(page)),
+  context: context,
+  initialPage: initialPage,
+  hasMore: hasMore,
+  enabled: enabled,
+  staleDuration: staleDuration,
+);
 
 /// [useApiQuery] plus a disk copy: the last saved result is returned while
 /// the first network fetch is in flight (or failing), so the screen never

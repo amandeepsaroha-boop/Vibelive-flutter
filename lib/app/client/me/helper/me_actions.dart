@@ -7,7 +7,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/session/session_store.dart';
 import '../../../../core/utils/log.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../api/client/client_queries.dart';
+import '../../../api/paymentscreen/payment_queries.dart';
 import '../../../component/app_share.dart';
 
 /// What the ME tab does outside its own widgets: open screens, share.
@@ -15,6 +17,7 @@ abstract final class MeActions {
   /// Opens a screen; on return, quietly re-reads the profile (RN re-read ME
   /// on every focus: a user comes back from Professional Details a host).
   static Future<void> open(BuildContext context, String route) async {
+    if (route == AppRoutes.wallet) prefetchWalletTransactions();
     await context.push<void>(route);
     revalidate();
   }

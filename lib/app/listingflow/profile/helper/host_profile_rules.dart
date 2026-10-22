@@ -31,14 +31,7 @@ abstract final class HostProfileRules {
   /// A card mapped from a populated `/expert-profiles` read (feed, search
   /// detail, shared link) carries its rates and service areas. A summary
   /// (call log, favourites) does not, so the full profile is fetched.
-  static bool isComplete(HostCard host) {
-    final raw = host.raw;
-    final expert = raw.containsKey('user')
-        ? raw
-        : (Strapi.map(raw['expert']) ?? const <String, dynamic>{});
-    return expert.containsKey('rates') &&
-        expert.containsKey('service_area_selections');
-  }
+  static bool isComplete(HostCard host) => host.hasFullProfile;
 
   /// Reviews / favourites key: expert-profile documentId first (RN order).
   static String expertKey(HostCard host) =>

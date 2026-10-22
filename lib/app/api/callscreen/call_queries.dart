@@ -1,11 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:fquery/fquery.dart' show useInfiniteQuery;
-import 'package:fquery_core/fquery_core.dart' show InfiniteQueryResult;
-
 import '../../../core/network/api_client.dart';
 import '../../../core/network/strapi.dart';
 import '../../../core/query/query_hooks.dart';
+import '../../../core/query/query_inflight.dart';
 import '../../../core/query/query_persist.dart';
 import '../../../core/session/session_store.dart';
 import '../../../core/utils/log.dart';
@@ -82,13 +80,12 @@ CallHistoryFeed useCallHistory(
   final moreFor = useState<String?>(null);
   final wantsMore = hasUser && moreFor.value == docId && firstHasMore;
 
-  final more = useInfiniteQuery<CallHistoryPage, ApiException, int>(
+  final more = useApiInfiniteQuery<CallHistoryPage>(
     CallKeys.historyMorePages(id),
-    (page) => ApiClient.guard(() => CallApi.fetchHistory(id, page: page)),
+    (page) => CallApi.fetchHistory(id, page: page),
     context: context,
-    initialPageParam: 2,
-    getNextPageParam: (last, _, lastPage, _) =>
-        last.hasMore ? lastPage + 1 : null,
+    initialPage: 2,
+    hasMore: (last) => last.hasMore,
     enabled: wantsMore,
     staleDuration: StaleTime.short,
   );
@@ -356,16 +353,39 @@ InfiniteQueryResult<ReviewPage, ApiException, int> useExpertReviews(
   bool enabled = true,
 }) {
   final id = J.str(expertId?.trim()) ?? '';
-  return useInfiniteQuery<ReviewPage, ApiException, int>(
+  return useApiInfiniteQuery<ReviewPage>(
     CallKeys.expertReviews(id),
-    (page) => ApiClient.guard(() => ReviewApi.fetchByExpert(id, page: page)),
+    (page) => ReviewApi.fetchByExpert(id, page: page),
     context: context,
-    initialPageParam: 1,
-    getNextPageParam: (last, _, lastPage, _) =>
-        last.hasMore ? lastPage + 1 : null,
+    hasMore: (last) => last.hasMore,
     enabled: enabled && id.isNotEmpty,
     staleDuration: StaleTime.short,
   );
+}
+
+/// Page 1 of [expertId]'s reviews, started with the profile sheet (in
+/// parallel with everything else it loads). Same in-flight id as the
+/// [useExpertReviews] first page, so the sheet joins it.
+void prefetchExpertReviews(String? expertId) {
+  final id = J.str(expertId?.trim()) ?? '';
+  if (id.isEmpty) return;
+  final key = CallKeys.expertReviews(id);
+  if (queryCache.entry<InfiniteQueryData<ReviewPage, int>>(key)?.data != null) {
+    return;
+  }
+  QueryInflight.run<ReviewPage>([
+    ...key,
+    '#page',
+  ], () => ApiClient.guard(() => ReviewApi.fetchByExpert(id))).then((page) {
+    // Kept when no sheet joined it (the sheet then finds it cached).
+    if (queryCache.entry<InfiniteQueryData<ReviewPage, int>>(key)?.data ==
+        null) {
+      queryCache.setQueryData<InfiniteQueryData<ReviewPage, int>, ApiException>(
+        key,
+        (_) => InfiniteQueryData(pages: [page], pageParams: [1]),
+      );
+    }
+  }, onError: (Object _) {});
 }
 
 /// After-call feedback and "Rate this call". Errors: `localizedMessage`.

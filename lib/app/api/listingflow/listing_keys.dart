@@ -9,6 +9,17 @@ abstract final class ListingKeys {
     query,
   ];
 
+  /// `Map<String, …>`: every full host card of the session (`HostIndex`).
+  static const hostIndex = ['listing', 'host-index'];
+
+  /// `int` (cards put in the host index) of one batched warm-up read.
+  static List<Object?> warmHosts(String by, List<String> ids) => [
+    'listing',
+    'warm-hosts',
+    by,
+    ids,
+  ];
+
   /// `HostCard` (search-hit ladder).
   static List<Object?> host({
     String? expertDocumentId,
@@ -48,10 +59,11 @@ abstract final class ListingKeys {
     limit,
   ];
 
-  /// `Map<String, HostBadges>`.
-  static List<Object?> searchBadges(List<String> expertDocumentIds) => [
+  /// `Map<String, HostCard>`: full cards of search hits, by expert-profile
+  /// documentId.
+  static List<Object?> searchHosts(List<String> expertDocumentIds) => [
     'listing',
-    'search-badges',
+    'search-hosts',
     expertDocumentIds,
   ];
 }

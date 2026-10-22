@@ -36,7 +36,11 @@ class ProfileReviews extends StatelessWidget {
     final muted = dark ? AppColors.whiteA(0.4) : AppColors.blackA(0.4);
 
     final Widget content;
-    if (waiting || (reviews.isEmpty && (query.isLoading || query.isFetching))) {
+    // Skeleton on a first load only: a background refresh keeps what is
+    // shown (also "no reviews yet").
+    final firstLoad =
+        query.data == null && (query.isLoading || query.isFetching);
+    if (waiting || (reviews.isEmpty && firstLoad)) {
       content = ReviewsSkeleton(height: height);
     } else if (reviews.isEmpty && query.isError) {
       content = _Failed(onRetry: query.refetch);

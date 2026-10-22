@@ -6,8 +6,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vibelive/app/hosthub/approval/host_approval_screen.dart';
 import 'package:vibelive/app/hosthub/badge/host_badge_screen.dart';
-import 'package:vibelive/app/hosthub/edit/host_edit_screen.dart';
-import 'package:vibelive/app/hosthub/expertise/host_expertise_screen.dart';
 import 'package:vibelive/app/hosthub/onboarding/helper/host_steps.dart';
 import 'package:vibelive/app/hosthub/onboarding/host_onboarding_screen.dart';
 import 'package:vibelive/core/network/strapi.dart';
@@ -100,7 +98,7 @@ void main() {
     phone(tester);
     await pumpRoutes(
       tester,
-      const HostEditScreen(section: HostEditSection.schedule),
+      const HostOnboardingScreen(editStep: HostStep.availability),
     );
     expect(find.text(_vacationTitle), findsOneWidget);
     expect(find.text(_vacationBody), findsOneWidget);
@@ -217,10 +215,10 @@ void main() {
 
     for (final (name, screen) in [
       ('approval', const HostApprovalScreen()),
-      ('expertise', const HostExpertiseScreen()),
+      ('expertise', const HostOnboardingScreen(editStep: HostStep.interests)),
       ('badge', const HostBadgeScreen()),
-      ('schedule', const HostEditScreen(section: HostEditSection.schedule)),
-      ('rates', const HostEditScreen(section: HostEditSection.rates)),
+      ('schedule', const HostOnboardingScreen(editStep: HostStep.availability)),
+      ('rates', const HostOnboardingScreen(editStep: HostStep.rates)),
     ]) {
       backend = await resetHost(expert: _host());
       phone(tester);

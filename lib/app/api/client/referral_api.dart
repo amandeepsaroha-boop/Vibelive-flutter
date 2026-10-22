@@ -6,15 +6,16 @@ import 'profile_api.dart';
 
 /// The user's referral code, who joined with it, and the share counter.
 abstract final class ReferralApi {
-  /// Just the code ('' when none): the Me tab invite card, without the
-  /// joined-users list.
-  static Future<String> fetchReferralCode(String userDocumentId) async =>
-      ReferralDashboard.codeFrom(
-        await ProfileApi.fetchUserWithMenuRelations(userDocumentId),
-      );
+  static Future<ReferralDashboard> fetchDashboard(
+    String userDocumentId,
+  ) async => dashboardFor(
+    await ProfileApi.fetchUserWithMenuRelations(userDocumentId),
+  );
 
-  static Future<ReferralDashboard> fetchDashboard(String userDocumentId) async {
-    final user = await ProfileApi.fetchUserWithMenuRelations(userDocumentId);
+  /// The dashboard from the user read with menu relations
+  /// ([ProfileApi.fetchUserWithMenuRelations], shared with the invite card
+  /// and GST) plus who joined with the code.
+  static Future<ReferralDashboard> dashboardFor(JsonMap? user) async {
     final code = ReferralDashboard.codeFrom(user);
     var joined = const <JoinedUser>[];
     if (code.isNotEmpty) {

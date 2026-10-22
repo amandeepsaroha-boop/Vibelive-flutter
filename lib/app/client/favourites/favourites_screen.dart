@@ -7,6 +7,7 @@ import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
 import '../../api/client/client_models.dart';
 import '../../api/client/client_queries.dart';
+import '../../api/listingflow/listing_queries.dart';
 import '../../component/c_alert.dart';
 import '../../component/c_state_view.dart';
 import '../../component/status_bar_style.dart';
@@ -24,6 +25,13 @@ class FavouritesScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final favourites = useFavorites(context);
+    // Every favourite's full card in one read: a tap opens it at once.
+    useWarmHostIndex(
+      context,
+      expertDocumentIds: [
+        for (final f in favourites.data ?? const []) ?f.expertId,
+      ],
+    );
     final remove = useRemoveFavorite();
     final removingId = useState<String?>(null);
     final openingId = useState<String?>(null);

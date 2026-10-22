@@ -18,6 +18,7 @@ import '../../api/client/client_queries.dart';
 import '../../api/listingflow/listing_models.dart';
 import '../../api/listingflow/listing_queries.dart';
 import '../../component/c_alert.dart';
+import '../../component/c_state_view.dart';
 import '../../component/qr_code_sheet.dart';
 import 'helper/call_start.dart';
 import 'helper/host_profile_controller.dart';
@@ -33,9 +34,12 @@ import 'report_sheet.dart';
 import 'safety_prompt.dart';
 
 /// Opens a host's profile (RN `ProfileModal`): a full-height sheet, dragged
-/// down (or flung) to close. [host] renders at once; a summary card (call
-/// log, favourites) loads the full profile behind a skeleton.
+/// down (or flung) to close. Opens in the same frame, never after a request:
+/// [host] renders at once (upgraded from the session's host index when it
+/// is a summary); only what a summary lacks loads, behind section skeletons.
 Future<void> showHostProfile(BuildContext context, HostCard host) {
+  // Reviews start now, in parallel with the sheet (and any detail read).
+  prefetchExpertReviews(host.expertProfileDocumentId);
   final navigator = Navigator.of(context, rootNavigator: true);
   // The sheet drops the top padding: read the status bar height above it.
   final topInset = MediaQuery.paddingOf(navigator.context).top;
@@ -135,34 +139,26 @@ class _ProfileView extends HookWidget {
     final c = context.colors;
     final session = useValueListenable(SessionStore.instance);
 
-    // Summary cards (no rates / service areas) load the full profile.
-    final complete = useMemoized(() => HostProfileRules.isComplete(host), [
-      host,
-    ]);
-    final canFetch =
-        !complete &&
-        ((host.expertProfileDocumentId ?? '').isNotEmpty ||
-            (host.userDocumentId ?? '').isNotEmpty);
-    final detail = useHostDetail(
-      context,
-      expertDocumentId: host.expertProfileDocumentId,
-      userDocumentId: host.userDocumentId,
-      handler: host.handler.isEmpty ? null : host.handler,
-      enabled: canFetch,
-    );
-    final profile = detail.data ?? host;
-    // A failed read keeps the summary on screen.
-    final waiting = canFetch && detail.data == null && !detail.isError;
+    // Summary cards (no rates / service areas) get the full profile: from
+    // the host index at once, else fetched behind section skeletons.
+    final detail = useHostSheetDetail(context, host);
+    final profile = detail.profile;
+    final waiting = detail.waiting;
+    final failed = detail.error;
 
     final isMe = useMemoized(() => HostProfileRules.isMe(profile, session), [
       profile,
       session,
     ]);
     final isCompany = HostProfileRules.isCompanyUser(session.user);
+    // Known expert id: reviews load in parallel with the profile.
+    final reviewsKey =
+        profile.expertProfileDocumentId ??
+        (waiting ? null : HostProfileRules.expertKey(profile));
     final reviews = useExpertReviews(
       context,
-      HostProfileRules.expertKey(profile),
-      enabled: !waiting,
+      reviewsKey,
+      enabled: reviewsKey != null,
     );
 
     final router = GoRouter.maybeOf(context);
@@ -248,6 +244,11 @@ class _ProfileView extends HookWidget {
         ),
         if (waiting)
           const ProfileBodySkeleton()
+        else if (failed != null)
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 24.ms),
+            child: CStateView.error(context, failed, onRetry: detail.retry),
+          )
         else ...[
           ProfileCallActions(
             host: profile,
@@ -260,7 +261,7 @@ class _ProfileView extends HookWidget {
           ProfileSpecializationCard(host: profile),
         ],
       ],
-      [profile, isMe, isCompany, waiting],
+      [profile, isMe, isCompany, waiting, failed],
     );
 
     final list = NotificationListener<ScrollUpdateNotification>(
@@ -277,7 +278,10 @@ class _ProfileView extends HookWidget {
             sliver: SliverList.list(children: sections),
           ),
           SliverToBoxAdapter(
-            child: ProfileReviews(query: reviews, waiting: waiting),
+            child: ProfileReviews(
+              query: reviews,
+              waiting: reviewsKey == null && waiting,
+            ),
           ),
           const SliverToBoxAdapter(child: _ListEnd()),
         ],

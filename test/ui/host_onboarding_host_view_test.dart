@@ -5,7 +5,7 @@ import 'package:vibelive/app/api/hosthub/profile_models.dart';
 import 'package:vibelive/app/component/infinite_scroll.dart';
 import 'package:vibelive/app/component/pressable.dart';
 import 'package:vibelive/app/hosthub/approved/host_status_section.dart';
-import 'package:vibelive/app/hosthub/edit/host_edit_screen.dart';
+import 'package:vibelive/app/hosthub/onboarding/helper/host_steps.dart';
 import 'package:vibelive/app/hosthub/onboarding/host_onboarding_screen.dart';
 import 'package:vibelive/core/i18n/i18n.dart';
 import 'package:vibelive/core/network/strapi.dart';
@@ -182,12 +182,14 @@ void main() {
     await finishHost(tester);
   });
 
-  testWidgets('Call Rates edit screen saves the rates patch', (tester) async {
+  testWidgets('Call Rates: the rates step saves only the rates', (
+    tester,
+  ) async {
     backend = await resetHost(expert: _host(active: true));
     phone(tester);
     await pumpRoutes(
       tester,
-      const HostEditScreen(section: HostEditSection.rates),
+      const HostOnboardingScreen(editStep: HostStep.rates),
     );
     expect(find.text('₹ 25'), findsOneWidget);
     expect(find.text('₹ 35'), findsOneWidget);
@@ -205,14 +207,14 @@ void main() {
     await finishHost(tester);
   });
 
-  testWidgets('My Schedule: vacation mode saves like RN (no slots)', (
+  testWidgets('My Schedule: the availability step saves vacation like RN', (
     tester,
   ) async {
     backend = await resetHost(expert: _host(active: true));
     phone(tester);
     await pumpRoutes(
       tester,
-      const HostEditScreen(section: HostEditSection.schedule),
+      const HostOnboardingScreen(editStep: HostStep.availability),
     );
     expectFlat(tester, 'My Schedule edit');
     expect(find.text('Vacation mode'), findsOneWidget);

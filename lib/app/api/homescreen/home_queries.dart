@@ -2,13 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:fquery/fquery.dart' show useInfiniteQuery;
-import 'package:fquery_core/fquery_core.dart'
-    show InfiniteQueryData, InfiniteQueryResult;
 
-import '../../../core/network/api_client.dart';
 import '../../../core/query/query_hooks.dart';
+import '../../../core/query/query_inflight.dart';
+import '../../../core/query/query_persist.dart';
 import '../listingflow/filter_models.dart';
+import '../listingflow/host_index.dart';
 import '../listingflow/listing_models.dart';
 import 'home_api.dart';
 import 'home_keys.dart';
@@ -64,15 +63,21 @@ class DiscoverFeed {
 }
 
 DiscoverFeed useDiscoverFeed(BuildContext context) {
-  final query = useInfiniteQuery<HostPage, ApiException, int>(
+  // Launch: last session's page 1 paints at once, then refreshes.
+  final hydrated = useMemoized(_hydrateFeed);
+  final query = useApiInfiniteQuery<HostPage>(
     HomeKeys.feed,
-    (page) => ApiClient.guard(() => HomeApi.fetchFeedPage(page)),
+    _fetchFeedPage,
     context: context,
-    initialPageParam: 1,
-    getNextPageParam: (last, _, lastPage, _) =>
-        last.hasMore ? lastPage + 1 : null,
+    hasMore: (last) => last.hasMore,
     staleDuration: StaleTime.short,
   );
+  useEffect(() {
+    if (hydrated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => query.refetch());
+    }
+    return null;
+  }, const []);
 
   final pages = query.data?.pages;
   final hosts = useMemoized(() => HostPage.merge(pages ?? const []), [pages]);
@@ -120,16 +125,80 @@ DiscoverFeed useDiscoverFeed(BuildContext context) {
 }
 
 /// Popular tab. Its own query, so a failure never blanks the main feed.
+/// On disk like the feed's first page.
 QueryResult<List<HostCard>, ApiException> usePopularHosts(
   BuildContext context, {
   bool enabled = true,
-}) => useApiQuery<List<HostCard>>(
+}) => usePersistedQuery<List<HostCard>>(
   HomeKeys.popular,
-  HomeApi.fetchPopularHosts,
+  _fetchPopular,
   context: context,
   enabled: enabled,
   staleDuration: StaleTime.short,
+  toJson: (hosts) => [for (final h in hosts) h.toJson()],
+  fromJson: (json) => [for (final row in json! as List) HostCard.fromJson(row)],
 );
+
+/// Startup prefetch: Discover's page 1 and Popular, so Home opens on them.
+void prefetchDiscover() {
+  final feed = queryCache.entry<FeedData>(HomeKeys.feed);
+  final updatedAt = feed?.dataUpdatedAt;
+  final feedFresh =
+      feed?.data != null &&
+      updatedAt != null &&
+      !feed!.isInvalidated &&
+      DateTime.now().difference(updatedAt) < StaleTime.short;
+  if (!feedFresh) {
+    // Same in-flight id as the hook's first page: a mounting grid joins it.
+    QueryInflight.run<HostPage>([
+      ...HomeKeys.feed,
+      '#page',
+    ], () => _fetchFeedPage(1)).then((page) {
+      if (queryCache.getQueryData<FeedData, ApiException>(HomeKeys.feed) ==
+          null) {
+        queryCache.setQueryData<FeedData, ApiException>(
+          HomeKeys.feed,
+          (_) => FeedData(pages: [page], pageParams: [1]),
+        );
+      }
+    }, onError: (Object _) {});
+  }
+  queryCache.prefetchQuery<List<HostCard>>(HomeKeys.popular, () async {
+    final hosts = await _fetchPopular();
+    QueryPersist.write(HomeKeys.popular, [for (final h in hosts) h.toJson()]);
+    return hosts;
+  });
+}
+
+/// Every feed page fills [HostIndex] (profiles open from it); page 1 is
+/// also kept on disk.
+Future<HostPage> _fetchFeedPage(int page) async {
+  final result = await HomeApi.fetchFeedPage(page);
+  HostIndex.seed(result.hosts);
+  if (page == 1) QueryPersist.write(HomeKeys.feed, result.toJson());
+  return result;
+}
+
+Future<List<HostCard>> _fetchPopular() async {
+  final hosts = await HomeApi.fetchPopularHosts();
+  HostIndex.seed(hosts);
+  return hosts;
+}
+
+/// Puts last session's page 1 into an empty cache; true when it did (the
+/// caller refetches it).
+bool _hydrateFeed() {
+  if (queryCache.getQueryData<FeedData, ApiException>(HomeKeys.feed) != null) {
+    return false;
+  }
+  final page = QueryPersist.read<HostPage>(HomeKeys.feed, HostPage.fromJson);
+  if (page == null) return false;
+  queryCache.setQueryData<FeedData, ApiException>(
+    HomeKeys.feed,
+    (_) => FeedData(pages: [page], pageParams: [1]),
+  );
+  return true;
+}
 
 /// What the grid shows for [tab] + [filter]. Filtering is client-side over
 /// a paginated feed, so while fewer than [minFilteredResults] loaded hosts

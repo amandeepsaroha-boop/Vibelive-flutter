@@ -83,9 +83,11 @@ class SearchScreenController {
     onChanged('');
   }
 
-  /// A hit is a summary; the profile needs the full host (expert-profile
-  /// documentId, then user documentId, then handler, as RN did). One at a
-  /// time; the row spins until the host is resolved.
+  /// A hit is a summary; the profile needs the full host. The hits' batched
+  /// card read usually has it already ([peekHost]): the profile opens in the
+  /// same frame. Otherwise it is looked up (expert-profile documentId, then
+  /// user documentId, then handler, as RN did), one at a time, with the row
+  /// spinning meanwhile.
   Future<void> open(
     SearchHost hit,
     Future<void> Function(HostCard host) show,
@@ -93,6 +95,12 @@ class SearchScreenController {
     final key = hitKey(hit);
     if (key == null || opening.value != null) return;
     FocusManager.instance.primaryFocus?.unfocus();
+    final known = peekHost(
+      expertDocumentId: hit.documentId,
+      userDocumentId: hit.userDocumentId,
+      handler: hit.handler,
+    );
+    if (known != null) return show(known);
     opening.value = key;
     final HostCard host;
     try {

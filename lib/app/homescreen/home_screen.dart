@@ -46,6 +46,11 @@ class HomeScreen extends HookWidget {
       Future<void> openPending() async {
         final id = links.takeOpenUser();
         if (id == null) return;
+        final known = peekHostLink(id);
+        if (known != null) {
+          await showHostProfile(context, known);
+          return;
+        }
         try {
           final host = await ensureHostByLink(id);
           if (context.mounted) await showHostProfile(context, host);

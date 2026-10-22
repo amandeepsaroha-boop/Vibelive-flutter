@@ -38,6 +38,29 @@ class HostPage {
     );
   }
 
+  /// Disk copy ([toJson]); hosts keep their raw rows.
+  factory HostPage.fromJson(Object? json) {
+    final m = json! as Map;
+    final page = J.integer(m['page']) ?? 1;
+    final rows = m['hosts']! as List;
+    return HostPage(
+      page: page,
+      hosts: [
+        for (var i = 0; i < rows.length; i++)
+          HostCard.fromJson(rows[i], index: (page - 1) * rows.length + i),
+      ],
+      hasMore: m['hasMore'] == true,
+      total: J.integer(m['total']),
+    );
+  }
+
+  JsonMap toJson() => {
+    'page': page,
+    'hasMore': hasMore,
+    'total': total,
+    'hosts': [for (final h in hosts) h.toJson()],
+  };
+
   final int page;
   final List<HostCard> hosts;
   final bool hasMore;

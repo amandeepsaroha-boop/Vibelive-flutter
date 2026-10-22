@@ -20,8 +20,10 @@ import 'helper/host_palette.dart';
 import 'helper/host_steps.dart';
 import 'helper/intro_image.dart';
 import 'helper/prefill.dart';
+import 'helper/section_save.dart';
 import 'helper/submit_plan.dart';
 import 'helper/topic_catalog.dart';
+import '../common/host_page.dart';
 import 'steps/availability_step.dart';
 import 'steps/basic_profile_step.dart';
 import 'steps/bio_step.dart';
@@ -42,13 +44,24 @@ import 'helper/submit_errors.dart';
 /// Nothing is created on the backend before "Submit for review": a host
 /// profile turns the account into a host everywhere in the app.
 class HostOnboardingScreen extends HookWidget {
-  const HostOnboardingScreen({super.key});
+  const HostOnboardingScreen({super.key, this.editStep});
+
+  /// An existing host from the Host Hub: open on this step, prefilled from
+  /// the saved profile (nothing saved to prefs), with "Save changes" for
+  /// that section next to Continue.
+  final HostStep? editStep;
 
   @override
   Widget build(BuildContext context) {
     final session = useMemoized(() => SessionStore.instance.value);
     final userKey = session.userDocumentId ?? '${session.userId ?? ''}';
-    final draft = useMemoized(() => HostDraftController.load(userKey));
+    final draft = useMemoized(
+      () => editStep == null
+          ? HostDraftController.load(userKey)
+          : (HostDraftController('edit', persist: false)
+              ..step.value = editStep!
+              ..started = true),
+    );
     useEffect(() => draft.dispose, [draft]);
     // Entry points precache it already; this covers deep links.
     useEffect(() {
@@ -58,7 +71,7 @@ class HostOnboardingScreen extends HookWidget {
       });
       return null;
     }, const []);
-    final me = _usePrefill(context, draft, session);
+    final (me, ready) = _usePrefill(context, draft, session);
 
     final submit = useSubmitHostOnboarding();
     final pricing = usePricingConfig(context).data ?? PricingConfig.empty;
@@ -107,7 +120,21 @@ class HostOnboardingScreen extends HookWidget {
       }
     }
 
+    final save = useHostSectionSave(
+      draft,
+      me: me,
+      rateFloors: () => (pricing.minimumVoiceRate, pricing.minimumVideoRate),
+    );
+
     final p = HostPalette.of(context);
+    if (editStep != null && !ready) {
+      return ThemedStatusBar(
+        child: Scaffold(
+          backgroundColor: p.bg,
+          body: const SafeArea(child: HostPageSkeleton()),
+        ),
+      );
+    }
     return ThemedStatusBar(
       darkBackground: onIntro ? true : null,
       child: Scaffold(
@@ -128,6 +155,7 @@ class HostOnboardingScreen extends HookWidget {
                   key: const ValueKey('flow'),
                   draft: draft,
                   submit: runSubmit,
+                  save: editStep == null ? null : save,
                   exit: exit,
                   explore: () => context.go('${AppRoutes.home}?tab=discover'),
                   rateFloors: () =>
@@ -140,8 +168,9 @@ class HostOnboardingScreen extends HookWidget {
 }
 
 /// Prefill from Personal Info (and, for a host resubmitting, the saved host
-/// profile and topics) once the reads are in. Returns "my profile".
-UserWithExpert? _usePrefill(
+/// profile and topics) once the reads are in. Returns "my profile" and
+/// whether the prefill (topics included, for a host) is done.
+(UserWithExpert?, bool) _usePrefill(
   BuildContext context,
   HostDraftController draft,
   SessionState session,
@@ -192,7 +221,9 @@ UserWithExpert? _usePrefill(
     draft.flush();
     return null;
   }, [expertise.data, form.data]);
-  return me.data;
+  final topicsReady =
+      !isHost || draft.topicsSeeded || expertise.isError || form.isError;
+  return (me.data, draft.seeded && topicsReady);
 }
 
 class _Flow extends HookWidget {
@@ -203,10 +234,14 @@ class _Flow extends HookWidget {
     required this.exit,
     required this.explore,
     required this.rateFloors,
+    this.save,
   });
 
   final HostDraftController draft;
   final Future<HostStep?> Function() submit;
+
+  /// Edit mode: saves the current step's section; null in the flow.
+  final Future<bool> Function(HostStep step)? save;
   final VoidCallback exit;
   final VoidCallback explore;
   final (double, double) Function() rateFloors;
@@ -224,9 +259,19 @@ class _Flow extends HookWidget {
         exit: exit,
         explore: explore,
         rateFloors: rateFloors,
+        editing: save != null,
       ),
       [pages],
     );
+
+    Future<void> saveSection() async {
+      final step = draft.step.value;
+      if (flow.busy.value || save == null) return;
+      flow.busy.value = true;
+      final ok = await save!(step).whenComplete(() => flow.busy.value = false);
+      if (ok) exit();
+    }
+
     useEffect(() => flow.dispose, [flow]);
 
     final steps = <Widget>[
@@ -259,6 +304,7 @@ class _Flow extends HookWidget {
               notice: draft.notice,
               agreed: draft.agreed,
               onPressed: flow.next,
+              onSave: save == null ? null : saveSection,
             ),
           ],
         ),

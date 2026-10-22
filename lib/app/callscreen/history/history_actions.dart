@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/session/session_store.dart';
 import '../../api/listingflow/listing_models.dart';
 import '../../api/listingflow/listing_queries.dart';
 import '../../component/c_alert.dart';
@@ -19,6 +20,19 @@ class HistoryActions {
   /// One profile lookup at a time (RN `openingProfileId`).
   bool _opening = false;
 
+  /// Rows warmed into the host index (the first screenful or so).
+  static const _warmRows = 20;
+
+  /// User documentIds of the hosts on the first rows (never the viewer).
+  static List<String> hostIds(List<HistoryEntry> entries) {
+    final me = SessionStore.instance.value.userDocumentId;
+    return [
+      for (final e in entries.take(_warmRows))
+        if (e.isExpert && e.item.counterpart?.documentId != me)
+          ?e.item.counterpart?.documentId,
+    ];
+  }
+
   /// Any host (approved or pending; the viewer's own through the owner
   /// lookup) opens; a client row is inert (an expert viewer's client rows
   /// aren't tappable). A host that can't be found says
@@ -28,6 +42,19 @@ class HistoryActions {
     final party = entry.item.counterpart;
     if (!entry.isExpert || party == null || _opening) return;
     if (party.documentId == null && party.id == null) return;
+    // Seen this session (Discover, search, the warm-up of these rows):
+    // opens in the same frame.
+    final me = SessionStore.instance.value;
+    final own =
+        party.documentId == me.userDocumentId ||
+        (party.id != null && party.id == me.userId);
+    final known = own
+        ? null
+        : peekHost(
+            userDocumentId: party.documentId,
+            userId: party.id?.toString(),
+          );
+    if (known != null) return showHostProfile(context, known);
     _opening = true;
     final HostCard host;
     try {

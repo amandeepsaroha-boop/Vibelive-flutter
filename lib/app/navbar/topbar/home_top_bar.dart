@@ -108,7 +108,10 @@ class _WalletChip extends HookWidget {
 
     return Pressable(
       activeOpacity: 0.85,
-      onPressed: () => context.push(AppRoutes.wallet),
+      onPressed: () {
+        prefetchWalletTransactions();
+        context.push(AppRoutes.wallet);
+      },
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

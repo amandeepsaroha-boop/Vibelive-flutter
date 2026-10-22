@@ -96,8 +96,9 @@ class TransactionPager extends ValueNotifier<TransactionListState> {
   static List<WalletTransaction>? _defaultCached(TransactionFilter filter) =>
       cachedWalletTransactions(filter: filter);
 
-  /// Shows [filter]: its cached page 1 at once (else a skeleton), then a
-  /// fresh page 1.
+  /// Shows [filter]: its cached page 1 at once (else a skeleton), then
+  /// page 1 again unless the cached one is still fresh (a tab switched back
+  /// to, or a page prefetched on the way here, costs no request).
   Future<void> select(TransactionFilter filter) {
     final seed = _cached(filter);
     value = TransactionListState(
@@ -107,15 +108,17 @@ class TransactionPager extends ValueNotifier<TransactionListState> {
       hasMore: seed == null || seed.length >= pageSize,
       loading: seed == null,
     );
-    return refresh();
+    return _reload(fresh: false);
   }
 
   /// Fresh page 1 of the current tab (pull-to-refresh, after a payment).
-  Future<void> refresh() async {
+  Future<void> refresh() => _reload(fresh: true);
+
+  Future<void> _reload({required bool fresh}) async {
     final gen = ++_generation;
     final filter = value.filter;
     try {
-      final rows = await _load(filter, 1, fresh: true);
+      final rows = await _load(filter, 1, fresh: fresh);
       if (!_current(gen)) return;
       value = TransactionListState(
         filter: filter,

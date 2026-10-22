@@ -16,6 +16,7 @@ class HostFlowController {
     required this.exit,
     required this.explore,
     required this.rateFloors,
+    this.editing = false,
   });
 
   final HostDraftController draft;
@@ -33,6 +34,10 @@ class HostFlowController {
 
   /// Pricing floors for the rates check: `(voice, video)`.
   final (double, double) Function() rateFloors;
+
+  /// A host editing from the Host Hub: Back before the first form step
+  /// leaves instead of showing the intro.
+  final bool editing;
 
   /// Continue shows a spinner and ignores taps while true.
   final busy = ValueNotifier(false);
@@ -77,7 +82,9 @@ class HostFlowController {
   void back() {
     if (busy.value) return;
     final step = draft.step.value;
-    if (step == HostStep.intro || step == HostStep.submitted) {
+    if (step == HostStep.intro ||
+        step == HostStep.submitted ||
+        (editing && step == HostStep.basic && returnTo == null)) {
       exit();
       return;
     }

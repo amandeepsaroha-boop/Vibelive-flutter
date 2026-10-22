@@ -7,6 +7,7 @@ import '../../../component/c_text.dart';
 import '../../../component/pressable.dart';
 import '../helper/host_palette.dart';
 import '../helper/host_steps.dart';
+import '../helper/section_save.dart';
 import '../helper/validation.dart';
 
 /// The design's sentence-case gradient button ("Continue →"). `CButton`
@@ -95,6 +96,7 @@ class HostContinueBar extends StatelessWidget {
     required this.notice,
     required this.onPressed,
     this.agreed,
+    this.onSave,
   });
 
   final ValueListenable<HostStep> step;
@@ -107,6 +109,9 @@ class HostContinueBar extends StatelessWidget {
 
   /// The guidelines agreement: Submit stays disabled until it is ticked.
   final ValueListenable<bool>? agreed;
+
+  /// Edit mode (Host Hub): "Save changes" for the step's section.
+  final VoidCallback? onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -151,12 +156,36 @@ class HostContinueBar extends StatelessWidget {
                   final blocked =
                       step.value == HostStep.guidelines &&
                       agreed?.value == false;
-                  return HostButton(
+                  final button = HostButton(
                     key: const ValueKey('hostflow-continue'),
                     label: step.value.continueLabel,
                     arrow: step.value.continueArrow,
                     loading: busy.value,
                     onPressed: blocked ? null : onPressed,
+                  );
+                  final canSave =
+                      onSave != null && hostSavableSteps.contains(step.value);
+                  if (!canSave) return button;
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      button,
+                      Pressable(
+                        key: const ValueKey('hostflow-save-section'),
+                        onPressed: busy.value ? null : onSave,
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 12.ms),
+                          child: CText(
+                            'hostflow:edit.save',
+                            size: 15,
+                            weight: FontWeight.w700,
+                            color: HostPalette.of(context).accent,
+                            align: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),

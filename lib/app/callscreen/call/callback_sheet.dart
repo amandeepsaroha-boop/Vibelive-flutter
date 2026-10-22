@@ -128,11 +128,17 @@ class _CallbackSheet extends HookWidget {
         // The full profile (callback lookup's populate is prices only):
         // user documentId, else expert-profile documentId (`expertDocId`),
         // else the host's numeric user id (`expertId`).
-        final host = await ensureProfile(
-          userDocumentId: data.expertUserDocId,
-          expertDocumentId: data.expertDocId,
-          userId: data.expertId,
-        );
+        final host =
+            peekHost(
+              userDocumentId: data.expertUserDocId,
+              expertDocumentId: data.expertDocId,
+              userId: data.expertId,
+            ) ??
+            await ensureProfile(
+              userDocumentId: data.expertUserDocId,
+              expertDocumentId: data.expertDocId,
+              userId: data.expertId,
+            );
         if (host.userDocumentId == null &&
             host.documentId == null &&
             host.receiverId == null) {

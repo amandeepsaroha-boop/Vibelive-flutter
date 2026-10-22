@@ -301,6 +301,17 @@ class HostCard implements HostTraits {
   @override
   String get specialization => categories.isEmpty ? '' : categories.first;
 
+  /// Read with the full populate (feed, popular, search, profile lookups):
+  /// everything the profile sheet shows. A summary (call log, favourites)
+  /// lacks the rates and service areas.
+  bool get hasFullProfile {
+    final expert = raw.containsKey('user')
+        ? raw
+        : (Strapi.map(raw['expert']) ?? const <String, dynamic>{});
+    return expert.containsKey('rates') &&
+        expert.containsKey('service_area_selections');
+  }
+
   /// `4.0`-style label, as RN rendered `rating`.
   String get ratingLabel => rating.toStringAsFixed(1);
 
@@ -404,6 +415,14 @@ class HostBadges {
   final bool instaVerified;
   final bool facebookVerified;
   final bool snapchatVerified;
+
+  /// A full card's flags (same gate).
+  static HostBadges of(HostCard h) => HostBadges(
+    verified: h.verified,
+    instaVerified: h.instaVerified,
+    facebookVerified: h.facebookVerified,
+    snapchatVerified: h.snapchatVerified,
+  );
 }
 
 /// Interests-form question whose options are Discover's topics.

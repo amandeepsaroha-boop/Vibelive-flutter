@@ -86,7 +86,7 @@ void main() {
     expect(pager.value.rows, hasLength(14));
     expect(pager.value.hasMore, isFalse);
     await pager.loadMore(); // nothing more to load
-    expect(calls, ['all:1:true', 'all:2:false']);
+    expect(calls, ['all:1:false', 'all:2:false']); // select reuses fresh cache
 
     // A tab switch while page 1 of the old tab is still loading.
     final old = pager.refresh();

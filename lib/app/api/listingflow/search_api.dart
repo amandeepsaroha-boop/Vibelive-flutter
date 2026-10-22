@@ -1,5 +1,5 @@
 import '../../../core/network/api_client.dart';
-import '../../../core/network/strapi.dart';
+import 'listing_api.dart';
 import 'listing_models.dart';
 import 'search_models.dart';
 
@@ -19,25 +19,13 @@ abstract final class SearchApi {
     return SearchResults.fromResponse(body);
   }
 
-  /// Verification flags of [expertDocumentIds] in ONE batched read (never
-  /// one request per row), keyed by expert-profile documentId.
-  static Future<Map<String, HostBadges>> fetchBadges(
+  /// The hits' full cards in ONE batched read (never one request per row),
+  /// keyed by expert-profile documentId: their verification badges, and a
+  /// profile that opens at once when a hit is tapped.
+  static Future<Map<String, HostCard>> fetchHosts(
     List<String> expertDocumentIds,
   ) async {
-    if (expertDocumentIds.isEmpty) return const {};
-    final body = await ApiClient.get(
-      '/expert-profiles',
-      query: {
-        for (var i = 0; i < expertDocumentIds.length; i++)
-          'filters[documentId][\$in][$i]': expertDocumentIds[i],
-        'populate[expert_verifications]': 'true',
-        'fields[0]': 'documentId',
-        'pagination[pageSize]': expertDocumentIds.length,
-      },
-    );
-    return {
-      for (final row in Strapi.list(body))
-        J.str(row['documentId']) ?? '': HostBadges.fromRow(row),
-    }..remove('');
+    final hosts = await ListingApi.fetchCards(expertDocumentIds);
+    return {for (final host in hosts) ?host.expertProfileDocumentId: host};
   }
 }

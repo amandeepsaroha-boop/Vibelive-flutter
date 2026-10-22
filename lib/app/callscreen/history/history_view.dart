@@ -11,6 +11,7 @@ import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
 import '../../api/callscreen/call_models.dart';
 import '../../api/callscreen/call_queries.dart';
+import '../../api/listingflow/listing_queries.dart';
 import '../../api/splashscreen/splash_queries.dart';
 import '../../component/c_state_view.dart';
 import '../../component/c_text.dart';
@@ -48,6 +49,9 @@ class HistoryView extends HookWidget {
       [feed.items, pingWindow, locale],
     );
     final actions = useMemoized(HistoryActions.new);
+    // The hosts of the first rows in one batched read: tapping one opens
+    // its profile at once.
+    useWarmHostIndex(context, userDocumentIds: HistoryActions.hostIds(entries));
 
     // Back on this tab: calls made since the last visit appear without a
     // pull (RN useFocusEffect). The first build is the initial load; a failed

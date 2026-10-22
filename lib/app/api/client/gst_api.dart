@@ -11,6 +11,7 @@ abstract final class GstApi {
         await ProfileApi.fetchUserWithMenuRelations(userDocumentId),
       );
 
+
   /// Uploads the picked files, then creates the record — or updates it when
   /// [GstDetailsInput.gstDetailId] is set (a second POST is a 400 duplicate).
   /// Returns the saved row (its documentId links it to a verification).
