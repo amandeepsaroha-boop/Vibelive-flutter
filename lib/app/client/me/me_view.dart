@@ -78,16 +78,11 @@ class MeView extends HookWidget {
       slivers: [
         SliverToBoxAdapter(child: MeProfileCard(data: data)),
         if (data.isExpert) ...[
-          // Review status, or the first steps after approval.
+          // Moderation news and the review status until approved.
           SliverToBoxAdapter(
             child: HostStatusSection(
               host: data.host!,
               open: (route) => MeActions.open(context, route),
-              onShowDashboard: () => section.value = MeSection.dashboard,
-              onShowSettings: () => section.value = MeSection.settings,
-              profileLink: data.profileLink,
-              name: data.name,
-              email: data.profile.email,
             ),
           ),
           SliverToBoxAdapter(child: MeAvailabilityCard(data: data)),

@@ -4,6 +4,8 @@ import 'package:flutter/widgets.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
+import 'web_geocoder.dart';
+
 /// Why the device could not tell where it is (or [notFound]: it could, but
 /// the place is not one the app offers).
 enum LocationFailure {
@@ -83,29 +85,46 @@ abstract final class CurrentPlace {
       throw const LocationException(LocationFailure.unavailable);
     }
 
-    final List<Placemark> marks;
+    final lat = position.latitude;
+    final lng = position.longitude;
+    DetectedPlace? local;
     try {
       // English names: the backend's states/districts are English, whatever
       // the app language is.
-      marks = await Geocoding().placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
+      final marks = await Geocoding().placemarkFromCoordinates(
+        lat,
+        lng,
         locale: const Locale('en', 'IN'),
       );
+      final mark = marks.isEmpty ? null : marks.first;
+      if (mark != null) {
+        local = DetectedPlace(
+          state: _clean(mark.administrativeArea),
+          district: _clean(mark.subAdministrativeArea),
+          city: _clean(mark.locality),
+          countryCode: _clean(mark.isoCountryCode),
+        );
+      }
     } catch (_) {
-      // No geocoder on the device, or no network for it.
+      // No geocoder on the device (or no network for it): the web one below.
+    }
+    if (local?.state != null && local?.district != null) return local!;
+
+    // Free web geocoders: the whole place when the device had none, else
+    // just the district it was missing.
+    final web = await WebGeocoder.lookup(lat, lng);
+    final place = local?.state == null
+        ? web
+        : DetectedPlace(
+            state: local!.state,
+            district: local.district ?? web?.district,
+            city: local.city ?? web?.city,
+            countryCode: local.countryCode ?? web?.countryCode,
+          );
+    if (place?.state == null) {
       throw const LocationException(LocationFailure.unavailable);
     }
-    final mark = marks.isEmpty ? null : marks.first;
-    if (mark == null || (_clean(mark.administrativeArea) == null)) {
-      throw const LocationException(LocationFailure.unavailable);
-    }
-    return DetectedPlace(
-      state: _clean(mark.administrativeArea),
-      district: _clean(mark.subAdministrativeArea),
-      city: _clean(mark.locality),
-      countryCode: _clean(mark.isoCountryCode),
-    );
+    return place!;
   }
 
   static String? _clean(String? s) {

@@ -14,7 +14,9 @@
     "professional": "Please complete your professional profile: {{fields}}",
     "rates": "Please set your call rates to start receiving calls",
     "approval": "Complete your last step - Submit your profile for approval to go live",
-    "availability": "Almost there - set when you are available so clients can call you"
+    "availability": "Almost there - set when you are available so clients can call you",
+    "moderation_text": "Profile changes awaiting review",
+    "more": " (+{{count}} more)"
   },
   "milestones": {
     "first_call": {

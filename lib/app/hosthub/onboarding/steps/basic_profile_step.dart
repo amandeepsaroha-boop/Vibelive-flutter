@@ -137,6 +137,7 @@ class _Location extends HookWidget {
       locating: locating,
       alive: () => context.mounted,
       silent: silent,
+      stillEmpty: () => state.value == null,
       apply: (fill) {
         state.value = fill.state;
         district.value = fill.district;

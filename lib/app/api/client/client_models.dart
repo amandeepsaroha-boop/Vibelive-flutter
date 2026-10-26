@@ -63,6 +63,12 @@ class UserWithExpert {
     return a is Map ? Map<String, dynamic>.from(a) : <String, dynamic>{};
   }
 
+  /// A state / district is saved (relation, or the `address_JSON` copy).
+  bool get hasSavedLocation =>
+      state != null ||
+      district != null ||
+      (J.str(addressJson['state']) ?? '').trim().isNotEmpty;
+
   bool get isExpert =>
       expert != null &&
       (expert!['id'] != null || expert!['documentId'] != null);

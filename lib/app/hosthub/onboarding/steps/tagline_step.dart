@@ -4,7 +4,7 @@ import '../../../../core/utils/scale.dart';
 import '../helper/draft_controller.dart';
 import '../helper/suggestions.dart';
 import '../helper/validation.dart';
-import '../widgets/host_field.dart';
+import '../widgets/enhance_field.dart';
 import '../widgets/prompt_suggestions.dart';
 import '../widgets/step_body.dart';
 
@@ -18,9 +18,10 @@ class TaglineStep extends StatelessWidget {
     title: 'hostflow:tagline.title',
     subtitle: 'hostflow:tagline.subtitle',
     children: [
-      HostField(
+      HostEnhanceField(
         controller: draft.tagline,
         hint: 'hostflow:tagline.hint',
+        kind: 'tagline',
         maxLength: HostValidation.taglineMax,
         minLines: 2,
         maxLines: 3,

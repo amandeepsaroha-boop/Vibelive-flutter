@@ -44,18 +44,21 @@ abstract final class LocationAutofill {
   /// it fails: the pickers are still there. A tap on "Use current location"
   /// explains the failure and, where the fix is in Settings, opens it.
   /// [alive] is checked after the wait: a screen left meanwhile has disposed
-  /// the notifiers.
+  /// the notifiers. [stillEmpty] (silent runs) is checked too: a saved
+  /// location that loaded meanwhile is never replaced.
   static Future<void> run({
     required ValueNotifier<bool> locating,
     required void Function(LocationFill fill) apply,
     required bool Function() alive,
     bool silent = false,
+    bool Function()? stillEmpty,
   }) async {
     if (locating.value) return;
     locating.value = true;
     try {
       final fill = await detect();
       if (!alive()) return;
+      if (silent && stillEmpty != null && !stillEmpty()) return;
       apply(fill);
       final district = fill.district;
       if (district == null) {

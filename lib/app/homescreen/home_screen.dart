@@ -18,6 +18,7 @@ import '../navbar/bottombar/bottom_navbar.dart';
 import '../navbar/topbar/home_top_bar.dart';
 import 'discover/discover_view.dart';
 import 'helper/home_controller.dart';
+import 'helper/own_host_refresh.dart';
 
 /// Signed-in shell: Discover · History · Me with the floating navbar.
 /// Tabs are built on first visit and kept alive (no refetch, no rebuild on
@@ -38,6 +39,8 @@ class HomeScreen extends HookWidget {
       home.select(initialTab); // `/home?tab=` changed while mounted
       return null;
     }, [initialTab]);
+    // Hosts: fresh review state for the top bar.
+    useOwnHostRefresh(home);
 
     // Parked links open now; hosts to open (links, referrer, campaigns)
     // arrive on DeepLinks.openUser.
@@ -91,7 +94,8 @@ class HomeScreen extends HookWidget {
                       const ReturnToCallBar(),
                       if (tab == HomeTab.discover) DiscoverTopBar(home: home),
                       if (tab == HomeTab.me) MeTopBar(home: home),
-                      if (tab != HomeTab.history) const TopWarnBar(),
+                      if (tab != HomeTab.history)
+                        TopWarnBar(moderation: tab == HomeTab.discover),
                       Expanded(child: body!),
                     ],
                   ),

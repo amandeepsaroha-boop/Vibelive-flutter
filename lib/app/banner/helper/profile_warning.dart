@@ -1,18 +1,32 @@
 import '../../../core/network/strapi.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/session/session_store.dart';
+import '../../api/hosthub/profile_models.dart';
+import '../../hosthub/common/host_page.dart';
+import '../../hosthub/common/moderation_banners.dart';
 
 enum ProfileWarningType {
+  /// A reviewer turned something down (outranks everything).
+  moderationRejected,
   personal,
   professional,
   rates,
   approval,
   availability,
+
+  /// Something is with a reviewer (after the completion steps).
+  moderationPending,
 }
 
 /// What the user still has to do before they can call / go live.
 class ProfileWarning {
-  const ProfileWarning(this.type, this.route, {this.missing = const []});
+  const ProfileWarning(
+    this.type,
+    this.route, {
+    this.missing = const [],
+    this.notice,
+    this.more = 0,
+  });
 
   final ProfileWarningType type;
   final String route;
@@ -20,10 +34,56 @@ class ProfileWarning {
   /// i18n keys of missing fields (`banner:fields.*`).
   final List<String> missing;
 
+  /// The review notice behind a moderation warning.
+  final HostModerationNotice? notice;
+
+  /// Other review notices besides [notice] (" (+N more)").
+  final int more;
+
+  bool get isModeration =>
+      type == ProfileWarningType.moderationRejected ||
+      type == ProfileWarningType.moderationPending;
+
   /// Port of RN `TopWarnBar` rules, in the same order. Pure: easy to test.
+  /// With [moderation] (Discover) the host's review state joins in, as in
+  /// RN: a rejection outranks everything, "awaiting review" comes after the
+  /// completion steps. Both apply to a live host too (edits are reviewed).
+  static ProfileWarning? from(SessionState s, {bool moderation = false}) {
+    final completion = _completion(s);
+    if (!moderation) return completion;
+    final host = s.isExpert ? HostProfile.from(s.expert) : null;
+    final notices = host == null
+        ? const <HostModerationNotice>[]
+        : hostModerationNotices(host);
+    if (notices.isEmpty) return completion;
+    final more = notices.length - 1;
+    for (final n in notices) {
+      if (n.tone == HostTone.danger) {
+        return ProfileWarning(
+          ProfileWarningType.moderationRejected,
+          AppRoutes.professionalDetails,
+          notice: n,
+          more: more,
+        );
+      }
+    }
+    if (completion != null) return completion;
+    for (final n in notices) {
+      if (n.tone == HostTone.warning) {
+        return ProfileWarning(
+          ProfileWarningType.moderationPending,
+          AppRoutes.professionalDetails,
+          notice: n,
+          more: more,
+        );
+      }
+    }
+    return null;
+  }
+
   /// No `isLive` shortcut: that field does not exist on expert-profile and
   /// nothing ever wrote it (RN removed it too).
-  static ProfileWarning? from(SessionState s) {
+  static ProfileWarning? _completion(SessionState s) {
     final user = s.user;
     if (user == null) return null;
     final expert = Strapi.map(s.expert);

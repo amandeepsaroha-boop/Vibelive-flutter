@@ -59,21 +59,25 @@ class PersonalInfoScreen extends HookWidget {
 
     // No saved location yet: fill state / district from where the device is,
     // once per visit. A saved address is never replaced automatically; the
-    // "Use current location" link does that on request.
+    // "Use current location" link does that on request. Waits for the
+    // server's copy: the cached one can predate a saved location.
     final autoLocated = useRef(false);
+    final fetching = profileQuery.isFetching;
     useEffect(() {
-      if (profile == null || autoLocated.value) return null;
+      if (profile == null || fetching || autoLocated.value) return null;
       autoLocated.value = true;
-      if (form.state.value == null && form.district.value == null) {
+      bool empty() => form.state.value == null && form.district.value == null;
+      if (!profile.hasSavedLocation && empty()) {
         LocationAutofill.run(
           locating: form.locating,
           apply: form.applyLocation,
           alive: () => context.mounted,
           silent: true,
+          stillEmpty: empty,
         );
       }
       return null;
-    }, [profile]);
+    }, [profile, fetching]);
 
     void useCurrentLocation() => LocationAutofill.run(
       locating: form.locating,

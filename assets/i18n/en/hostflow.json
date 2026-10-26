@@ -73,6 +73,12 @@
     "subtitle": "Tell people what they can talk to you about. Keep it natural and genuine.",
     "hint": "Share what you love to talk about and how you make people feel heard."
   },
+  "enhance": {
+    "button": "Enhance with AI",
+    "busy": "Enhancing…",
+    "undo": "Undo",
+    "failed": "Couldn't enhance your text. Please try again."
+  },
   "suggest": {
     "header": "Based on your interests",
     "use": "Use",

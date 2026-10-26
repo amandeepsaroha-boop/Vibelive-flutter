@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vibelive/app/api/hosthub/profile_models.dart';
 import 'package:vibelive/app/component/infinite_scroll.dart';
@@ -51,11 +50,6 @@ class _Section extends StatelessWidget {
         child: HostStatusSection(
           host: HostProfile.from(session.expert)!,
           open: (route) async => opened.add(route),
-          onShowDashboard: () => sections.add('dashboard'),
-          onShowSettings: () => sections.add('settings'),
-          profileLink: 'https://vibelive.angrymamba.com/aanyatalks',
-          name: 'Aanya Sharma',
-          email: 'aanya@b.co',
         ),
       ),
     ),
@@ -67,85 +61,20 @@ void main() {
 
   setUpAll(setUpHostHarness);
 
-  testWidgets('approved host: first steps, go online, share, stats, menu', (
+  testWidgets('an approved host, online or not, gets no extra panel', (
     tester,
   ) async {
     backend = await resetHost(expert: _host());
-    backend.stats = {
-      'total_earnings': 2450,
-      'total_incoming_calls': 18,
-      'average_rating': 4.8,
-    };
-    final opened = <String>[];
-    final sections = <String>[];
     phone(tester);
-    await pumpRoutes(tester, _Section(opened: opened, sections: sections));
+    await pumpRoutes(tester, const _Section(opened: [], sections: []));
     await pumpFor(tester, 400);
-
-    expect(find.text("You're approved! 🎉"), findsOneWidget);
-    expect(find.text('Go online'), findsOneWidget);
-    expectFlat(tester, 'after-approval panel');
+    expect(find.text("You're approved! 🎉"), findsNothing);
+    expect(find.text('Go online'), findsNothing);
     expect(
       find.text('Share your profile with friends and followers'),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('vibelive.angrymamba.com/aanyatalks'), findsOneWidget);
-    expect(find.text('₹2,450'), findsOneWidget);
-    expect(find.text('18'), findsOneWidget);
-    expect(find.text('4.8'), findsOneWidget);
-    for (final row in [
-      'My Schedule',
-      'Call Rates',
-      'Analytics',
-      'Profile',
-      'Settings',
-    ]) {
-      expect(find.text(row), findsOneWidget);
-    }
-
-    // Copy link.
-    String? copied;
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copied = (call.arguments as Map)['text'] as String?;
-        }
-        return null;
-      },
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      ),
-    );
-    await tapVisible(tester, find.text('Copy link'));
-    await pumpFor(tester, 200);
-    expect(copied, 'https://vibelive.angrymamba.com/aanyatalks');
-    expect(find.text('Link copied'), findsOneWidget);
-    await pumpFor(tester, 4500); // the toast leaves
-
-    // Go online = RN "Go live": isActive + the admin notice.
-    await tapVisible(tester, find.byKey(const ValueKey('host-go-online')));
-    await pumpFor(tester, 800);
-    final put = backend.sent('PUT', '/expert-profiles/exp1').single;
-    expect(put.data, {
-      'data': {'isActive': true},
-    });
-    expect(
-      backend.sent('POST', '/notify-admin-expert-onboarded'),
-      hasLength(1),
-    );
-    expect(SessionStore.instance.value.expert?['isActive'], isTrue);
-    expect(find.text("You're online 🎉"), findsOneWidget); // stays for now
-
-    await tapVisible(tester, find.text('My Schedule'));
-    await tapVisible(tester, find.text('Call Rates'));
-    await tapVisible(tester, find.text('Analytics'));
-    await tapVisible(tester, find.text('Settings'));
-    expect(opened, [AppRoutes.hostSchedule, AppRoutes.hostRates]);
-    expect(sections, ['dashboard', 'settings']);
+    expect(find.text('Profile under review'), findsNothing);
     await finishHost(tester);
   });
 

@@ -4,7 +4,7 @@ import '../../../../core/utils/scale.dart';
 import '../helper/draft_controller.dart';
 import '../helper/suggestions.dart';
 import '../helper/validation.dart';
-import '../widgets/host_field.dart';
+import '../widgets/enhance_field.dart';
 import '../widgets/prompt_suggestions.dart';
 import '../widgets/step_body.dart';
 
@@ -18,9 +18,10 @@ class BioStep extends StatelessWidget {
     title: 'hostflow:bio.title',
     subtitle: 'hostflow:bio.subtitle',
     children: [
-      HostField(
+      HostEnhanceField(
         controller: draft.bio,
         hint: 'hostflow:bio.hint',
+        kind: 'bio',
         maxLength: HostValidation.bioMax,
         minLines: 5,
         maxLines: 8,

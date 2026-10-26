@@ -26,6 +26,7 @@ class HostField extends StatefulWidget {
     this.autofillHints,
     this.fieldKey,
     this.readOnly = false,
+    this.counterLeading,
   });
 
   final TextEditingController controller;
@@ -47,6 +48,9 @@ class HostField extends StatefulWidget {
 
   /// Text can't change (e.g. while it is being enhanced).
   final bool readOnly;
+
+  /// Sits on the counter's row, before "n/max" (e.g. "Enhance with AI").
+  final Widget? counterLeading;
 
   @override
   State<HostField> createState() => _HostFieldState();
@@ -136,20 +140,33 @@ class _HostFieldState extends State<HostField> {
           ),
           if (widget.maxLength != null)
             Padding(
-              padding: EdgeInsets.only(top: 6.ms),
-              child: ValueListenableBuilder<TextEditingValue>(
-                valueListenable: widget.controller,
-                builder: (_, v, _) => CText(
-                  'hostflow:counter',
-                  variables: {
-                    'count': v.text.characters.length,
-                    'max': widget.maxLength,
-                  },
-                  size: 13.5,
-                  weight: FontWeight.w500,
-                  color: p.muted,
-                  align: TextAlign.right,
-                ),
+              padding: EdgeInsets.only(
+                top: widget.counterLeading == null ? 6.ms : 8.ms,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: widget.counterLeading ?? const SizedBox.shrink(),
+                    ),
+                  ),
+                  SizedBox(width: 8.ms),
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: widget.controller,
+                    builder: (_, v, _) => CText(
+                      'hostflow:counter',
+                      variables: {
+                        'count': v.text.characters.length,
+                        'max': widget.maxLength,
+                      },
+                      size: 13.5,
+                      weight: FontWeight.w500,
+                      color: p.muted,
+                      align: TextAlign.right,
+                    ),
+                  ),
+                ],
               ),
             ),
         ],
