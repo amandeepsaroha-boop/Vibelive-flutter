@@ -10,6 +10,7 @@ import 'app/callscreen/call/call_overlay_host.dart';
 import 'app/callscreen/call_flow.dart';
 import 'app/callscreen/helper/push/push_bootstrap.dart';
 import 'app/splashscreen/splash_screen.dart';
+import 'app/update/update_notice.dart';
 import 'core/app_scope.dart';
 import 'core/error/app_error_handler.dart';
 import 'core/i18n/i18n.dart';
@@ -96,7 +97,12 @@ class VibeLiveApp extends StatelessWidget {
             ],
             builder: (context, child) {
               Scale.update(MediaQuery.sizeOf(context));
-              return CallOverlayHost(child: child ?? const SizedBox.shrink());
+              // The update notice sits under the call overlay: never over a call.
+              return CallOverlayHost(
+                child: UpdateNoticeHost(
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              );
             },
           ),
         ),

@@ -7,6 +7,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:vibelive/app/component/app_logo.dart';
 import 'package:vibelive/app/splashscreen/onboarding_view.dart';
+import 'package:vibelive/app/splashscreen/splash_motion.dart';
 import 'package:vibelive/app/splashscreen/splash_screen.dart';
 import 'package:vibelive/core/i18n/i18n.dart';
 import 'package:vibelive/core/network/api_client.dart';
@@ -74,12 +75,12 @@ void main() {
     queryCache.clear();
   });
 
-  testWidgets('splash shows the logo and load bar, then onboarding', (
+  testWidgets('splash shows the animated logo, then onboarding', (
     tester,
   ) async {
     await _pumpApp(tester);
-    expect(find.byType(AppLogo), findsOneWidget);
-    expect(find.text('ESTABLISHING SYNC'), findsOneWidget);
+    expect(find.byType(AppLogo), findsNWidgets(2)); // the two halves
+    expect(find.byType(SplashLogo), findsOneWidget);
     expect(find.byType(OnboardingView), findsNothing);
 
     await _wait(tester, 2500 + 900);
@@ -110,7 +111,7 @@ void main() {
 
   testWidgets('Hindi translations and namespaces resolve', (tester) async {
     await _pumpApp(tester, locale: const Locale('hi'));
-    final context = tester.element(find.byType(AppLogo));
+    final context = tester.element(find.byType(AppLogo).first);
     expect(context.t('actions.ok'), 'ठीक है');
     expect(context.t('common:actions.cancel'), 'रद्द करें');
     expect(context.t('splash:skip'), 'छोड़ें');

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,9 +14,9 @@ import '../api/splashscreen/splash_api.dart';
 import '../api/splashscreen/splash_keys.dart';
 import '../api/splashscreen/startup_queries.dart';
 import '../component/app_logo.dart';
-import '../component/c_text.dart';
 import '../component/exit_on_double_back.dart';
 import 'onboarding_view.dart';
+import 'splash_motion.dart';
 import 'splash_palette.dart';
 import '../callscreen/helper/call_controller.dart';
 
@@ -139,60 +138,11 @@ class _SplashView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = SplashPalette.of(context);
-    final bottom = math.max(
-      98.ms,
-      MediaQuery.paddingOf(context).bottom + 20.ms,
-    );
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24.ms),
-            child: AppLogo(size: logoSize),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: bottom,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Grows on every frame for 2.5 s: repaints only itself.
-              RepaintBoundary(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: SizedBox(
-                    width: 170.ms,
-                    height: 2.ms,
-                    child: ColoredBox(
-                      color: palette.track,
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: 1),
-                        duration: SplashScreen.minDuration,
-                        curve: Curves.easeOutCubic,
-                        builder: (_, v, fill) => FractionallySizedBox(
-                          alignment: Alignment.centerLeft,
-                          widthFactor: v,
-                          child: fill,
-                        ),
-                        child: ColoredBox(color: palette.accent),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              CText(
-                'splash:establishing_sync',
-                variant: CTextVariant.caption,
-                color: palette.text,
-              ),
-            ],
-          ),
-        ),
-      ],
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 24.ms),
+        child: SplashLogo(size: logoSize),
+      ),
     );
   }
 }

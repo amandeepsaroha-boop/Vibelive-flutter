@@ -94,5 +94,12 @@
       "rationale": "Vibe Live needs notifications to tell you about incoming calls.",
       "settings": "Allow notifications in Settings so you don't miss calls."
     }
+  },
+  "update": {
+    "title": "New Update Available!",
+    "body": "We've added some amazing new features and fixed several bugs to improve your experience. Please update to the latest version to continue.",
+    "cta": "UPDATE NOW",
+    "later": "Later",
+    "footer": "Stay updated for the best performance"
   }
 }
