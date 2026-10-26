@@ -75,7 +75,7 @@ useUpdateHostProfile({
   void Function(ApiException error)? onError,
 }) => useApiMutation<HostProfile?, HostProfileUpdate>(
   _updateHostProfile,
-  invalidates: [HostHubKeys.profileAll, ...alsoInvalidate],
+  invalidates: [HostHubKeys.profileAll, ListingKeys.all, ...alsoInvalidate],
   onSuccess: (profile, _) => onSuccess?.call(profile),
   onError: (e, _) => onError?.call(e),
 );
@@ -97,6 +97,7 @@ useSaveProfessionalDetails({
   _saveProfessionalDetails,
   invalidates: [
     HostHubKeys.profileAll,
+    ListingKeys.all,
     HostHubKeys.imagesAll,
     HostHubKeys.statsAll,
     ...alsoInvalidate,
@@ -112,7 +113,7 @@ MutationResult<HostProfile?, ApiException, GoLiveInput> useGoLive({
   void Function(ApiException error)? onError,
 }) => useApiMutation<HostProfile?, GoLiveInput>(
   _goLive,
-  invalidates: [HostHubKeys.profileAll, ...alsoInvalidate],
+  invalidates: [HostHubKeys.profileAll, ListingKeys.all, ...alsoInvalidate],
   onSuccess: (profile, _) => onSuccess?.call(profile),
   onError: (e, _) => onError?.call(e),
 );
@@ -283,6 +284,7 @@ MutationResult<void, ApiException, HostImagesSync> useSyncHostProfileImages({
   invalidates: [
     HostHubKeys.imagesAll,
     HostHubKeys.profileAll,
+    ListingKeys.all,
     ...alsoInvalidate,
   ],
   onSuccess: (_, _) => onSuccess?.call(),

@@ -11,34 +11,41 @@ import 'continue_bar.dart';
 import 'day_schedule_row.dart';
 import 'sheet_frame.dart';
 
-/// Start / end wheels for one day; resolves to the new slot.
-Future<HostDaySlot?> showTimeRangeSheet(
+/// Start / end wheels for one slot of [day] (a new one, or the one at
+/// [replacing]); resolves to the slot once it passes RN's rules: end after
+/// start, at least 30 minutes, no overlap with the day's other slots.
+Future<HostSlot?> showTimeRangeSheet(
   BuildContext context, {
   required String dayLabel,
-  required HostDaySlot slot,
-}) => showHostSheet<HostDaySlot>(
+  required HostDaySlot day,
+  required HostSlot slot,
+  int? replacing,
+}) => showHostSheet<HostSlot>(
   context,
   title: 'hostflow:availability.edit_title',
   titleVariables: {'day': context.t(dayLabel)},
-  child: _TimeRange(slot: slot),
+  child: _TimeRange(day: day, slot: slot, replacing: replacing),
 );
 
 class _TimeRange extends HookWidget {
-  const _TimeRange({required this.slot});
-  final HostDaySlot slot;
+  const _TimeRange({required this.day, required this.slot, this.replacing});
+  final HostDaySlot day;
+  final HostSlot slot;
+  final int? replacing;
 
   @override
   Widget build(BuildContext context) {
     final p = HostPalette.of(context);
     final starts = HostScheduleFormat.starts;
     final ends = HostScheduleFormat.ends;
+    // Saved times off the 30-minute grid open on the nearest later step.
     int indexOf(List<int> list, int v) {
-      final i = list.indexOf(v);
-      return i < 0 ? 0 : i;
+      final i = list.indexWhere((m) => m >= v);
+      return i < 0 ? list.length - 1 : i;
     }
 
-    final start = useState(slot.start);
-    final end = useState(slot.end);
+    final start = useState(starts[indexOf(starts, slot.start)]);
+    final end = useState(ends[indexOf(ends, slot.end)]);
     final startCtrl = useMemoized(
       () =>
           FixedExtentScrollController(initialItem: indexOf(starts, slot.start)),
@@ -53,7 +60,8 @@ class _TimeRange extends HookWidget {
       },
       const [],
     );
-    final valid = end.value - start.value >= HostScheduleFormat.minSlotMinutes;
+    final picked = HostSlot(start.value, end.value);
+    final issue = day.check(picked, replacing: replacing);
 
     Widget wheel(
       String label,
@@ -104,11 +112,11 @@ class _TimeRange extends HookWidget {
           ),
           SizedBox(
             height: 28.ms,
-            child: valid
+            child: issue == null
                 ? null
                 : Center(
                     child: CText(
-                      'hostflow:errors.slot_short',
+                      'hostflow:errors.$issue',
                       size: 12,
                       weight: FontWeight.w600,
                       color: p.danger,
@@ -118,14 +126,8 @@ class _TimeRange extends HookWidget {
           HostButton(
             label: 'hostflow:availability.save',
             arrow: false,
-            onPressed: valid
-                ? () => Navigator.of(context).pop(
-                    slot.copyWith(
-                      enabled: true,
-                      start: start.value,
-                      end: end.value,
-                    ),
-                  )
+            onPressed: issue == null
+                ? () => Navigator.of(context).pop(picked)
                 : null,
           ),
         ],

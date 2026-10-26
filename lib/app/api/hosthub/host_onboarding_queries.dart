@@ -36,6 +36,7 @@ useSubmitHostOnboarding({
   _submitHostOnboarding,
   invalidates: [
     HostHubKeys.profileAll,
+    ListingKeys.all,
     HostHubKeys.imagesAll,
     HostHubKeys.approvalAll,
     HostHubKeys.expertise,
@@ -84,18 +85,17 @@ Future<HostOnboardingResult> _submitHostOnboarding(
 
   await ExpertiseApi.save(input.expertise, source: 'professional-details');
 
-  // The weekly schedule is kept even with "available now" on, so switching
-  // to custom hours later starts from it; on vacation it is not sent (RN).
+  // RN ScheduleScreen payload: `schedule` only when neither vacation nor
+  // "call any time" is on.
   final schedule = HostProfilePatch.schedule(
     vacation: input.vacation,
-    callAnyTime: false,
+    callAnyTime: input.callAnyTime,
     week: input.week,
   ).data;
   final profile = await _updateHostProfile((
     expertId: expertId,
     patch: HostProfilePatch({
       ...schedule,
-      'callAnyTime': input.callAnyTime,
       ...HostProfilePatch.rates(
         voice: input.rates.voiceCallRate,
         video: input.rates.videoCallRate,
@@ -109,6 +109,13 @@ Future<HostOnboardingResult> _submitHostOnboarding(
   ));
 
   final status = await _requestApproval(expertId);
+  // Same marker the Approval Status screen sets after its own request: the
+  // server's approval read can come back empty for a fresh request, and
+  // the screen must still show "under review" (RN backstop).
+  await AppPrefs.setString(
+    approvalSentKey(expertId),
+    DateTime.now().toIso8601String(),
+  );
   return HostOnboardingResult(
     expertId: expertId,
     status: status,
@@ -125,6 +132,7 @@ useSaveHostProfileEdit() => useApiMutation<HostProfile?, HostProfileEditInput>(
   _saveHostProfileEdit,
   invalidates: [
     HostHubKeys.profileAll,
+    ListingKeys.all,
     HostHubKeys.imagesAll,
     ClientKeys.profiles,
   ],
@@ -171,7 +179,8 @@ QueryResult<HostProfileCompletion, ApiException> useHostCompletion(
   () => checkHostProfileCompletion(profile!),
   context: context,
   enabled: profile != null,
-  staleDuration: StaleTime.none,
+  // Under the profile prefix: every profile / expertise save refreshes it.
+  staleDuration: StaleTime.short,
 );
 
 // ── Host Hub: badge fee ─────────────────────────────────────────────────────

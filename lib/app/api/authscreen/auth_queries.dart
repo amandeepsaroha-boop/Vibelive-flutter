@@ -9,7 +9,7 @@ import '../../../core/storage/token_storage.dart';
 import '../../../core/utils/log.dart';
 import '../banner/banner_queries.dart';
 import '../client/client_queries.dart';
-import '../resourcesscreen/resources_queries.dart';
+import '../splashscreen/startup_queries.dart';
 import 'auth_api.dart';
 import 'auth_errors.dart';
 import 'auth_keys.dart';
@@ -96,10 +96,10 @@ Future<({JsonMap? user, JsonMap? expert})> _loadMyProfile(String id) async {
   return (user: p.user, expert: p.expert);
 }
 
-/// RN `primeCache`: warm what the first screens show. Failures are ignored;
-/// those screens fetch again on their own.
+/// RN `primeCache`: warm what the first screens show ([prefetchStartup],
+/// in parallel). Failures are ignored; those screens fetch on their own.
 void _primeAfterSignIn(String userDocumentId) {
-  unawaited(ensureMenuPages().then((_) {}, onError: (Object _) {}));
+  prefetchStartup();
   unawaited(
     ensureUnviewedMilestones(
       userDocumentId,

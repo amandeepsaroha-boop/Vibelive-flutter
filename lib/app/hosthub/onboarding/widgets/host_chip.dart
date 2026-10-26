@@ -22,6 +22,7 @@ class HostChip extends StatelessWidget {
     this.height = 50,
     this.center = true,
     this.fontSize = 15.5,
+    this.icon,
   });
 
   /// i18n key, or literal text when [translate] is false (server labels).
@@ -36,6 +37,9 @@ class HostChip extends StatelessWidget {
   final double height;
   final bool center;
   final double fontSize;
+
+  /// Small outline icon before the label, in the label's colour.
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +104,10 @@ class HostChip extends StatelessWidget {
                   child: leading,
                 ),
                 SizedBox(width: 8.ms),
+              ],
+              if (icon != null) ...[
+                Icon(icon, size: 16.ms, color: fg),
+                SizedBox(width: 6.ms),
               ],
               Flexible(child: text),
             ],

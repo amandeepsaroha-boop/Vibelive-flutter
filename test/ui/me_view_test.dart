@@ -23,6 +23,7 @@ import 'package:vibelive/core/session/session_store.dart';
 import 'package:vibelive/core/storage/app_prefs.dart';
 import 'package:vibelive/core/theme/theme_controller.dart';
 import 'package:vibelive/main.dart';
+import 'package:vibelive/app/hosthub/hub/hub_list.dart';
 
 /// A client and a host, the host's stats and referral code; the expert's
 /// vacation flag follows the last PUT.
@@ -443,7 +444,7 @@ void main() {
     await _pump(tester, 1200);
     final resources = find.ancestor(
       of: find.text('RESOURCES'),
-      matching: find.byType(Container),
+      matching: find.byType(HubListCard),
     );
     expect(tester.getRect(resources.first).bottom, lessThan(navTop));
     await finish(tester);

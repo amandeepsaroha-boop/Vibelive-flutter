@@ -17,6 +17,8 @@ class HostFlowController {
     required this.explore,
     required this.rateFloors,
     this.editing = false,
+    this.saveAll,
+    this.existingHost,
   });
 
   final HostDraftController draft;
@@ -38,6 +40,14 @@ class HostFlowController {
   /// A host editing from the Host Hub: Back before the first form step
   /// leaves instead of showing the intro.
   final bool editing;
+
+  /// An existing host (approved, live or pending review): the last step
+  /// saves every section with [saveAll] (null when saved, else the step to
+  /// go back to) and returns to the Host Hub instead of submitting.
+  final Future<HostStep?> Function()? saveAll;
+  final bool Function()? existingHost;
+
+  bool get savesInstead => saveAll != null && (existingHost?.call() ?? false);
 
   /// Continue shows a spinner and ignores taps while true.
   final busy = ValueNotifier(false);
@@ -111,10 +121,19 @@ class HostFlowController {
     }
     if (step == HostStep.basic && !await _handleIsFree()) return;
     if (step == HostStep.guidelines) {
+      final saving = savesInstead;
       busy.value = true;
-      final failedAt = await submit().whenComplete(() => busy.value = false);
+      final failedAt = await (saving ? saveAll!() : submit()).whenComplete(
+        () => busy.value = false,
+      );
       if (failedAt != null) {
         if (failedAt != step) await goTo(failedAt);
+        return;
+      }
+      if (saving) {
+        // Saved: no approval request, no "Submitted" step.
+        await draft.clear();
+        exit();
         return;
       }
     }

@@ -13,6 +13,26 @@ class PersonalInfoController {
   final state = ValueNotifier<GeoOption?>(null);
   final district = ValueNotifier<GeoOption?>(null);
 
+  /// `Female` / `Male` / `Others` (public-user `gender`).
+  final gender = ValueNotifier<String?>(null);
+  String? _savedGender;
+  bool _genderSeeded = false;
+
+  /// The user picked a gender different from the saved one.
+  bool get genderChanged =>
+      gender.value != null && gender.value != _savedGender;
+
+  /// The saved answer; never overwrites a choice the user made here.
+  void seedGender(String? saved) {
+    if (_genderSeeded && genderChanged) return;
+    _genderSeeded = true;
+    _savedGender = saved;
+    gender.value = saved;
+  }
+
+  /// After a save: the chosen gender is now the saved one.
+  void markGenderSaved() => _savedGender = gender.value;
+
   /// Save / photo upload in flight (header button, avatar, mobile field).
   final saving = ValueNotifier<bool>(false);
   final uploading = ValueNotifier<bool>(false);
@@ -40,6 +60,7 @@ class PersonalInfoController {
     mobile.text = p.mobile ?? '';
     state.value = p.state;
     district.value = p.district;
+    seedGender(userGenderLabel(p.user['gender']));
     _seeded = _snapshot();
   }
 
@@ -68,6 +89,7 @@ class PersonalInfoController {
     mobile: mobile.text,
     state: state.value!,
     district: district.value,
+    gender: gender.value,
   );
 
   _Snapshot _snapshot() => _Snapshot(
@@ -89,6 +111,7 @@ class PersonalInfoController {
     mobile.dispose();
     state.dispose();
     district.dispose();
+    gender.dispose();
     saving.dispose();
     uploading.dispose();
   }

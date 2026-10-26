@@ -14,6 +14,7 @@ import '../../../listingflow/profile/helper/host_profile_controller.dart';
 import '../../../listingflow/profile/profile_about.dart';
 import '../../../listingflow/profile/profile_gallery.dart';
 import '../../../listingflow/profile/profile_header.dart';
+import '../../../api/hosthub/profile_models.dart';
 import '../helper/draft_controller.dart';
 import '../helper/host_palette.dart';
 import '../helper/host_steps.dart';
@@ -75,9 +76,11 @@ class PreviewStep extends HookWidget {
     final hero = math.min((width * 1.1).roundToDouble(), 420.0);
     final hasAbout = host.tagline.isNotEmpty || host.description.isNotEmpty;
     final rates = HostValidation.ratesOf(d);
+    // RN: the weekly slots apply only when neither mode above is on.
     final days = [
-      for (final e in d.week.value.entries)
-        if (e.value.enabled) e,
+      if (d.mode == HostAvailability.custom)
+        for (final e in d.week.value.entries)
+          if (e.value.slots.isNotEmpty) e,
     ];
 
     return ClipRRect(
@@ -184,16 +187,10 @@ class PreviewStep extends HookWidget {
                             PreviewLine(
                               icon: LucideIcons.calendarDays,
                               text: context.t(HostScheduleFormat.dayKey(e.key)),
-                              trailing: context.t(
-                                'hostflow:availability.range',
-                                variables: {
-                                  'start': hostTimeLabel(
-                                    context,
-                                    e.value.start,
-                                  ),
-                                  'end': hostTimeLabel(context, e.value.end),
-                                },
-                              ),
+                              trailing: [
+                                for (final slot in e.value.slots)
+                                  hostRangeLabel(context, slot),
+                              ].join('\n'),
                             ),
                         ],
                       ],

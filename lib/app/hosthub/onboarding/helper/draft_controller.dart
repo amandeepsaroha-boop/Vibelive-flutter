@@ -88,10 +88,13 @@ class HostDraftController {
   final videoOn = ValueNotifier(true);
   final audioRate = ValueNotifier(defaultAudioRate);
   final videoRate = ValueNotifier(defaultVideoRate);
+
+  /// "Call any time" (`callAnyTime`).
   final availableNow = ValueNotifier(true);
 
-  /// Vacation mode (`vocationMode`): no calls; off whenever "available
-  /// now" is on (RN ScheduleScreen: the two are exclusive).
+  /// Vacation mode (`vocationMode`): no calls. With [availableNow] it makes
+  /// the three exclusive modes of RN ScheduleScreen; both off means the
+  /// weekly slots apply ([mode]).
   final vacation = ValueNotifier(false);
   final week = ValueNotifier(HostDaySlot.defaultWeek());
   final agreed = ValueNotifier(false);
@@ -155,6 +158,7 @@ class HostDraftController {
     videoRate.value = _int(json['videoRate']) ?? defaultVideoRate;
     availableNow.value = json['availableNow'] != false;
     vacation.value = json['vacation'] == true;
+    if (vacation.value) availableNow.value = false;
     final savedWeek = json['week'];
     if (savedWeek is Map) {
       week.value = {
@@ -205,6 +209,18 @@ class HostDraftController {
     final list = [...topics.value];
     if (!list.remove(topic)) list.add(topic);
     topics.value = list;
+  }
+
+  /// Exactly one of vacation / call any time / weekly slots is on.
+  HostAvailability get mode => vacation.value
+      ? HostAvailability.vacation
+      : (availableNow.value
+            ? HostAvailability.available
+            : HostAvailability.custom);
+
+  set mode(HostAvailability next) {
+    vacation.value = next == HostAvailability.vacation;
+    availableNow.value = next == HostAvailability.available;
   }
 
   void setDay(HostWeekday day, HostDaySlot slot) =>

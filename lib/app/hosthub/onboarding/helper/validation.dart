@@ -1,5 +1,6 @@
 import '../../../api/hosthub/profile_models.dart';
 import 'draft_controller.dart';
+import 'draft_models.dart';
 import 'host_steps.dart';
 
 /// Why Continue is refused: an i18n key and its variables.
@@ -94,10 +95,14 @@ abstract final class HostValidation {
   }
 
   static HostIssue? availability(HostDraftController d) {
-    final days = d.week.value.values.where((s) => s.enabled);
-    if (d.vacation.value) return null; // RN: vacation needs no slots
-    if (!d.availableNow.value && days.isEmpty) return _issue('availability');
-    if (days.any((s) => s.end - s.start < 30)) return _issue('slot_short');
+    // RN ScheduleScreen `handleSave`: vacation and "call any time" need no
+    // slots; the weekly mode needs at least one.
+    if (d.mode != HostAvailability.custom) return null;
+    final slots = [for (final day in d.week.value.values) ...day.slots];
+    if (slots.isEmpty) return _issue('availability');
+    if (slots.any((s) => s.end - s.start < HostDaySlot.minSlotMinutes)) {
+      return _issue('slot_short');
+    }
     return null;
   }
 

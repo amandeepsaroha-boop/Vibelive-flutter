@@ -67,13 +67,14 @@ extension QueryCacheX on QueryCache {
     final query = entry<T>(key);
     final updatedAt = query?.dataUpdatedAt;
     final data = query?.data;
-    if (data != null &&
-        updatedAt != null &&
-        !query!.isInvalidated &&
-        DateTime.now().difference(updatedAt) < maxAge) {
-      return data;
+    if (data == null ||
+        updatedAt == null ||
+        query!.isInvalidated ||
+        DateTime.now().difference(updatedAt) >= maxAge) {
+      return null;
     }
-    return null;
+    final invalidated = QueryInflight.invalidatedAt(key);
+    return invalidated != null && !updatedAt.isAfter(invalidated) ? null : data;
   }
 
   /// The cache entry under [key] (data, timestamps, flags), or null.

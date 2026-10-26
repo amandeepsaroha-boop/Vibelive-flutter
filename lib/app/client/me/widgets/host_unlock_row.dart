@@ -121,7 +121,7 @@ class MeHostUnlockRow extends StatefulWidget {
     required this.onDismiss,
   });
 
-  /// The normal menu row, given the icon to show.
+  /// The normal menu row, given the icon to show (inside the row's tile).
   final Widget Function(Widget leading) rowBuilder;
   final VoidCallback onDismiss;
 

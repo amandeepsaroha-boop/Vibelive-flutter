@@ -5,10 +5,12 @@ import '../../../core/network/strapi.dart';
 import '../../../core/query/query_hooks.dart';
 import '../../../core/query/query_persist.dart';
 import '../../../core/session/session_store.dart';
+import '../../../core/storage/app_prefs.dart';
 import '../../../core/utils/log.dart';
 import '../client/client_keys.dart';
 import '../client/profile_api.dart';
 import '../component/upload_api.dart';
+import '../listingflow/listing_keys.dart';
 import '../paymentscreen/checkout_models.dart';
 import '../splashscreen/splash_queries.dart';
 import 'approval_api.dart';
@@ -33,6 +35,9 @@ import 'verification_models.dart';
 part 'host_profile_queries.dart';
 part 'host_status_queries.dart';
 part 'host_onboarding_queries.dart';
+
+/// Local "approval request sent" marker for [expertId] (RN backstop).
+String approvalSentKey(String expertId) => '@approval_request_sent:$expertId';
 
 typedef HostProfileUpdate = ({String expertId, HostProfilePatch patch});
 typedef HostImagesSync = ({

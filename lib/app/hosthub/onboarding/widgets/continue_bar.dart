@@ -97,6 +97,7 @@ class HostContinueBar extends StatelessWidget {
     required this.onPressed,
     this.agreed,
     this.onSave,
+    this.savesInstead = false,
   });
 
   final ValueListenable<HostStep> step;
@@ -112,6 +113,10 @@ class HostContinueBar extends StatelessWidget {
 
   /// Edit mode (Host Hub): "Save changes" for the step's section.
   final VoidCallback? onSave;
+
+  /// An existing host: the last step reads "Save" (no review request) and
+  /// needs no agreement tick.
+  final bool savesInstead;
 
   @override
   Widget build(BuildContext context) {
@@ -153,13 +158,15 @@ class HostContinueBar extends StatelessWidget {
               ListenableBuilder(
                 listenable: Listenable.merge([step, busy, ?agreed]),
                 builder: (_, _) {
-                  final blocked =
-                      step.value == HostStep.guidelines &&
-                      agreed?.value == false;
+                  final last = step.value == HostStep.guidelines;
+                  final saves = last && savesInstead;
+                  final blocked = last && !saves && agreed?.value == false;
                   final button = HostButton(
                     key: const ValueKey('hostflow-continue'),
-                    label: step.value.continueLabel,
-                    arrow: step.value.continueArrow,
+                    label: saves
+                        ? 'hostflow:edit.save_all'
+                        : step.value.continueLabel,
+                    arrow: !saves && step.value.continueArrow,
                     loading: busy.value,
                     onPressed: blocked ? null : onPressed,
                   );

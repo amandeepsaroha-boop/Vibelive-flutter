@@ -119,7 +119,8 @@ MutationResult<void, ApiException, PersonalInfoInput> useUpdatePersonalInfo({
     }
     await ProfileApi.updatePersonalInfo(id, input, country: country);
   },
-  invalidates: const [ClientKeys.profiles],
+  // The own card (profile sheet, listings) shows the name and photo too.
+  invalidates: const [ClientKeys.profiles, ListingKeys.all],
   onSuccess: (_, _) => onSuccess?.call(),
   onError: (e, _) => onError?.call(e),
 );
@@ -139,7 +140,8 @@ MutationResult<JsonMap, ApiException, String> useUpdateProfilePhoto({
     await ProfileApi.setProfilePhoto(id, file['id']);
     return file;
   },
-  invalidates: const [ClientKeys.profiles],
+  // The own card (profile sheet, listings) shows the name and photo too.
+  invalidates: const [ClientKeys.profiles, ListingKeys.all],
   onSuccess: (file, _) => onSuccess?.call(file),
   onError: (e, _) => onError?.call(e),
 );
@@ -341,7 +343,7 @@ QueryResult<GstDetails, ApiException> useGstDetails(
   final id = _useUserId(userDocumentId);
   return useApiQuery<GstDetails>(
     ClientKeys.gstDetailsOf(id ?? ''),
-    () => GstApi.fetchGstDetails(id!),
+    () async => GstDetails.fromUser(await _menuRelations(id!)),
     context: context,
     enabled: enabled && id != null,
     staleDuration: StaleTime.short,
@@ -356,7 +358,7 @@ MutationResult<JsonMap?, ApiException, GstDetailsInput> useSaveGstDetails({
   void Function(ApiException error)? onError,
 }) => useApiMutation<JsonMap?, GstDetailsInput>(
   (input) => GstApi.saveGstDetails(_requireUserId(userDocumentId), input),
-  invalidates: const [ClientKeys.gstDetails],
+  invalidates: const [ClientKeys.menuRelations, ClientKeys.gstDetails],
   onSuccess: (saved, _) => onSuccess?.call(saved),
   onError: (e, _) => onError?.call(e),
 );
@@ -371,7 +373,7 @@ QueryResult<ReferralDashboard, ApiException> useReferralDashboard(
   final id = _useUserId(userDocumentId);
   return useApiQuery<ReferralDashboard>(
     ClientKeys.referralDashboard(id ?? ''),
-    () => ReferralApi.fetchDashboard(id!),
+    () async => ReferralApi.dashboardFor(await _menuRelations(id!)),
     context: context,
     enabled: enabled && id != null,
     staleDuration: StaleTime.short,
@@ -387,7 +389,9 @@ Future<ReferralDashboard> ensureReferralDashboard({
   final id = _requireUserId(userDocumentId);
   return queryCache.fetchQuery<ReferralDashboard>(
     ClientKeys.referralDashboard(id),
-    () => ReferralApi.fetchDashboard(id),
+    () async => ReferralApi.dashboardFor(
+      await _menuRelations(id, staleDuration: staleDuration),
+    ),
     staleDuration: staleDuration,
   );
 }
@@ -413,7 +417,7 @@ QueryResult<String, ApiException> useReferralCode(
   final id = _useUserId(userDocumentId);
   return useApiQuery<String>(
     ClientKeys.referralCode(id ?? ''),
-    () => ReferralApi.fetchReferralCode(id!),
+    () async => ReferralDashboard.codeFrom(await _menuRelations(id!)),
     context: context,
     enabled: enabled && id != null,
     staleDuration: StaleTime.medium,
@@ -427,11 +431,24 @@ MutationResult<int?, ApiException, String> useTrackReferralShare({
   void Function(int? count)? onSuccess,
 }) => useApiMutation<int?, String>(
   (code) => ReferralApi.trackShare(code, type),
-  invalidates: const [ClientKeys.referral],
+  invalidates: const [ClientKeys.menuRelations, ClientKeys.referral],
   onSuccess: (count, _) => onSuccess?.call(count),
 );
 
 // ── Helpers ──────────────────────────────────────────────────────────────
+
+/// The user with referral + GST relations: one cached read behind the
+/// invite card, Referral and GST (each used to send its own). Writes list
+/// [ClientKeys.menuRelations] FIRST in `invalidates`: invalidating a screen's
+/// key refetches it at once, and that must not reuse this read.
+Future<JsonMap?> _menuRelations(
+  String userDocumentId, {
+  Duration staleDuration = StaleTime.short,
+}) => queryCache.fetchQuery<JsonMap?>(
+  ClientKeys.menuRelationsOf(userDocumentId),
+  () => ProfileApi.fetchUserWithMenuRelations(userDocumentId),
+  staleDuration: staleDuration,
+);
 
 /// [override], else the signed-in user (rebuilds when the session changes).
 String? _useUserId(String? override) {

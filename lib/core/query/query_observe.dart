@@ -5,6 +5,7 @@ import 'package:fquery/fquery.dart' show CacheProvider;
 import 'package:fquery_core/fquery_core.dart';
 
 import '../network/api_exception.dart';
+import 'query_client.dart';
 import 'query_inflight.dart';
 
 /// fquery's `useQuery` / `useInfiniteQuery`, with one difference: a widget
@@ -258,7 +259,7 @@ void _keepAlive(QueryKey key, Object disposed) {
   others.remove(disposed);
   if (others.isEmpty) {
     _live.remove(key);
-  } else {
+  } else if (queryCache.queries[key] != null) {
     others.values.first();
   }
 }

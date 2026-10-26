@@ -27,6 +27,9 @@ class HostSwitch extends StatelessWidget {
   /// On a filled accent button (the "Go online" bar): a translucent track.
   final bool onDark;
 
+  /// Knob slide and fill fade.
+  static const duration = Duration(milliseconds: 220);
+
   @override
   Widget build(BuildContext context) {
     final p = HostPalette.of(context);
@@ -39,30 +42,55 @@ class HostSwitch extends StatelessWidget {
       child: Pressable(
         activeOpacity: 0.85,
         onPressed: onChanged == null ? null : () => onChanged!(!value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: w,
-          height: h,
-          padding: EdgeInsets.all(3.ms),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(h),
-            color: onDark
-                ? AppColors.whiteA(value ? 0.28 : 0.16)
-                : (value ? null : p.track),
-            gradient: !onDark && value ? p.buttonGradient : null,
-          ),
-          child: AnimatedAlign(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(
-              width: knob,
-              height: knob,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.white,
-              ),
+        // A fixed track with the "on" fill faded over it, so the colour
+        // never dips through transparent; the knob slides.
+        child: RepaintBoundary(
+          child: SizedBox(
+            width: w,
+            height: h,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(h),
+                      color: onDark ? AppColors.whiteA(0.16) : p.track,
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: AnimatedOpacity(
+                    opacity: value ? 1 : 0,
+                    duration: duration,
+                    curve: Curves.easeInOut,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(h),
+                        color: onDark ? AppColors.whiteA(0.28) : null,
+                        gradient: onDark ? null : p.buttonGradient,
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.all(3.ms),
+                  child: AnimatedAlign(
+                    duration: duration,
+                    curve: Curves.easeInOut,
+                    alignment: value
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
+                    child: Container(
+                      width: knob,
+                      height: knob,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

@@ -2,10 +2,12 @@ import 'package:flutter/widgets.dart';
 
 import '../../../../core/network/strapi.dart';
 import '../../../api/client/client_models.dart';
+import '../../../client/personal_info/helper/gender_answer.dart';
 import '../../../api/hosthub/catalog_models.dart';
 import '../../../api/hosthub/profile_models.dart';
 import 'draft_controller.dart';
 import 'draft_models.dart';
+import '../../../api/client/profile_api.dart';
 
 /// Fills a new draft from what the app already knows: Personal Info (name,
 /// location, photo), the user's interests answers (gender), and, for a host
@@ -28,7 +30,7 @@ abstract final class HostPrefill {
     d.district.value ??= me.district ?? _named(me.addressJson['district']);
     d.gender.value ??=
         host?.gender ??
-        HostProfile.normalizeGender(J.str(me.user['gender'])) ??
+        userGenderLabel(me.user['gender']) ??
         genderFromAnswers(answers);
 
     if (host != null) _fromHost(d, host, text);
@@ -84,18 +86,19 @@ abstract final class HostPrefill {
         d.videoRate.value = rates.videoCallRate.round();
       }
     }
-    d.availableNow.value = host.callAnyTime;
-    d.vacation.value = host.vacationMode;
+    d.mode = host.availability;
     final week = host.weeklySchedule;
     if (week.values.any((slots) => slots.isNotEmpty)) {
       d.week.value = {
         for (final day in HostWeekday.values)
           day: (week[day] ?? const []).isEmpty
-              ? const HostDaySlot(enabled: false)
+              ? HostDaySlot.off
               : HostDaySlot(
                   enabled: true,
-                  start: week[day]!.first.startMinutes,
-                  end: week[day]!.first.endMinutes,
+                  slots: [
+                    for (final s in week[day]!)
+                      HostSlot(s.startMinutes, s.endMinutes),
+                  ],
                 ),
       };
     }
@@ -124,20 +127,10 @@ abstract final class HostPrefill {
     return h.length > 30 ? h.substring(0, 30) : h;
   }
 
-  /// The client interests' "How do you identify?" answer, as a host gender.
-  static String? genderFromAnswers(Map<String, List<String>> answers) {
-    for (final e in answers.entries) {
-      if (!e.key.contains('user_gender')) continue;
-      for (final v in e.value) {
-        final s = v.toLowerCase();
-        if (s.contains('female') || s.contains('woman')) return 'Female';
-        if (s.endsWith('_male') || s == 'male' || s.contains('_man')) {
-          return 'Male';
-        }
-      }
-    }
-    return null;
-  }
+  /// The "How do you identify?" answer (where Personal Info saves the
+  /// gender), as a host gender.
+  static String? genderFromAnswers(Map<String, List<String>> answers) =>
+      GenderAnswer.fromAnswers(answers);
 
   /// English name of a catalog language (labels come in native script).
   static String languageKey(String label) {

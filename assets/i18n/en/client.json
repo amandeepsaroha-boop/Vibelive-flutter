@@ -23,7 +23,13 @@
       "email": "Email",
       "mobile": "Mobile",
       "state": "State",
-      "district": "District"
+      "district": "District",
+      "gender": "Gender"
+    },
+    "gender": {
+      "female": "Female",
+      "male": "Male",
+      "other": "Other"
     },
     "placeholders": {
       "name": "Full Name",

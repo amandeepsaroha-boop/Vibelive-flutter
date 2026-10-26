@@ -172,10 +172,19 @@ void main() {
     expect(find.text('₹ 30'), findsOneWidget); // kept while switched off
     await tapContinue(tester, settle: 900);
 
-    // Availability: defaults (available now, Mon–Fri evenings).
+    // Availability: "Call any time" by default, so no schedule (RN).
     expect(find.text('When can people call you?'), findsOneWidget);
+    expect(find.text('6:00 PM – 12:00 AM'), findsNothing);
+    // Weekly slots: Mon–Fri evenings; Monday gets a second slot.
+    await tapVisible(tester, find.byKey(const ValueKey('hostflow-weekly')));
+    await pumpFor(tester, 300);
     expect(find.text('6:00 PM – 12:00 AM'), findsNWidgets(5));
     expect(find.text('Unavailable'), findsNWidgets(2));
+    await tapVisible(tester, find.byKey(const ValueKey('slot-add-monday')));
+    await pumpFor(tester, 500);
+    await tester.tap(find.text('Save'));
+    await pumpFor(tester, 500);
+    expect(find.text('9:00 AM – 10:00 AM'), findsOneWidget);
     await tapContinue(tester, settle: 900);
 
     // Preview: how clients see it; Edit goes to the step and comes back.
@@ -184,7 +193,7 @@ void main() {
     // The client sheet's own header: name in capitals, then the city.
     expect(find.text('AANYA SHARMA'), findsOneWidget);
     expect(find.text('BAKSA'), findsOneWidget);
-    expect(find.text('Online'), findsOneWidget);
+    expect(find.text('Online'), findsNothing); // weekly slots, not "any time"
     expect(find.text('₹30/min'), findsOneWidget);
     expect(find.text('Video calls'), findsNothing); // video is off
     await tapVisible(tester, find.byKey(const ValueKey('preview-edit-about')));
@@ -252,13 +261,14 @@ void main() {
     final settings = backend.sent('PUT', '/expert-profiles/exp50').single;
     final s = (settings.data! as Map)['data'] as Map;
     expect(s['rates'], {'voiceCallRate': 30.0, 'videoCallRate': 0.0});
-    expect(s['callAnyTime'], isTrue);
+    expect(s['callAnyTime'], isFalse);
     expect(s['vocationMode'], isFalse);
     final schedule = s['schedule'] as List;
     expect(schedule, hasLength(5));
     expect(schedule.first, {
       'days': 'Monday',
       'timeSlots': [
+        {'startTime': '09:00:00.000', 'endTime': '10:00:00.000'},
         {'startTime': '18:00:00.000', 'endTime': '23:59:00.000'},
       ],
     });

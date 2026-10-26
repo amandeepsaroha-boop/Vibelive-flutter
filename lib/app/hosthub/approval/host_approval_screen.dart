@@ -20,6 +20,7 @@ import '../common/host_page.dart';
 import '../onboarding/helper/host_palette.dart';
 import '../onboarding/widgets/continue_bar.dart';
 import '../onboarding/widgets/step_body.dart';
+import '../onboarding/steps/submitted_step.dart';
 
 /// Approval Status (RN ApprovalScreen): status, the sections still missing,
 /// then one action — send the request (again after a rejection), or go live
@@ -28,7 +29,7 @@ class HostApprovalScreen extends HookWidget {
   const HostApprovalScreen({super.key});
 
   /// RN's backstop for a request the server read cannot see yet.
-  static String sentKey(String expertId) => '@approval_request_sent:$expertId';
+  static String sentKey(String expertId) => approvalSentKey(expertId);
 
   static const sectionRoutes = {
     HostProfileSection.professional: AppRoutes.professionalDetails,
@@ -64,7 +65,9 @@ class HostApprovalScreen extends HookWidget {
         (completion.data == null && completion.isLoading);
     final failed = latest.isError && latest.data == null;
     var status = ApprovalRecord.effective(host, latest.data);
-    if (status == null && AppPrefs.getString(sentKey(host.key)) != null) {
+    if (status == null &&
+        (AppPrefs.getString(sentKey(host.key)) != null ||
+            host.moderationStatus == 'pending_review')) {
       status = ApprovalStatus.pending;
     }
     final missing = completion.data?.missing ?? const <HostProfileSection>[];
@@ -130,9 +133,18 @@ class HostApprovalScreen extends HookWidget {
             onPressed: latest.refetch,
           )
         : switch (status) {
-            ApprovalStatus.pending => null,
+            // Waiting for review: the onboarding "submitted" design.
+            ApprovalStatus.pending => HostButton(
+              label: 'hostflow:submitted.cta',
+              onPressed: () => context.go('${AppRoutes.home}?tab=discover'),
+            ),
+            // Already live: nothing to do but explore.
+            ApprovalStatus.approved when host.isActive => HostButton(
+              label: 'hostflow:submitted.cta',
+              onPressed: () => context.go('${AppRoutes.home}?tab=discover'),
+            ),
             ApprovalStatus.approved => HostButton(
-              label: 'hostflow:approval.go_live',
+              label: 'hostflow:approved.go_online',
               loading: busy.value,
               onPressed: live,
             ),
@@ -153,6 +165,20 @@ class HostApprovalScreen extends HookWidget {
       bottom: action,
       body: loading
           ? const HostPageSkeleton()
+          : status == ApprovalStatus.pending && !failed
+          ? const SubmittedStep()
+          // Approved: the same celebration, every step done.
+          : status == ApprovalStatus.approved && !failed
+          ? SubmittedStep(
+              title: host.isActive
+                  ? 'hostflow:approved.live_title'
+                  : 'hostflow:approved.title',
+              body: host.isActive
+                  ? 'hostflow:approved.live_body'
+                  : 'hostflow:approved.body',
+              steps: SubmittedStep.approvedSteps,
+              done: SubmittedStep.approvedSteps.length,
+            )
           : ListView(
               padding: EdgeInsets.fromLTRB(20.ms, 8.ms, 20.ms, 24.ms),
               children: [

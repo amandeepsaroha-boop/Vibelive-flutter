@@ -1,4 +1,5 @@
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/network/strapi.dart';
 import '../../../../core/session/session_store.dart';
 import '../../../api/authscreen/interests_queries.dart';
 import '../../../api/client/client_keys.dart';
@@ -6,6 +7,7 @@ import '../../../api/client/client_models.dart';
 import '../../../api/hosthub/expertise_models.dart';
 import '../../../api/hosthub/hosthub_queries.dart';
 import '../../../api/hosthub/onboarding_models.dart';
+import '../../../api/hosthub/profile_models.dart';
 import '../../../api/hosthub/profile_patch.dart';
 import '../../../component/c_alert.dart';
 import '../../../component/c_toast.dart';
@@ -26,11 +28,18 @@ const hostSavableSteps = {
   HostStep.availability,
 };
 
-/// "Save changes" of an existing host's step: only that section, with the
-/// update calls the Host Hub always used (profile edit with moderation and
-/// `language {set}`, expertise, rates, schedule / vacation). No approval
-/// request is filed. True when saved.
-Future<bool> Function(HostStep step) useHostSectionSave(
+/// Saves of an existing host (no approval request is ever filed):
+/// [section] is a step's "Save changes"; [all] is the last step's "Save",
+/// every section at once. [all] resolves to null when saved, else the step
+/// to go back to (its issue shown there).
+typedef HostSaver = ({
+  Future<bool> Function(HostStep step) section,
+  Future<HostStep?> Function() all,
+});
+
+/// The update calls the Host Hub always used (profile edit with moderation
+/// and `language {set}`, expertise, rates, schedule / vacation).
+HostSaver useHostSectionSave(
   HostDraftController draft, {
   required UserWithExpert? me,
   required (double, double) Function() rateFloors,
@@ -40,21 +49,17 @@ Future<bool> Function(HostStep step) useHostSectionSave(
   final update = useUpdateHostProfile(
     alsoInvalidate: const [ClientKeys.profiles],
   );
+  const profileSteps = [
+    HostStep.basic,
+    HostStep.photos,
+    HostStep.tagline,
+    HostStep.bio,
+  ];
 
-  Future<bool> save(HostStep step) async {
-    final session = SessionStore.instance.value;
-    final expertId = draft.expertId;
-    final user = session.userDocumentId;
-    if (expertId == null || user == null) return false;
-    const profileSteps = [
-      HostStep.basic,
-      HostStep.photos,
-      HostStep.tagline,
-      HostStep.bio,
-    ];
+  /// The first of [steps] with an issue (shown as the notice), or null.
+  HostStep? invalid(Iterable<HostStep> steps) {
     final (voice, video) = rateFloors();
-    // One profile save sends all four profile steps: check them all.
-    for (final s in profileSteps.contains(step) ? profileSteps : [step]) {
+    for (final s in steps) {
       final issue = HostValidation.check(
         s,
         draft,
@@ -63,78 +68,108 @@ Future<bool> Function(HostStep step) useHostSectionSave(
       );
       if (issue != null) {
         draft.notice.value = issue;
-        return false;
+        return s;
       }
+    }
+    return null;
+  }
+
+  Future<void> saveTopics() async {
+    // Independent reads: in parallel (errors stay ApiException).
+    final mine = ensureMyExpertise()..ignore();
+    final form = await ensureInterestForm();
+    final saved = (await mine).selections;
+    final all = [for (final q in form.questions) q.toJson()];
+    final question = HostTopicCatalog.question(form);
+    final selections = ExpertiseQuestions.draft(all, saved);
+    if (question != null) {
+      selections[question.key] = [for (final t in draft.topics.value) t.value];
+    }
+    await expertise.mutateAsync((selections: selections, source: 'settings'));
+  }
+
+  JsonMap ratesPatch() {
+    final rates = HostValidation.ratesOf(draft);
+    return HostProfilePatch.rates(
+      voice: rates.voiceCallRate,
+      video: rates.videoCallRate,
+    ).data;
+  }
+
+  // RN ScheduleScreen payload: `schedule` only in the weekly mode.
+  JsonMap schedulePatch() {
+    final mode = draft.mode;
+    return HostProfilePatch.schedule(
+      vacation: mode == HostAvailability.vacation,
+      callAnyTime: mode == HostAvailability.available,
+      week: HostSubmitPlan.week(draft),
+    ).data;
+  }
+
+  /// Basic, photos, tagline and bio in one save; false when the handle is
+  /// taken (the notice says so).
+  Future<bool> saveProfile(String expertId, String user) async {
+    final free = await ensureHostHandleCheck(
+      draft.handle.text,
+      ownExpertId: expertId,
+    );
+    if (!free) {
+      draft.notice.value = (
+        key: 'hostflow:errors.handle_taken',
+        variables: null,
+      );
+      return false;
+    }
+    await profile.mutateAsync(
+      HostProfileEditInput(
+        userDocumentId: user,
+        expertId: expertId,
+        handler: draft.handle.text.trim(),
+        tagline: draft.tagline.text.trim(),
+        gender: draft.gender.value,
+        description: draft.bio.text.trim(),
+        languages: draft.languages.value,
+        photoMediaIds: [
+          for (final p in draft.photos.value)
+            if (p.mediaId != null) p.mediaId!,
+        ],
+        userPatch: me == null ? const {} : HostSubmitPlan.userPatch(draft, me),
+      ),
+    );
+    return true;
+  }
+
+  ({String expertId, String user})? ids() {
+    final expertId = draft.expertId;
+    final user = SessionStore.instance.value.userDocumentId;
+    return expertId == null || user == null
+        ? null
+        : (expertId: expertId, user: user);
+  }
+
+  Future<bool> section(HostStep step) async {
+    final id = ids();
+    if (id == null) return false;
+    // One profile save sends all four profile steps: check them all.
+    if (invalid(profileSteps.contains(step) ? profileSteps : [step]) != null) {
+      return false;
     }
     try {
       switch (step) {
         case HostStep.interests:
-          final form = await ensureInterestForm();
-          final saved = (await ensureMyExpertise()).selections;
-          final all = [for (final q in form.questions) q.toJson()];
-          final question = HostTopicCatalog.question(form);
-          final selections = ExpertiseQuestions.draft(all, saved);
-          if (question != null) {
-            selections[question.key] = [
-              for (final t in draft.topics.value) t.value,
-            ];
-          }
-          await expertise.mutateAsync((
-            selections: selections,
-            source: 'settings',
-          ));
+          await saveTopics();
         case HostStep.rates:
-          final rates = HostValidation.ratesOf(draft);
           await update.mutateAsync((
-            expertId: expertId,
-            patch: HostProfilePatch.rates(
-              voice: rates.voiceCallRate,
-              video: rates.videoCallRate,
-            ),
+            expertId: id.expertId,
+            patch: HostProfilePatch(ratesPatch()),
           ));
         case HostStep.availability:
-          final vacation = draft.vacation.value;
           await update.mutateAsync((
-            expertId: expertId,
-            patch: HostProfilePatch({
-              ...HostProfilePatch.schedule(
-                vacation: vacation,
-                callAnyTime: false,
-                week: HostSubmitPlan.week(draft),
-              ).data,
-              'callAnyTime': draft.availableNow.value && !vacation,
-            }),
+            expertId: id.expertId,
+            patch: HostProfilePatch(schedulePatch()),
           ));
         case _:
-          final free = await ensureHostHandleCheck(
-            draft.handle.text,
-            ownExpertId: expertId,
-          );
-          if (!free) {
-            draft.notice.value = (
-              key: 'hostflow:errors.handle_taken',
-              variables: null,
-            );
-            return false;
-          }
-          await profile.mutateAsync(
-            HostProfileEditInput(
-              userDocumentId: user,
-              expertId: expertId,
-              handler: draft.handle.text.trim(),
-              tagline: draft.tagline.text.trim(),
-              gender: draft.gender.value,
-              description: draft.bio.text.trim(),
-              languages: draft.languages.value,
-              photoMediaIds: [
-                for (final p in draft.photos.value)
-                  if (p.mediaId != null) p.mediaId!,
-              ],
-              userPatch: me == null
-                  ? const {}
-                  : HostSubmitPlan.userPatch(draft, me),
-            ),
-          );
+          if (!await saveProfile(id.expertId, id.user)) return false;
       }
       CToast.show('hostflow:edit.saved', variant: CToastVariant.success);
       return true;
@@ -144,5 +179,28 @@ Future<bool> Function(HostStep step) useHostSectionSave(
     }
   }
 
-  return save;
+  Future<HostStep?> all() async {
+    final id = ids();
+    if (id == null) return HostStep.guidelines;
+    final bad = invalid([
+      for (final s in HostStep.pages)
+        if (hostSavableSteps.contains(s)) s,
+    ]);
+    if (bad != null) return bad;
+    try {
+      if (!await saveProfile(id.expertId, id.user)) return HostStep.basic;
+      await saveTopics();
+      await update.mutateAsync((
+        expertId: id.expertId,
+        patch: HostProfilePatch({...ratesPatch(), ...schedulePatch()}),
+      ));
+      CToast.show('hostflow:edit.saved', variant: CToastVariant.success);
+      return null;
+    } on ApiException catch (e) {
+      await CAlert.error(e);
+      return HostStep.guidelines;
+    }
+  }
+
+  return (section: section, all: all);
 }

@@ -122,8 +122,13 @@
   "availability": {
     "title": "When can people call you?",
     "subtitle": "Choose when you're usually available for calls. You can update this anytime.",
-    "now": "I'm available now",
-    "weekly": "Or set a weekly schedule",
+    "now": "Call any time",
+    "now_body": "People can call you whenever you're online, no schedule.",
+    "slots": "Weekly slots",
+    "slots_body": "Calls only in the hours you set for each day.",
+    "weekly": "Your weekly schedule",
+    "add_slot": "Add slot",
+    "remove_slot": "Remove slot",
     "unavailable": "Unavailable",
     "range": "{{start}} – {{end}}",
     "time": "{{h}}:{{m}} {{period}}",
@@ -179,6 +184,10 @@
     "s2_body": "This usually takes a short time.",
     "s3_title": "You'll be notified",
     "s3_body": "We'll let you know once it's approved.",
+    "s2_done_title": "Details reviewed",
+    "s2_done_body": "Our team has checked your profile.",
+    "s3_approved_title": "Profile approved",
+    "s3_approved_body": "Your profile is approved. You can go online now.",
     "cta": "Explore VibeLive"
   },
   "errors": {
@@ -196,8 +205,10 @@
     "rates_none": "Turn on audio calls, video calls or both.",
     "rate_audio_min": "Your audio rate must be at least ₹{{min}} per minute.",
     "rate_video_min": "Your video rate must be at least ₹{{min}} per minute.",
-    "availability": "Turn on \"I'm available now\" or vacation mode, or choose at least one day.",
-    "slot_short": "Choose at least 30 minutes.",
+    "availability": "Add at least one time slot, or turn on Call any time or Vacation mode.",
+    "slot_short": "A slot must be at least 30 minutes.",
+    "slot_order": "End time must be after start time.",
+    "slot_overlap": "This slot overlaps another slot on this day.",
     "agree": "Please agree to the Host Guidelines to continue.",
     "server": "{{message}} Please fix this and try again."
   },
@@ -240,6 +251,7 @@
   },
   "edit": {
     "schedule_title": "My Schedule",
+    "save_all": "Save",
     "rates_title": "Call Rates",
     "save": "Save changes",
     "saved": "Changes saved",

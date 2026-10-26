@@ -4,7 +4,7 @@ import 'draft_models.dart';
 /// Times of the weekly schedule: 30-minute steps, labelled "6:00 PM".
 abstract final class HostScheduleFormat {
   static const stepMinutes = 30;
-  static const minSlotMinutes = 30;
+  static const minSlotMinutes = HostDaySlot.minSlotMinutes;
 
   /// Start choices: 12:00 AM … 11:30 PM.
   static final List<int> starts = [

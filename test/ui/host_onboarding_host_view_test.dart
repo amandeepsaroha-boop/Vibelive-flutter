@@ -207,6 +207,36 @@ void main() {
     await finishHost(tester);
   });
 
+  testWidgets('an approved host saves on the last step, never re-applies', (
+    tester,
+  ) async {
+    backend = await resetHost(expert: _host(active: true));
+    phone(tester);
+    await pumpRoutes(
+      tester,
+      const HostOnboardingScreen(editStep: HostStep.guidelines),
+    );
+    expect(find.text('Submit for review'), findsNothing);
+    expect(find.text('Save'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('hostflow-continue')));
+    await pumpFor(tester, 900);
+    // No approval request and no "Submitted" step (an incomplete profile
+    // goes back to the step that needs fixing instead).
+    expect(backend.sent('POST', '/expert-profile-approvals'), isEmpty);
+    expect(find.text('Submit for review'), findsNothing);
+    await finishHost(tester);
+
+    // Never approved, no request yet: still "Submit for review".
+    backend = await resetHost(expert: _host(approved: false));
+    phone(tester);
+    await pumpRoutes(
+      tester,
+      const HostOnboardingScreen(editStep: HostStep.guidelines),
+    );
+    expect(find.text('Submit for review'), findsOneWidget);
+    await finishHost(tester);
+  });
+
   testWidgets('My Schedule: the availability step saves vacation like RN', (
     tester,
   ) async {
@@ -218,11 +248,11 @@ void main() {
     );
     expectFlat(tester, 'My Schedule edit');
     expect(find.text('Vacation mode'), findsOneWidget);
-    expect(find.text('Or set a weekly schedule'), findsOneWidget);
+    expect(find.text('Your weekly schedule'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('hostflow-vacation')));
     await pumpFor(tester, 300);
     // RN: vacation hides the custom schedule.
-    expect(find.text('Or set a weekly schedule'), findsNothing);
+    expect(find.text('Your weekly schedule'), findsNothing);
     await tester.tap(find.text('Save changes'));
     await pumpFor(tester, 600);
     final put = backend.sent('PUT', '/expert-profiles/exp1').single;

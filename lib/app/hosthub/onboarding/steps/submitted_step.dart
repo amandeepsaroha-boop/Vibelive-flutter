@@ -10,9 +10,41 @@ import '../helper/host_palette.dart';
 import '../widgets/step_body.dart';
 
 /// 11 of 11: the request is in. A check that pops in once over static
-/// confetti, then what happens next.
+/// confetti, then what happens next. Also the Approval Status screen while
+/// pending, and (with [approvedSteps], all [done]) once approved.
 class SubmittedStep extends StatelessWidget {
-  const SubmittedStep({super.key});
+  const SubmittedStep({
+    super.key,
+    this.title = 'hostflow:submitted.title',
+    this.body = 'hostflow:submitted.body',
+    this.steps = pendingSteps,
+    this.done = 1,
+  });
+
+  /// i18n keys.
+  final String title;
+  final String body;
+
+  /// The timeline: `(title, body)` i18n keys per step.
+  final List<(String, String)> steps;
+
+  /// How many steps are checked; the next one is in progress.
+  final int done;
+
+  static const pendingSteps = [
+    ('hostflow:submitted.s1_title', 'hostflow:submitted.s1_body'),
+    ('hostflow:submitted.s2_title', 'hostflow:submitted.s2_body'),
+    ('hostflow:submitted.s3_title', 'hostflow:submitted.s3_body'),
+  ];
+
+  static const approvedSteps = [
+    ('hostflow:submitted.s1_title', 'hostflow:submitted.s1_body'),
+    ('hostflow:submitted.s2_done_title', 'hostflow:submitted.s2_done_body'),
+    (
+      'hostflow:submitted.s3_approved_title',
+      'hostflow:submitted.s3_approved_body',
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -58,10 +90,10 @@ class SubmittedStep extends StatelessWidget {
             ),
           ),
           SizedBox(height: 18.ms),
-          const HostTitle('hostflow:submitted.title', align: TextAlign.center),
+          HostTitle(title, align: TextAlign.center),
           SizedBox(height: 10.ms),
           CText(
-            'hostflow:submitted.body',
+            body,
             size: 17,
             height: 24.5,
             weight: FontWeight.w500,
@@ -69,7 +101,7 @@ class SubmittedStep extends StatelessWidget {
             align: TextAlign.center,
           ),
           SizedBox(height: 26.ms),
-          _Timeline(palette: p),
+          _Timeline(palette: p, steps: steps, done: done),
         ],
       ),
     );
@@ -77,14 +109,20 @@ class SubmittedStep extends StatelessWidget {
 }
 
 class _Timeline extends StatelessWidget {
-  const _Timeline({required this.palette});
+  const _Timeline({
+    required this.palette,
+    required this.steps,
+    required this.done,
+  });
   final HostPalette palette;
+  final List<(String, String)> steps;
+  final int done;
 
   @override
   Widget build(BuildContext context) {
     final p = palette;
-    Widget dot(int i) => switch (i) {
-      0 => Container(
+    Widget dot(int i) => switch (i - done) {
+      < 0 => Container(
         width: 40.ms,
         height: 40.ms,
         alignment: Alignment.center,
@@ -94,7 +132,7 @@ class _Timeline extends StatelessWidget {
         ),
         child: Icon(LucideIcons.check, size: 20.ms, color: p.onAccent),
       ),
-      1 => Container(
+      0 => Container(
         width: 40.ms,
         height: 40.ms,
         alignment: Alignment.center,
@@ -121,7 +159,7 @@ class _Timeline extends StatelessWidget {
 
     return Column(
       children: [
-        for (var i = 0; i < 3; i++)
+        for (final (i, (title, body)) in steps.indexed)
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -129,12 +167,13 @@ class _Timeline extends StatelessWidget {
                 Column(
                   children: [
                     dot(i),
-                    if (i < 2)
+                    if (i < steps.length - 1)
                       Expanded(
                         child: Container(
                           width: 2,
                           margin: EdgeInsets.symmetric(vertical: 4.ms),
-                          color: p.track,
+                          // Between two checked steps: the accent.
+                          color: i + 1 < done ? p.accent : p.track,
                         ),
                       ),
                   ],
@@ -147,14 +186,14 @@ class _Timeline extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         CText(
-                          'hostflow:submitted.s${i + 1}_title',
+                          title,
                           size: 17,
                           weight: FontWeight.w700,
                           color: p.text,
                         ),
                         SizedBox(height: 3.ms),
                         CText(
-                          'hostflow:submitted.s${i + 1}_body',
+                          body,
                           size: 14.5,
                           weight: FontWeight.w500,
                           color: p.muted,

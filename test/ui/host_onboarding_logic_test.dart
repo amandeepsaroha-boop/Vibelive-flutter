@@ -326,4 +326,41 @@ void main() {
       expect(AppPrefs.getString('hostflow_draft_v1:u9'), isNull);
     });
   });
+  test('every hostflow / client key in the source exists in en and hi', () {
+    Object? resolve(String lang, String ns, String path) {
+      Object? node = jsonDecode(
+        File('assets/i18n/$lang/$ns.json').readAsStringSync(),
+      );
+      for (final part in path.split('.')) {
+        node = node is Map ? node[part] : null;
+      }
+      return node;
+    }
+
+    final literal = RegExp(r"'(hostflow|client):([A-Za-z0-9_.]+)'");
+    final keys = <String>{
+      // Built as `hostflow:errors.$issue` (HostDaySlot.check).
+      for (final e in ['slot_order', 'slot_short', 'slot_overlap'])
+        'hostflow:errors.$e',
+    };
+    for (final dir in ['lib/app/hosthub', 'lib/app/client/personal_info']) {
+      for (final f in Directory(dir).listSync(recursive: true)) {
+        if (f is! File || !f.path.endsWith('.dart')) continue;
+        for (final m in literal.allMatches(f.readAsStringSync())) {
+          keys.add(m[0]!.replaceAll("'", ''));
+        }
+      }
+    }
+    expect(keys.length, greaterThan(100));
+    final missing = <String>[];
+    for (final key in keys) {
+      final [ns, path] = key.split(':');
+      final en = resolve('en', ns, path);
+      final hi = resolve('hi', ns, path);
+      // A map is a prefix the code completes (`hostflow:suggest.tagline`).
+      final ok = (en is String && hi is String) || (en is Map && hi is Map);
+      if (!ok) missing.add(key);
+    }
+    expect(missing, isEmpty, reason: 'keys missing in en or hi');
+  });
 }

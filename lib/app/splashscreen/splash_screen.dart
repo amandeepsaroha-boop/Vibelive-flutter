@@ -13,6 +13,7 @@ import '../authscreen/helper/auth_navigation.dart';
 import '../authscreen/login_screen.dart';
 import '../api/splashscreen/splash_api.dart';
 import '../api/splashscreen/splash_keys.dart';
+import '../api/splashscreen/startup_queries.dart';
 import '../component/app_logo.dart';
 import '../component/c_text.dart';
 import '../component/exit_on_double_back.dart';
@@ -78,6 +79,8 @@ class SplashScreen extends HookWidget {
         SplashApi.fetchHostTopics,
         staleDuration: StaleTime.long,
       );
+      // Signed in: Home's data loads during the splash's 2.5 s.
+      if (signedIn) prefetchStartup();
       nextAuthRoute(confirmAgeGate: true).then((r) {
         if (alive) route.value = r;
       });

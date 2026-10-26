@@ -6,6 +6,7 @@ import '../../../component/c_input.dart' show IndianMobileFormatter;
 import '../../../component/c_text.dart';
 import '../helper/personal_info_controller.dart';
 import '../helper/personal_info_palette.dart';
+import 'gender_chips.dart';
 import 'info_fields.dart';
 
 /// "BASIC INFO": name, email, mobile, state, district (RN form card). Fills
@@ -87,6 +88,10 @@ class BasicInfoSection extends StatelessWidget {
                   textInputAction: TextInputAction.done,
                 ),
               ),
+            ),
+            InfoField(
+              label: 'client:personal_info.fields.gender',
+              child: GenderChips(gender: form.gender),
             ),
             InfoField(
               label: 'client:personal_info.fields.state',

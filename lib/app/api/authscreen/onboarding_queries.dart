@@ -140,9 +140,12 @@ Future<LanguageStepStatus> _checkLanguageStep(String userKey) async {
   // Shown once per account: answered, skipped, or not asked.
   if (_isLanguageStepDone(userKey)) return LanguageStepStatus.done;
   try {
+    // The answers are read alongside the form, not after it (the splash
+    // waits on this).
+    final answers = ensureMyInterests().withApiTimeout(_checkTimeout)..ignore();
     final question = (await _loadForm()).languageQuestion;
     if (question == null) return LanguageStepStatus.done;
-    final mine = await ensureMyInterests().withApiTimeout(_checkTimeout);
+    final mine = await answers;
     if (mine.selections[LanguageStep.questionKey]?.isNotEmpty ?? false) {
       await _persistLanguageStepDone(userKey);
       return LanguageStepStatus.done;
@@ -174,17 +177,17 @@ QueryResult<LanguageQuestionData, ApiException> useLanguageQuestion(
 }
 
 Future<LanguageQuestionData> loadLanguageQuestion() async {
+  // Form, catalog and saved answers are independent: read in parallel.
+  final catalog = ensureLanguages().withApiTimeout(_checkTimeout)..ignore();
+  final answers = ensureMyInterests().withApiTimeout(_checkTimeout)..ignore();
   final form = (await _loadForm()).languageQuestion;
   if (form == null) return const LanguageQuestionData();
-  final languages = [
-    for (final l in await ensureLanguages().withApiTimeout(_checkTimeout))
-      ?_languageOption(l),
-  ];
+  final languages = [for (final l in await catalog) ?_languageOption(l)];
   // Nothing to pick from: nothing to ask.
   if (languages.isEmpty) return const LanguageQuestionData();
   List<String>? saved;
   try {
-    final mine = await ensureMyInterests().withApiTimeout(_checkTimeout);
+    final mine = await answers;
     saved = mine.selections[LanguageStep.questionKey];
   } on ApiException catch (e) {
     // Deliberate (RN): pre-selection is a nicety; the question itself loaded.

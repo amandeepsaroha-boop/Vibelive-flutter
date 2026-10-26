@@ -8,7 +8,9 @@ import '../../../core/session/session_store.dart';
 import '../../api/authscreen/interests_queries.dart';
 import '../../api/client/client_models.dart';
 import '../../api/client/client_queries.dart';
+import '../../api/hosthub/approval_models.dart';
 import '../../api/hosthub/hosthub_queries.dart';
+import '../../api/hosthub/profile_models.dart';
 import '../../api/paymentscreen/billing_models.dart';
 import '../../api/paymentscreen/payment_queries.dart';
 import '../../component/c_alert.dart';
@@ -71,7 +73,21 @@ class HostOnboardingScreen extends HookWidget {
       });
       return null;
     }, const []);
-    final (me, ready) = _usePrefill(context, draft, session);
+    final (me, ready, host) = _usePrefill(context, draft, session);
+    // An approved / live host, or one whose review is pending, saves on the
+    // last step instead of filing (another) approval request.
+    final latest = useLatestApproval(
+      context,
+      expertId: host?.key,
+      enabled: host != null && !host.isLiveOrApproved,
+    );
+    final existingHost =
+        host != null &&
+        (host.isLiveOrApproved ||
+            switch (ApprovalRecord.effective(host, latest.data)) {
+              ApprovalStatus.pending || ApprovalStatus.approved => true,
+              _ => false,
+            });
 
     final submit = useSubmitHostOnboarding();
     final pricing = usePricingConfig(context).data ?? PricingConfig.empty;
@@ -155,7 +171,9 @@ class HostOnboardingScreen extends HookWidget {
                   key: const ValueKey('flow'),
                   draft: draft,
                   submit: runSubmit,
-                  save: editStep == null ? null : save,
+                  save: editStep == null ? null : save.section,
+                  saveAll: save.all,
+                  existingHost: existingHost,
                   exit: exit,
                   explore: () => context.go('${AppRoutes.home}?tab=discover'),
                   rateFloors: () =>
@@ -169,8 +187,9 @@ class HostOnboardingScreen extends HookWidget {
 
 /// Prefill from Personal Info (and, for a host resubmitting, the saved host
 /// profile and topics) once the reads are in. Returns "my profile" and
-/// whether the prefill (topics included, for a host) is done.
-(UserWithExpert?, bool) _usePrefill(
+/// whether the prefill (topics included, for a host) is done, and the saved
+/// host profile (null for a new host).
+(UserWithExpert?, bool, HostProfile?) _usePrefill(
   BuildContext context,
   HostDraftController draft,
   SessionState session,
@@ -223,7 +242,7 @@ class HostOnboardingScreen extends HookWidget {
   }, [expertise.data, form.data]);
   final topicsReady =
       !isHost || draft.topicsSeeded || expertise.isError || form.isError;
-  return (me.data, draft.seeded && topicsReady);
+  return (me.data, draft.seeded && topicsReady, host.data);
 }
 
 class _Flow extends HookWidget {
@@ -234,7 +253,9 @@ class _Flow extends HookWidget {
     required this.exit,
     required this.explore,
     required this.rateFloors,
+    required this.saveAll,
     this.save,
+    this.existingHost = false,
   });
 
   final HostDraftController draft;
@@ -242,12 +263,19 @@ class _Flow extends HookWidget {
 
   /// Edit mode: saves the current step's section; null in the flow.
   final Future<bool> Function(HostStep step)? save;
+
+  /// The last step's "Save" for an [existingHost] (every section).
+  final Future<HostStep?> Function() saveAll;
+  final bool existingHost;
   final VoidCallback exit;
   final VoidCallback explore;
   final (double, double) Function() rateFloors;
 
   @override
   Widget build(BuildContext context) {
+    // The controller lives across rebuilds; these read this build's values
+    // (the profile and the approval status arrive after the first frame).
+    final latest = useRef(this)..value = this;
     final pages = usePageController(
       initialPage: draft.step.value.page.clamp(0, HostStep.pages.length - 1),
     );
@@ -255,11 +283,13 @@ class _Flow extends HookWidget {
       () => HostFlowController(
         draft: draft,
         pages: pages,
-        submit: submit,
+        submit: () => latest.value.submit(),
         exit: exit,
         explore: explore,
         rateFloors: rateFloors,
         editing: save != null,
+        saveAll: () => latest.value.saveAll(),
+        existingHost: () => latest.value.existingHost,
       ),
       [pages],
     );
@@ -305,6 +335,7 @@ class _Flow extends HookWidget {
               agreed: draft.agreed,
               onPressed: flow.next,
               onSave: save == null ? null : saveSection,
+              savesInstead: existingHost,
             ),
           ],
         ),

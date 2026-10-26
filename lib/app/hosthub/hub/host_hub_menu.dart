@@ -3,15 +3,13 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/router/app_router.dart';
-import '../../../core/utils/scale.dart';
 import '../../api/hosthub/approval_models.dart';
 import '../../api/hosthub/eligibility.dart';
 import '../../api/hosthub/hosthub_queries.dart';
 import '../../api/hosthub/profile_models.dart';
 import '../../api/hosthub/verification_models.dart';
-import '../../component/c_text.dart';
-import '../../component/pressable.dart';
 import '../onboarding/helper/host_palette.dart';
+import 'hub_list.dart';
 
 /// RN "HOST HUB" (menu-data `hub`, same order and labels) as one flat card:
 /// every row opens its screen, and shows where the host stands at a glance.
@@ -102,92 +100,23 @@ class HostHubMenu extends StatelessWidget {
       ),
     ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: p.card,
-        borderRadius: BorderRadius.circular(20.ms),
-        border: Border.all(color: p.cardBorder),
-      ),
-      child: Column(
-        children: [
-          for (final (i, r) in rows.indexed) ...[
-            if (i > 0)
-              Divider(
-                height: 1,
-                thickness: 1,
-                indent: 58.ms,
-                color: p.cardBorder,
-              ),
-            Pressable(
-              onPressed: () => open(r.route),
-              child: SizedBox(
-                height: 60.ms,
-                child: Row(
-                  children: [
-                    SizedBox(width: 14.ms),
-                    Container(
-                      width: 32.ms,
-                      height: 32.ms,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: p.tint,
-                        borderRadius: BorderRadius.circular(10.ms),
-                      ),
-                      child: Icon(r.icon, size: 17.ms, color: p.accent),
-                    ),
-                    SizedBox(width: 12.ms),
-                    Expanded(
-                      child: CText(
-                        r.label,
-                        size: 15,
-                        weight: FontWeight.w600,
-                        color: p.text,
-                        maxLines: 1,
-                      ),
-                    ),
-                    // Value hugs the chevron at the row's end (the label
-                    // keeps the free space; long values ellipsize).
-                    if (r.status != null) ...[
-                      SizedBox(width: 8.ms),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: 150.ms),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          widthFactor: 1,
-                          child: r.status!,
-                        ),
-                      ),
-                    ],
-                    SizedBox(width: 6.ms),
-                    Icon(LucideIcons.chevronRight, size: 18.ms, color: p.muted),
-                    SizedBox(width: 12.ms),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
+    return HubListCard(
+      rows: [
+        for (final r in rows)
+          HubListRow(
+            icon: r.icon,
+            label: r.label,
+            trailing: r.status,
+            onTap: () => open(r.route),
+          ),
+      ],
     );
   }
 
-  static Widget _status(String key, Color color) => CText(
-    key,
-    align: TextAlign.right,
-    size: 12.5,
-    weight: FontWeight.w700,
-    color: color,
-    maxLines: 1,
-  );
+  static Widget _status(String key, Color color) =>
+      HubListRow.status(key, color);
 
-  static Widget _raw(String text, Color color) => CText.raw(
-    text,
-    align: TextAlign.right,
-    size: 12.5,
-    weight: FontWeight.w700,
-    color: color,
-    maxLines: 1,
-  );
+  static Widget _raw(String text, Color color) => HubListRow.value(text, color);
 }
 
 typedef _Row = ({IconData icon, String label, String route, Widget? status});

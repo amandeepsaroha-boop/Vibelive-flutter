@@ -1,4 +1,5 @@
 import '../../../core/query/query_hooks.dart';
+import '../../../core/query/query_inflight.dart';
 import 'listing_keys.dart';
 import 'listing_models.dart';
 
@@ -57,7 +58,10 @@ abstract final class HostIndex {
     ]) {
       final entry = store[id];
       if (entry != null) {
-        final fresh = DateTime.now().difference(entry.at) < freshFor;
+        final invalidated = QueryInflight.invalidatedAt(ListingKeys.hostIndex);
+        final fresh =
+            DateTime.now().difference(entry.at) < freshFor &&
+            (invalidated == null || entry.at.isAfter(invalidated));
         return (card: entry.card, fresh: fresh);
       }
     }

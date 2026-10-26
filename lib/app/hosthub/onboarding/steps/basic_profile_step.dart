@@ -57,9 +57,9 @@ class _GenderRow extends StatelessWidget {
   final ValueNotifier<String?> gender;
 
   static const _options = [
-    ('Female', 'hostflow:basic.female'),
-    ('Male', 'hostflow:basic.male'),
-    ('Others', 'hostflow:basic.other'),
+    ('Female', 'hostflow:basic.female', LucideIcons.venus),
+    ('Male', 'hostflow:basic.male', LucideIcons.mars),
+    ('Others', 'hostflow:basic.other', LucideIcons.venusAndMars),
   ];
 
   @override
@@ -67,11 +67,12 @@ class _GenderRow extends StatelessWidget {
     valueListenable: gender,
     builder: (_, value, _) => Row(
       children: [
-        for (final (i, (v, label)) in _options.indexed) ...[
+        for (final (i, (v, label, icon)) in _options.indexed) ...[
           if (i > 0) SizedBox(width: 10.ms),
           Expanded(
             child: HostChip(
               label: label,
+              icon: icon,
               selected: value == v,
               onTap: () => gender.value = v,
             ),

@@ -821,7 +821,7 @@ void main() {
 
       // Tapping a client opens nothing and looks nothing up.
       await _tap(tester, find.text('Talked Client'));
-      expect(backend.requests, isNot(contains('GET /api/expert-profiles')));
+      expect(_singleLookups(backend), isEmpty); // (host rows are batch-warmed)
       expect(find.text('₹20/min'), findsNothing);
 
       await _tap(tester, _menuOf('Talked Client'));
@@ -829,7 +829,7 @@ void main() {
       expect(find.text('Rate this Call'), findsNothing);
       expect(find.text('Report this User'), findsOneWidget);
       await _closeMenu(tester);
-      expect(backend.requests, isNot(contains('GET /api/expert-profiles')));
+      expect(_singleLookups(backend), isEmpty);
       await finish(tester);
     });
 
@@ -1236,7 +1236,12 @@ void main() {
     expectRow('S Ongoing', badge: down, texts: ['VOICE CALL']);
     expectRow('S Forced', badge: up, texts: ['5:00', 'VOICE CALL']);
     expectRow('S NoDuration', badge: up, texts: ['VOICE CALL']);
-    expect(_inRow('S NoDuration', find.textContaining(':0')), findsNothing);
+    // A duration reads "m:ss"; the row's clock time ("5:02 PM") must not
+    // count (it made this test fail at :00–:09 past every hour).
+    expect(
+      _inRow('S NoDuration', find.textContaining(RegExp(r'^\d+:\d{2}$'))),
+      findsNothing,
+    );
     await finish(tester);
   });
 
@@ -1301,3 +1306,8 @@ void main() {
     });
   });
 }
+
+/// Single-profile lookups (the batched `[\$in]` warm-up read excluded).
+Iterable<Map<String, dynamic>> _singleLookups(_Backend backend) => backend
+    .profileQueries
+    .where((q) => !q.keys.any((k) => k.contains(r'[$in]')));

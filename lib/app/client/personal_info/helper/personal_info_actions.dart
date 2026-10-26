@@ -37,6 +37,7 @@ PersonalInfoActions usePersonalInfoActions(
   PersonalInfoController form,
 ) {
   final update = useUpdatePersonalInfo();
+
   final photo = useUpdateProfilePhoto(
     upload: (path) => PersonalInfoPhotoSource.instance.upload(path),
   );
@@ -91,7 +92,9 @@ PersonalInfoActions usePersonalInfoActions(
 
     form.saving.value = true;
     try {
+      // Gender goes in the same public-user update (`gender`).
       await update.mutateAsync(form.input());
+      form.markGenderSaved();
       await refresh(id, force: true);
     } on ApiException catch (e) {
       if (!context.mounted) return;

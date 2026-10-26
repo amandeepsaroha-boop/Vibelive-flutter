@@ -40,5 +40,22 @@ class ApprovalRecord {
   static ApprovalStatus? effective(
     HostProfile? expert,
     ApprovalRecord? latest,
-  ) => (expert?.isApproved ?? false) ? ApprovalStatus.approved : latest?.status;
+  ) => (expert?.isApproved ?? false)
+      ? ApprovalStatus.approved
+      : (latest ?? embedded(expert))?.status;
+
+  /// Newest request populated on the profile (`expert_profile_approvals`):
+  /// the server's approval list can come back empty for the owner, while the
+  /// profile read (ME / Host Hub) carries them.
+  static ApprovalRecord? embedded(HostProfile? expert) {
+    final rows = Strapi.list(expert?.raw['expert_profile_approvals']);
+    ApprovalRecord? newest;
+    for (final row in rows) {
+      final r = ApprovalRecord.from(row);
+      if (r != null && (newest == null || r.changedAt >= newest.changedAt)) {
+        newest = r;
+      }
+    }
+    return newest;
+  }
 }

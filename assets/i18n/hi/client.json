@@ -23,7 +23,13 @@
       "email": "ईमेल",
       "mobile": "मोबाइल",
       "state": "राज्य",
-      "district": "ज़िला"
+      "district": "ज़िला",
+      "gender": "लिंग"
+    },
+    "gender": {
+      "female": "महिला",
+      "male": "पुरुष",
+      "other": "अन्य"
     },
     "placeholders": {
       "name": "पूरा नाम",

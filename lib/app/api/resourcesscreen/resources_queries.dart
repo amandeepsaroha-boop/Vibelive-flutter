@@ -60,7 +60,8 @@ QueryResult<HostCategoriesSetup, ApiException> useHostCategoriesSetup(
     () => HostCategoriesApi.fetch(id),
     context: context,
     enabled: id.isNotEmpty,
-    staleDuration: StaleTime.none,
+    // Saves invalidate it (`ResourcesKeys.hostCategoriesAll`).
+    staleDuration: StaleTime.short,
   );
 }
 

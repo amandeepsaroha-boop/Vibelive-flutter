@@ -90,8 +90,8 @@ void main() {
     expect(find.text(_vacationBody), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('hostflow-vacation')));
     await pumpFor(tester, 300);
-    // RN: vacation turns "available now" off and hides the schedule.
-    expect(find.text('Or set a weekly schedule'), findsNothing);
+    // RN: vacation turns "call any time" off and hides the schedule.
+    expect(find.text('Your weekly schedule'), findsNothing);
     await finishHost(tester);
 
     backend = await resetHost(expert: _host(vacation: true));

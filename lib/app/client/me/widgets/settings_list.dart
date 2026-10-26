@@ -4,17 +4,16 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/router/app_router.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../component/c_alert.dart';
 import '../../../component/c_toast.dart';
 import '../../../hosthub/hub/host_hub_menu.dart';
+import '../../../hosthub/hub/hub_list.dart';
 import '../../../hosthub/onboarding/helper/intro_image.dart';
 import '../helper/host_unlock_promo.dart';
 import '../helper/me_actions.dart';
 import '../helper/me_data.dart';
 import '../helper/me_menu.dart';
-import '../helper/me_palette.dart';
 import 'host_unlock_row.dart';
 import 'me_rows.dart';
 
@@ -27,7 +26,6 @@ class MeSettingsList extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = MePalette.of(context);
     final userKey = data.userKey;
     final seen = useMemoized(() => HostUnlockPromo.seen(userKey), [userKey]);
     final dismissed = useState(false);
@@ -96,17 +94,17 @@ class MeSettingsList extends HookWidget {
     }
 
     final badgeKey = data.badgePromptKey;
-    Widget row(MeMenuItem item, Color color) {
-      Widget build([Widget? leading]) => MeCategoryRow(
+    // Same rows as the Host Hub card (lib/app/hosthub/hub/hub_list.dart).
+    Widget row(MeMenuItem item) {
+      Widget build([Widget? leading]) => HubListRow(
         icon: item.icon,
-        color: color,
         label: item.label,
         leading: leading,
         dimmed: item.id == MeItemId.becomeHost && !data.isPersonalInfoComplete,
         onTap: () => tap(item),
       );
 
-      final Widget child = switch (item.id) {
+      return switch (item.id) {
         MeItemId.becomeHost when promo => MeHostUnlockRow(
           rowBuilder: build,
           onDismiss: markSeen,
@@ -117,27 +115,30 @@ class MeSettingsList extends HookWidget {
         ),
         _ => build(),
       };
-      return Padding(
-        padding: EdgeInsets.only(bottom: 12.ms),
-        child: child,
-      );
     }
 
     final gap = SizedBox(height: 12.ms);
     return SliverList.list(
       children: [
         SizedBox(height: 16.ms),
-        MeSettingsCard(
-          icon: LucideIcons.wallet,
-          color: BrandColors.lime,
-          title: 'client:me.wallet.title',
-          subtitle: 'client:me.wallet.subtitle',
-          onTap: () => MeActions.open(context, AppRoutes.wallet),
+        HubListCard(
+          rows: [
+            HubListRow(
+              icon: LucideIcons.wallet,
+              label: 'client:me.wallet.title',
+              subtitle: 'client:me.wallet.subtitle',
+              onTap: () => MeActions.open(context, AppRoutes.wallet),
+            ),
+          ],
         ),
         gap,
         const MeCategoryHeader(label: 'client:me.categories.identity'),
-        for (final item in MeMenu.identity)
-          if (item.visibleFor(isExpert: data.isExpert)) row(item, p.accent),
+        HubListCard(
+          rows: [
+            for (final item in MeMenu.identity)
+              if (item.visibleFor(isExpert: data.isExpert)) row(item),
+          ],
+        ),
         if (data.isExpert) ...[
           gap,
           MeCategoryHeader(
@@ -165,12 +166,15 @@ class MeSettingsList extends HookWidget {
           ),
         ],
         gap,
-        MeSettingsCard(
-          icon: LucideIcons.settings2,
-          color: MeColors.resources,
-          title: 'client:me.categories.resources',
-          subtitle: 'client:me.categories.resources_hint',
-          onTap: () => MeActions.open(context, MeMenu.resourcesRoute),
+        HubListCard(
+          rows: [
+            HubListRow(
+              icon: LucideIcons.settings2,
+              label: 'client:me.categories.resources',
+              subtitle: 'client:me.categories.resources_hint',
+              onTap: () => MeActions.open(context, MeMenu.resourcesRoute),
+            ),
+          ],
         ),
       ],
     );

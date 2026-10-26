@@ -8,9 +8,8 @@ import 'profile_api.dart';
 abstract final class ReferralApi {
   static Future<ReferralDashboard> fetchDashboard(
     String userDocumentId,
-  ) async => dashboardFor(
-    await ProfileApi.fetchUserWithMenuRelations(userDocumentId),
-  );
+  ) async =>
+      dashboardFor(await ProfileApi.fetchUserWithMenuRelations(userDocumentId));
 
   /// The dashboard from the user read with menu relations
   /// ([ProfileApi.fetchUserWithMenuRelations], shared with the invite card

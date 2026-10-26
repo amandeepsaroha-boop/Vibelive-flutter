@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../api/authscreen/interests_queries.dart';
 import '../../api/client/client_queries.dart';
 import '../../component/c_alert.dart';
 import '../../component/c_state_view.dart';
 import '../../component/keyboard_inset.dart';
 import '../../component/status_bar_style.dart';
 import '../../component/vibe_background.dart';
+import 'helper/gender_answer.dart';
 import 'helper/personal_info_actions.dart';
 import 'helper/personal_info_controller.dart';
 import 'helper/personal_info_palette.dart';
@@ -40,6 +42,17 @@ class PersonalInfoScreen extends HookWidget {
       }
       return null;
     }, [profile]);
+
+    // Gender is the public-user `gender` (seeded with the profile); an
+    // older interests answer only fills it when the user field is empty.
+    final answers = useMyInterests(context);
+    useEffect(() {
+      final sel = answers.data?.selections;
+      if (sel != null && form.gender.value == null) {
+        form.seedGender(GenderAnswer.fromAnswers(sel));
+      }
+      return null;
+    }, [answers.data]);
 
     final actions = usePersonalInfoActions(context, form);
 

@@ -191,6 +191,24 @@ abstract final class ProfileApi {
   }
 }
 
+/// Public-user `gender` enum: `male` / `female` / `prefer_not_to_say`
+/// (the app's chips are Male / Female / Others).
+String? userGenderValue(String? gender) => switch (gender) {
+  'Male' => 'male',
+  'Female' => 'female',
+  'Others' => 'prefer_not_to_say',
+  _ => null,
+};
+
+/// The public-user `gender` enum value as the app's chip value.
+String? userGenderLabel(Object? value) =>
+    switch ('${value ?? ''}'.trim().toLowerCase()) {
+      'male' => 'Male',
+      'female' => 'Female',
+      'prefer_not_to_say' || 'other' || 'others' => 'Others',
+      _ => null,
+    };
+
 /// Personal Info form values plus the profile they edit ([current]): email
 /// and mobile are only sent when they changed (both are unique server-side).
 class PersonalInfoInput {
@@ -201,9 +219,13 @@ class PersonalInfoInput {
     required this.mobile,
     required this.state,
     this.district,
+    this.gender,
   });
 
   final UserWithExpert current;
+
+  /// `Female` / `Male` / `Others` (public-user `gender`); null = unchanged.
+  final String? gender;
   final String name;
   final String email;
   final String mobile;
@@ -217,6 +239,7 @@ class PersonalInfoInput {
     final nextMobile = _digits(mobile);
     return {
       'name': name.trim(),
+      'gender': ?userGenderValue(gender),
       'state': ?state.connect,
       'district': ?district?.connect,
       'city': null,

@@ -40,10 +40,11 @@ abstract final class HostSubmitPlan {
     onExpertId: onExpertId,
   );
 
-  /// Enabled days as one slot each (the schedule's save shape).
+  /// Days with slots, every slot kept (the schedule's save shape).
   static Map<HostWeekday, List<HostTimeSlot>> week(HostDraftController d) => {
     for (final e in d.week.value.entries)
-      if (e.value.enabled) e.key: [HostTimeSlot(e.value.start, e.value.end)],
+      if (e.value.slots.isNotEmpty)
+        e.key: [for (final s in e.value.slots) HostTimeSlot(s.start, s.end)],
   };
 
   /// Every live question of the interests form gets an answer: the topics

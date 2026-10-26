@@ -19,6 +19,14 @@ abstract final class ClientKeys {
     userDocumentId,
   ];
 
+  /// `JsonMap?`: the user read with referral + GST relations, shared by the
+  /// invite card, Referral and GST (one request for all three).
+  static const menuRelations = ['client', 'menu-relations'];
+  static List<Object?> menuRelationsOf(String userDocumentId) => [
+    ...menuRelations,
+    userDocumentId,
+  ];
+
   static const geo = ['client', 'geo'];
 
   static List<Object?> countries({
