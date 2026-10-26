@@ -67,6 +67,8 @@
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Vibe Live needs access to your photos so you can add pictures to your host profile.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Vibe Live uses your location to fill in your state and district on your profile. It is not shared or tracked.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Vibe Live uses your camera for video calls, so the person you are talking to can see you.</string>
 	<key>NSLocalNetworkUsageDescription</key>

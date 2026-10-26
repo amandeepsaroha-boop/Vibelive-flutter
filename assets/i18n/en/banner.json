@@ -13,7 +13,8 @@
     "personal": "Please complete: {{fields}} to access calling services",
     "professional": "Please complete your professional profile: {{fields}}",
     "rates": "Please set your call rates to start receiving calls",
-    "approval": "Complete your last step - Submit your profile for approval to go live"
+    "approval": "Complete your last step - Submit your profile for approval to go live",
+    "availability": "Almost there - set when you are available so clients can call you"
   },
   "milestones": {
     "first_call": {

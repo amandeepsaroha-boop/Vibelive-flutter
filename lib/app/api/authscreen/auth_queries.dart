@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../../core/network/device_info.dart';
 import '../../../core/network/strapi.dart';
 import '../../../core/query/query_hooks.dart';
 import '../../../core/session/session_store.dart';
@@ -195,6 +196,7 @@ Future<void> _serverLogout(LogoutInput input, SessionState session) async {
   final fcmToken = J.str(input.fcmToken) ?? PushTokens.fcm;
   final voipToken = J.str(input.voipToken) ?? PushTokens.voip;
   final userId = session.userKey;
+  final deviceId = (await DeviceInfo.get())['deviceId']?.toString();
 
   // Both need the user's token, so they run before the session is revoked.
   await Future.wait([
@@ -208,7 +210,10 @@ Future<void> _serverLogout(LogoutInput input, SessionState session) async {
         ),
       ),
     if (userId != null)
-      runBestEffort('push token clear', () => PushApi.clearPushTokens(userId)),
+      runBestEffort(
+        'push token clear',
+        () => PushApi.clearPushTokens(userId, deviceId: deviceId),
+      ),
   ]);
   await runBestEffort(
     'session revoke',

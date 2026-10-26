@@ -9,6 +9,7 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../api/paymentscreen/checkout_models.dart';
+import '../../../api/paymentscreen/runtime_config_queries.dart';
 import '../../../component/c_alert.dart';
 import '../../../component/c_button.dart';
 import '../../../component/c_text.dart';
@@ -26,11 +27,13 @@ import 'wallet_header.dart';
 typedef AddMoneyExit = ({RazorpayCheckout? checkout, bool profileIncomplete});
 
 /// Full-screen "Add Money" (RN modal, slide up): amount, presets, GST
-/// breakdown, then the backend order.
+/// breakdown, then the backend order. [initialAmount] pre-fills it (the call
+/// balance gate, the first-top-up and exit-intent offers).
 Future<AddMoneyExit?> showAddMoney(
   BuildContext context, {
   required TopUpCheckout flow,
   required PayerInfo Function() payer,
+  double? initialAmount,
 }) => showGeneralDialog<AddMoneyExit>(
   context: context,
   barrierDismissible: false,
@@ -43,28 +46,44 @@ Future<AddMoneyExit?> showAddMoney(
     ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
     child: child,
   ),
-  pageBuilder: (_, _, _) => _AddMoneyScreen(flow: flow, payer: payer),
+  pageBuilder: (_, _, _) =>
+      _AddMoneyScreen(flow: flow, payer: payer, initialAmount: initialAmount),
 );
 
 class _AddMoneyScreen extends HookWidget {
-  const _AddMoneyScreen({required this.flow, required this.payer});
+  const _AddMoneyScreen({
+    required this.flow,
+    required this.payer,
+    this.initialAmount,
+  });
 
   final TopUpCheckout flow;
   final PayerInfo Function() payer;
+  final double? initialAmount;
 
   @override
   Widget build(BuildContext context) {
     final p = WalletPalette.of(context);
-    final controller = useTextEditingController();
-    final preset = useValueNotifier<int?>(null);
-    final effective = useValueNotifier<double>(0);
+    final config = useRuntimeConfig(context);
+    final presets = config.presetAmounts;
+    final initial = initialAmount;
+    final initialText = initial != null && initial.isFinite && initial > 0
+        ? WalletFormat.js(initial)
+        : '';
+    final controller = useTextEditingController(text: initialText);
+    final preset = useValueNotifier<int?>(
+      TopUpAmount.presetFor(initialText, presets),
+    );
+    final effective = useValueNotifier<double>(
+      TopUpAmount.effective(initialText, null),
+    );
     final loading = useValueNotifier<bool>(false);
 
     void sync() =>
         effective.value = TopUpAmount.effective(controller.text, preset.value);
 
     void onChanged(String text) {
-      preset.value = TopUpAmount.presetFor(text);
+      preset.value = TopUpAmount.presetFor(text, presets);
       sync();
     }
 
@@ -103,6 +122,7 @@ class _AddMoneyScreen extends HookWidget {
           amount: amount,
           payer: who,
           description: context.t('payment:add_money.description'),
+          gstPercent: config.gstPercent,
         );
         if (context.mounted) {
           Navigator.of(
@@ -180,14 +200,20 @@ class _AddMoneyScreen extends HookWidget {
                             ),
                             ValueListenableBuilder<int?>(
                               valueListenable: preset,
-                              builder: (_, selected, _) =>
-                                  _Presets(selected: selected, onPick: pick),
+                              builder: (_, selected, _) => _Presets(
+                                options: presets,
+                                selected: selected,
+                                onPick: pick,
+                              ),
                             ),
                             SizedBox(height: 28.ms),
                             ValueListenableBuilder<double>(
                               valueListenable: effective,
                               builder: (_, amount, _) => amount > 0
-                                  ? _GstCard(amount: amount)
+                                  ? _GstCard(
+                                      amount: amount,
+                                      percent: config.gstPercent,
+                                    )
                                   : const SizedBox.shrink(),
                             ),
                             ListenableBuilder(
@@ -282,8 +308,13 @@ class _AmountField extends StatelessWidget {
 }
 
 class _Presets extends StatelessWidget {
-  const _Presets({required this.selected, required this.onPick});
+  const _Presets({
+    required this.options,
+    required this.selected,
+    required this.onPick,
+  });
 
+  final List<int> options;
   final int? selected;
   final ValueChanged<int> onPick;
 
@@ -294,7 +325,7 @@ class _Presets extends StatelessWidget {
       spacing: 10.ms,
       runSpacing: 10.ms,
       children: [
-        for (final value in TopUpAmount.presets)
+        for (final value in options)
           Pressable(
             onPressed: () => onPick(value),
             child: Container(
@@ -321,15 +352,16 @@ class _Presets extends StatelessWidget {
   }
 }
 
-/// Recharge amount, 18% GST, total payable (RN GST breakdown).
+/// Recharge amount, GST, total payable (RN GST breakdown).
 class _GstCard extends StatelessWidget {
-  const _GstCard({required this.amount});
+  const _GstCard({required this.amount, required this.percent});
   final double amount;
+  final double percent;
 
   @override
   Widget build(BuildContext context) {
     final p = WalletPalette.of(context);
-    final b = TopUpAmount.breakdown(amount);
+    final b = TopUpAmount.breakdown(amount, percent);
     if (b.base <= 0) return const SizedBox.shrink();
     Widget row(Widget label, String value, {required Color color}) => Row(
       children: [
@@ -361,7 +393,7 @@ class _GstCard extends StatelessWidget {
           row(
             CText(
               'payment:add_money.gst',
-              variables: {'percent': WalletFormat.js(TopUpAmount.gstPercent)},
+              variables: {'percent': WalletFormat.js(percent)},
               size: 13,
               weight: FontWeight.w700,
               color: p.muted,

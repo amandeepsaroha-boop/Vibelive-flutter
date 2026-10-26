@@ -23,6 +23,7 @@ import 'helper/native/native_call_events.dart';
 import 'helper/native/ring_promoter.dart';
 import 'helper/native/vibe_call_platform.dart';
 import 'helper/push/fcm_token_registrar.dart';
+import 'helper/push/host_heartbeat.dart';
 import 'helper/push/local_notifier.dart';
 import 'helper/push/milestone_queue.dart';
 import 'helper/push/voip_token_registrar.dart';
@@ -40,6 +41,7 @@ abstract final class CallFlow {
   static bool _signedIn = false;
   static Future<void>? _reconciled;
   static DateTime? _lastResume;
+  static bool _wasBackgrounded = false;
 
   static bool get isOnCall => CallController.instance.isOnCall;
 
@@ -93,11 +95,12 @@ abstract final class CallFlow {
     SessionStore.instance.signedIn.addListener(_onSessionChanged);
     // U3: a call outlives no sign-out; its Callend needs the token.
     SessionStore.beforeSignOut = _beforeSignOut;
+    HostHeartbeat.attach();
     _lifecycle ??= AppLifecycleListener(
       onResume: () => unawaited(_resumed()),
       // I4: an in-app ring goes to CallKit when the app leaves the screen.
-      onHide: () => unawaited(RingPromoter.onBackgrounded()),
-      onPause: () => unawaited(RingPromoter.onBackgrounded()),
+      onHide: _backgrounded,
+      onPause: _backgrounded,
     );
     // Reconcile without holding the first frame: an accept it replays may
     // wait for the audio session or the router.
@@ -124,6 +127,12 @@ abstract final class CallFlow {
     }
   }
 
+  static void _backgrounded() {
+    _wasBackgrounded = true;
+    HostHeartbeat.stop();
+    unawaited(RingPromoter.onBackgrounded());
+  }
+
   /// Every resume, the cold start included (once: the listener and
   /// [afterRunApp] can both see the first one).
   static Future<void> _resumed() async {
@@ -133,10 +142,19 @@ abstract final class CallFlow {
       return;
     }
     _lastResume = now;
+    // A host in the app is online now, not at the next interval.
+    HostHeartbeat.sync();
     await _step('resume', NativeCallEvents.onResumed);
     // A sign-in that happened while the app was not in front.
     if (_signedIn) {
       await _step('call permissions', CallPermissionPrimer.primeIfExpert);
+    }
+    // Back from the background only: the cold start already fetches and
+    // syncs the token (PushBootstrap).
+    final returning = _wasBackgrounded;
+    _wasBackgrounded = false;
+    if (returning && _signedIn) {
+      await _step('fcm republish', FcmTokenRegistrar.republish);
     }
   }
 
@@ -199,9 +217,9 @@ abstract final class CallFlow {
     await CallActions.endForSignOut();
   }
 
-  /// Logout cleanup: dead FCM token replaced (E51), every system call ended,
-  /// the native token cleared, our notifications gone. The server-side
-  /// unregister already ran (it needs the user's token).
+  /// Logout cleanup: every system call ended, the native token cleared,
+  /// our notifications gone, the FCM token kept for the next login. The
+  /// server-side unregister already ran (it needs the user's token).
   static Future<void> _afterSignOut() async {
     await _step('native token', () => NativeCallBridge.setAuthToken(null));
     await _step('end calls', CallKitService.endAll);

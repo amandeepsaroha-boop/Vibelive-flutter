@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/network/strapi.dart';
 import '../../../api/client/client_models.dart';
 import '../../../client/personal_info/helper/gender_answer.dart';
 import '../../../api/hosthub/catalog_models.dart';
@@ -10,8 +9,11 @@ import 'draft_models.dart';
 import '../../../api/client/profile_api.dart';
 
 /// Fills a new draft from what the app already knows: Personal Info (name,
-/// location, photo), the user's interests answers (gender), and, for a host
+/// photo), the user's interests answers (gender), and, for a host
 /// resubmitting, their saved host profile. Never overwrites an answer.
+///
+/// Location is NOT copied from Personal Info: the Location field fills it
+/// from the device's current location (basic_profile_step `_Location`).
 abstract final class HostPrefill {
   static void apply(
     HostDraftController d,
@@ -26,8 +28,6 @@ abstract final class HostPrefill {
     }
 
     text(d.name, me.name);
-    d.state.value ??= me.state ?? _named(me.addressJson['state']);
-    d.district.value ??= me.district ?? _named(me.addressJson['district']);
     d.gender.value ??=
         host?.gender ??
         userGenderLabel(me.user['gender']) ??
@@ -152,9 +152,4 @@ abstract final class HostPrefill {
     'اردو': 'urdu',
     'हरियाणवी': 'haryanvi',
   };
-
-  static GeoOption? _named(dynamic name) {
-    final n = (J.str(name) ?? '').trim();
-    return n.isEmpty ? null : GeoOption({'name': n});
-  }
 }

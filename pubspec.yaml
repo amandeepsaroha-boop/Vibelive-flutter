@@ -76,6 +76,8 @@ dependencies:
   vibration: ^3.2.1
   image_picker: ^1.2.4
   razorpay_flutter: ^1.4.7
+  geolocator: ^14.1.2
+  geocoding: ^5.0.0
 
 dev_dependencies:
   flutter_test:

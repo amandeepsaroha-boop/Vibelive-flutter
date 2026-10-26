@@ -20,6 +20,7 @@ import 'package:vibelive/app/api/authscreen/push_queries.dart';
 import 'package:vibelive/app/api/authscreen/referrer_api.dart';
 import 'package:vibelive/core/network/api_client.dart';
 import 'package:vibelive/core/network/api_exception.dart';
+import 'package:vibelive/core/network/device_info.dart';
 import 'package:vibelive/core/network/strapi.dart';
 import 'package:vibelive/core/query/query_client.dart';
 import 'package:vibelive/core/query/query_persist.dart';
@@ -763,7 +764,11 @@ void main() {
       expect(unregisterReq.headers['Authorization'], 'Bearer acc-1');
       expect(unregisterReq.data, {'fcmToken': 'fcm-1', 'voipToken': 'voip-1'});
       final clear = _server.only('PUT', '/api/public-users/u1/fcm-token');
-      expect(clear.data, {'firebaseTokens': <String>[], 'voipToken': null});
+      expect(clear.data, {
+        'deviceId': (await DeviceInfo.get())['deviceId'],
+        'firebaseTokens': <String>[],
+        'voipToken': null,
+      });
       final revoke = _server.only('POST', '/api/session-auth/logout');
       expect((revoke.data as Map)['refreshToken'], 'ref-1');
 

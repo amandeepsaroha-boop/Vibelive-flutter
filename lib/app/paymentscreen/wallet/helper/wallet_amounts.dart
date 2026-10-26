@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import '../../../../core/config/runtime_config.dart';
 import '../../../api/paymentscreen/billing_models.dart';
 import 'wallet_format.dart';
 
@@ -14,10 +15,10 @@ double? parseLeadingNumber(String text) {
 
 /// Add-money amount rules (RN WalletScreen).
 abstract final class TopUpAmount {
-  /// RN `PRESET_AMOUNTS`.
-  static const presets = [50, 100, 500, 750, 1000, 1500];
+  /// Fallback presets; the live ones come from `RuntimeConfig`.
+  static const presets = RuntimeConfig.defaultPresets;
 
-  /// Add-money GST (RN `calculateGST` default).
+  /// Fallback add-money GST; the live rate comes from `RuntimeConfig`.
   static const gstPercent = 18.0;
 
   /// RN `onChangeText`: digits and one dot, at most two decimals, leading
@@ -33,10 +34,10 @@ abstract final class TopUpAmount {
   }
 
   /// The preset matching typed [text] exactly (no decimals), else null.
-  static int? presetFor(String text) {
+  static int? presetFor(String text, [List<int> options = presets]) {
     if (text.contains('.')) return null;
     final n = int.tryParse(text.isEmpty ? '0' : text);
-    return n != null && presets.contains(n) ? n : null;
+    return n != null && options.contains(n) ? n : null;
   }
 
   /// RN `effectiveAddAmount`: the typed amount, else the preset, else 0.
@@ -47,8 +48,8 @@ abstract final class TopUpAmount {
     return 0;
   }
 
-  static GstBreakdown breakdown(double amount) =>
-      GstBreakdown.of(amount, percent: gstPercent);
+  static GstBreakdown breakdown(double amount, [double percent = gstPercent]) =>
+      GstBreakdown.of(amount, percent: percent);
 }
 
 /// [TopUpAmount.sanitize] as a field formatter.

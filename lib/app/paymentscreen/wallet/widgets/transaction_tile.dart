@@ -29,11 +29,15 @@ class TransactionTile extends StatelessWidget {
     final statusColor = switch (row.status) {
       TxStatus.success => WalletPalette.success,
       TxStatus.failure => WalletPalette.error,
-      TxStatus.pending => WalletPalette.pending,
+      TxStatus.pending || TxStatus.abandoned => WalletPalette.pending,
     };
     final raw = row.rawStatus;
     final known =
-        raw == null || raw == 'success' || raw == 'failure' || raw == 'pending';
+        raw == null ||
+        raw == 'success' ||
+        raw == 'failure' ||
+        raw == 'pending' ||
+        raw == 'abandoned';
     final detail = row.detailKey;
     final vars = row.detailVariables;
 

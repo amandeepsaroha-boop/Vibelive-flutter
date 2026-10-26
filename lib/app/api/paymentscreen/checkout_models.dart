@@ -1,4 +1,5 @@
 import '../../../core/network/strapi.dart';
+import 'billing_models.dart';
 import 'payment_json.dart';
 
 /// The user paying, as sent to the gateways (RN `userData`).
@@ -61,6 +62,7 @@ class RechargeRequest {
     required this.payer,
     required this.description,
     this.appConfig,
+    this.gstPercent = GstConfig.defaultIgstRate,
   });
 
   /// Rupees, before GST.
@@ -74,11 +76,16 @@ class RechargeRequest {
   /// response has none.
   final JsonMap? appConfig;
 
+  /// Top-up GST from runtime config; only used when the initiate response
+  /// carries no amount.
+  final double gstPercent;
+
   RechargeRequest withAppConfig(JsonMap? config) => RechargeRequest(
     amount: amount,
     payer: payer,
     description: description,
     appConfig: config,
+    gstPercent: gstPercent,
   );
 }
 

@@ -211,3 +211,17 @@ Future<BadgePaymentStart> _startBadgePayment(BadgePaymentRequest r) async {
     appConfig: config,
   );
 }
+
+// ── Tagline / bio: "Enhance with AI" ────────────────────────────────────────
+
+typedef HostTextEnhance = ({String text, String kind, int maxLength});
+
+/// Rewrites a tagline / bio draft ([HostTextEnhanceApi]); nothing cached.
+MutationResult<String, ApiException, HostTextEnhance> useEnhanceHostText() =>
+    useApiMutation<String, HostTextEnhance>(
+      (r) => HostTextEnhanceApi.enhance(
+        r.text,
+        kind: r.kind,
+        maxLength: r.maxLength,
+      ),
+    );

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../api/client/client_models.dart';
 import '../../../api/client/profile_api.dart';
+import 'location_autofill.dart';
 import 'personal_info_validation.dart';
 
 /// Form state of Personal Info. One notifier per field, so typing in a
@@ -36,6 +37,9 @@ class PersonalInfoController {
   /// Save / photo upload in flight (header button, avatar, mobile field).
   final saving = ValueNotifier<bool>(false);
   final uploading = ValueNotifier<bool>(false);
+
+  /// "Use current location" in flight.
+  final locating = ValueNotifier<bool>(false);
 
   UserWithExpert? _profile;
   _Snapshot? _seeded;
@@ -72,6 +76,13 @@ class PersonalInfoController {
   }
 
   void selectDistrict(GeoOption option) => district.value = option;
+
+  /// State and district from the device's current location. Leaves the
+  /// district empty for the user to pick when only the state matched.
+  void applyLocation(LocationFill fill) {
+    state.value = fill.state;
+    district.value = fill.district;
+  }
 
   PersonalInfoIssue? validate() => PersonalInfoValidation.validate(
     name: name.text,
@@ -114,6 +125,7 @@ class PersonalInfoController {
     gender.dispose();
     saving.dispose();
     uploading.dispose();
+    locating.dispose();
   }
 }
 

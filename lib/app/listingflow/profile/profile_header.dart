@@ -8,6 +8,7 @@ import '../../../core/utils/scale.dart';
 import '../../api/listingflow/listing_models.dart';
 import '../../component/c_text.dart';
 import '../../component/verification_badge.dart';
+import '../helper/busy_label.dart';
 
 /// Name, badge, company pill, city and rating (top of the RN profile card).
 class ProfileHeader extends StatelessWidget {
@@ -41,6 +42,7 @@ class ProfileHeader extends StatelessWidget {
     final city = host.city.isEmpty
         ? context.t(HostCard.defaultCityKey)
         : host.city;
+    final busy = BusyLabel.of(host.presence);
 
     return Padding(
       padding: EdgeInsets.only(bottom: 12.ms),
@@ -112,6 +114,9 @@ class ProfileHeader extends StatelessWidget {
                         ),
                       ],
                     ),
+                    // Someone who opened this profile wants THIS host: the
+                    // open question is the wait (RN).
+                    if (busy != null) _BusyRow(label: busy),
                   ],
                 ),
               ),
@@ -125,6 +130,39 @@ class ProfileHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+class _BusyRow extends StatelessWidget {
+  const _BusyRow({required this.label});
+  final BusyLabel label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(top: 4.ms),
+    child: Row(
+      children: [
+        Container(
+          width: 7.ms,
+          height: 7.ms,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.orange,
+          ),
+        ),
+        SizedBox(width: 5.ms),
+        Flexible(
+          child: CText(
+            label.key,
+            variables: label.variables,
+            size: 11,
+            weight: FontWeight.w800,
+            color: AppColors.orange,
+            maxLines: 1,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _RatingBox extends StatelessWidget {

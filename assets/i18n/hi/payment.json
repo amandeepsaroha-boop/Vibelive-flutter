@@ -62,13 +62,20 @@
     "status": {
       "success": "सफल",
       "failure": "विफल",
-      "pending": "लंबित"
+      "pending": "लंबित",
+      "abandoned": "छोड़ा गया"
     },
     "datetime": "{{date}} को {{time}} बजे",
     "invoice": "इनवॉइस",
     "invoice_loading": "लोड हो रहा है...",
     "invoice_url_title": "इनवॉइस लिंक",
-    "download_error_title": "डाउनलोड नहीं हो पाया"
+    "download_error_title": "डाउनलोड नहीं हो पाया",
+    "bonus_joining": "जॉइनिंग बोनस",
+    "bonus_first_topup": "पहले टॉप-अप का बोनस",
+    "bonus_credit": "बोनस क्रेडिट",
+    "bonus_expired": "बोनस की अवधि खत्म",
+    "bonus_added": "Vibe Live ने जोड़ा",
+    "bonus_expired_detail": "बिना इस्तेमाल हुआ बोनस खत्म हो गया"
   },
   "add_money": {
     "title": "पैसे जोड़ें",
@@ -111,5 +118,34 @@
     "success_title": "हो गया",
     "success": "ट्रांसफ़र सफलतापूर्वक पूरा हुआ!",
     "failed_title": "ट्रांसफ़र नहीं हो पाया"
+  },
+  "balance_gate": {
+    "of": "/ ₹{{required}} ज़रूरी",
+    "caption": "कॉल शुरू करने के लिए ₹{{gap}} जोड़ें",
+    "caption_host": "{{name}} को कॉल करने के लिए ₹{{gap}} जोड़ें",
+    "minutes": "कॉल ₹{{rate}}/मिनट पर {{minutes}} मिनट से शुरू होती है",
+    "add": "₹{{amount}} जोड़ें",
+    "minimum_note": "कम से कम ₹{{amount}} जोड़ने होते हैं। बाकी पैसे आपके वॉलेट में रहेंगे।",
+    "use_earnings": "इसकी जगह कमाई से ₹{{amount}} इस्तेमाल करें",
+    "transfer_earnings": "₹{{amount}} कमाई वॉलेट में ट्रांसफ़र करें"
+  },
+  "offer": {
+    "cta": "₹{{amount}} जोड़ें और ₹{{bonus}} पाएं"
+  },
+  "first_topup": {
+    "title": "आपके पहले टॉप-अप पर {{percent}}% ज़्यादा",
+    "subtitle": "तुरंत आपके वॉलेट में जुड़ जाएगा। किसी भी कॉल पर इस्तेमाल करें।",
+    "becomes": "₹{{amount}} आपके वॉलेट में ₹{{total}} बन जाएंगे",
+    "minutes": "लगभग {{minutes}} मिनट की बातचीत",
+    "not_now": "अभी नहीं"
+  },
+  "abandon_offer": {
+    "title": "इरादा बदल गया?",
+    "subtitle": "अभी पूरा करें और हम आपके वॉलेट में {{percent}}% ज़्यादा जोड़ देंगे।",
+    "you_add": "आप जोड़ेंगे",
+    "bonus": "बोनस क्रेडिट",
+    "balance": "वॉलेट बैलेंस",
+    "ends_in": "ऑफ़र {{time}} में खत्म",
+    "later": "शायद बाद में"
   }
 }

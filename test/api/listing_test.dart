@@ -53,7 +53,9 @@ Map<String, dynamic> expertRow() => {
   'descriptions': 'Long bio ',
   'averageRating': '4.25',
   'reviewCount': 12,
-  'isActive': true,
+  // The dot reads user_status, not isActive (schedule, always on).
+  'isActive': false,
+  'user_status': 'Online',
   'isApproved': true,
   'website': 'https://riya.example',
   'featured_sequence': 2,
@@ -164,7 +166,7 @@ void main() {
           'id': 9,
           'documentId': 'exp9',
           'handler': 'arjun_h',
-          'isActive': false,
+          'isActive': true,
           'rates': {'videoCallRate': 0, 'voiceCallRate': 10},
           'expert_profile_approvals': [
             {'status': 'Approved'},
@@ -198,6 +200,7 @@ void main() {
             'documentId': 'exp3',
             'handler': 'kabir',
             'isActive': 1,
+            'user_status': 'busy',
             'rates': {
               'data': [
                 {

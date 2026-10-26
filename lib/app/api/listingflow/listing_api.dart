@@ -219,6 +219,15 @@ abstract final class ListingApi {
       // host when a filter is ignored).
       findProfile(expertDocumentId: expertDocumentId, userId: userId);
 
+  /// Counts a profile open (the sheet renders from list data, so the
+  /// server's GET-based counter never saw one). The server drops self-views
+  /// and same-day repeats.
+  static Future<void> trackProfileView(String expertDocumentId) async {
+    await ApiClient.post(
+      '/expert-profiles/${Uri.encodeComponent(expertDocumentId)}/view',
+    );
+  }
+
   static Future<List<JsonMap>> _rows(
     Map<String, dynamic> filter,
     Map<String, dynamic> query,

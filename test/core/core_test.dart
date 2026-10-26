@@ -226,15 +226,15 @@ void main() {
       );
     });
 
-    test('live host never warns', () {
+    test('isLive (never a real field) no longer hides warnings', () {
       expect(
         ProfileWarning.from(
           const SessionState(
             user: {'id': 1},
             expert: {'id': 2, 'isLive': true},
           ),
-        ),
-        isNull,
+        )?.type,
+        ProfileWarningType.personal,
       );
     });
   });

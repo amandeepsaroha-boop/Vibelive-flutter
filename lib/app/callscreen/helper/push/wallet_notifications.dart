@@ -40,6 +40,8 @@ abstract final class WalletClassifier {
     'wallet_top_up',
     'wallet_topup',
     'wallet_referral_topup',
+    // Bonus credit arrives unprompted: same treatment as a referral credit.
+    'wallet_bonus_credit',
     'topup',
   };
   static const skipTypes = {'wallet_update', 'wallet_updated'};

@@ -1,0 +1,120 @@
+import '../../../core/network/strapi.dart';
+import '../../../core/router/app_router.dart';
+import '../../../core/session/session_store.dart';
+
+enum ProfileWarningType {
+  personal,
+  professional,
+  rates,
+  approval,
+  availability,
+}
+
+/// What the user still has to do before they can call / go live.
+class ProfileWarning {
+  const ProfileWarning(this.type, this.route, {this.missing = const []});
+
+  final ProfileWarningType type;
+  final String route;
+
+  /// i18n keys of missing fields (`banner:fields.*`).
+  final List<String> missing;
+
+  /// Port of RN `TopWarnBar` rules, in the same order. Pure: easy to test.
+  /// No `isLive` shortcut: that field does not exist on expert-profile and
+  /// nothing ever wrote it (RN removed it too).
+  static ProfileWarning? from(SessionState s) {
+    final user = s.user;
+    if (user == null) return null;
+    final expert = Strapi.map(s.expert);
+
+    final personal = [
+      if (J.str(user['name']) == null) 'banner:fields.name',
+      if (J.str(user['email']) == null) 'banner:fields.email',
+      if (J.str(user['mobile']) == null) 'banner:fields.mobile',
+    ];
+    if (personal.isNotEmpty) {
+      return ProfileWarning(
+        ProfileWarningType.personal,
+        AppRoutes.personalInfo,
+        missing: personal,
+      );
+    }
+
+    final isExpert =
+        expert != null &&
+        (expert['id'] != null || expert['documentId'] != null);
+    if (!isExpert) return null;
+
+    final handler = J.str(expert['handler']) ?? '';
+    final professional = [
+      if (handler.length < 3) 'banner:fields.handle',
+      if (J.str(expert['tagline']) == null) 'banner:fields.tagline',
+      if (Strapi.list(expert['language']).isEmpty) 'banner:fields.languages',
+      if (J.str(expert['descriptions']) == null) 'banner:fields.description',
+    ];
+    if (professional.isNotEmpty) {
+      return ProfileWarning(
+        ProfileWarningType.professional,
+        AppRoutes.professionalDetails,
+        missing: professional,
+      );
+    }
+
+    final rates = Strapi.map(expert['rates']) ?? const {};
+    final voice =
+        J.number(rates['voiceCallRate'] ?? expert['voiceCallRate']) ?? 0;
+    final video =
+        J.number(rates['videoCallRate'] ?? expert['videoCallRate']) ?? 0;
+    if (voice == 0 && video == 0) {
+      return const ProfileWarning(
+        ProfileWarningType.rates,
+        AppRoutes.callRates,
+      );
+    }
+
+    final approvals = Strapi.list(expert['expert_profile_approvals']);
+    if (HostCompletion.needsApprovalSubmission(expert, approvals)) {
+      return const ProfileWarning(
+        ProfileWarningType.approval,
+        AppRoutes.approval,
+      );
+    }
+
+    // Last: hours are only worth setting once the profile is through review.
+    if (HostCompletion.isApproved(expert, approvals) &&
+        HostCompletion.needsAvailability(expert)) {
+      return const ProfileWarning(
+        ProfileWarningType.availability,
+        AppRoutes.schedule,
+      );
+    }
+    return null;
+  }
+}
+
+/// RN `shared/utils/host-completion`: which step a host still has to do.
+abstract final class HostCompletion {
+  /// `isApproved` on the profile is the authority (the server lists on it;
+  /// the moderation panel writes it and not the row). An approved row still
+  /// counts, for the older flow. Only a strict `true` approves.
+  static bool isApproved(JsonMap? expert, List<JsonMap> approvals) =>
+      expert?['isApproved'] == true ||
+      approvals.any((a) => a['is_approved'] == true);
+
+  /// A submission is with a reviewer: a row EXISTS and none is approved.
+  /// The flag alone cannot tell "submitted, waiting" from "not submitted".
+  static bool isApprovalPending(JsonMap? expert, List<JsonMap> approvals) =>
+      approvals.isNotEmpty && !isApproved(expert, approvals);
+
+  /// Neither approved nor submitted: prompt to submit.
+  static bool needsApprovalSubmission(
+    JsonMap? expert,
+    List<JsonMap> approvals,
+  ) => !isApproved(expert, approvals) && !isApprovalPending(expert, approvals);
+
+  /// The server answers whether any hours are set (`availability_unset`; a
+  /// break counts as set). Absent means it could not tell: say nothing.
+  static bool needsAvailability(JsonMap? expert) =>
+      expert?['availability_unset'] == true;
+}

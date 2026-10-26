@@ -3,98 +3,15 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/i18n/i18n.dart';
-import '../../core/network/strapi.dart';
-import '../../core/router/app_router.dart';
 import '../../core/session/session_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/vibe_colors.dart';
 import '../../core/utils/scale.dart';
 import '../component/c_text.dart';
 import '../component/pressable.dart';
+import 'helper/profile_warning.dart';
 
-enum ProfileWarningType { personal, professional, rates, approval }
-
-/// What the user still has to do before they can call / go live.
-class ProfileWarning {
-  const ProfileWarning(this.type, this.route, {this.missing = const []});
-
-  final ProfileWarningType type;
-  final String route;
-
-  /// i18n keys of missing fields (`banner:fields.*`).
-  final List<String> missing;
-
-  /// Port of RN `TopWarnBar` rules, in the same order. Pure: easy to test.
-  static ProfileWarning? from(SessionState s) {
-    final user = s.user;
-    final expert = Strapi.map(s.expert);
-    if (user == null || J.boolean(expert?['isLive'])) return null;
-
-    final personal = [
-      if (J.str(user['name']) == null) 'banner:fields.name',
-      if (J.str(user['email']) == null) 'banner:fields.email',
-      if (J.str(user['mobile']) == null) 'banner:fields.mobile',
-    ];
-    if (personal.isNotEmpty) {
-      return ProfileWarning(
-        ProfileWarningType.personal,
-        AppRoutes.personalInfo,
-        missing: personal,
-      );
-    }
-
-    final isExpert =
-        expert != null &&
-        (expert['id'] != null || expert['documentId'] != null);
-    if (!isExpert) return null;
-
-    final handler = J.str(expert['handler']) ?? '';
-    final professional = [
-      if (handler.length < 3) 'banner:fields.handle',
-      if (J.str(expert['tagline']) == null) 'banner:fields.tagline',
-      if (Strapi.list(expert['language']).isEmpty) 'banner:fields.languages',
-      if (J.str(expert['descriptions']) == null) 'banner:fields.description',
-    ];
-    if (professional.isNotEmpty) {
-      return ProfileWarning(
-        ProfileWarningType.professional,
-        AppRoutes.professionalDetails,
-        missing: professional,
-      );
-    }
-
-    final rates = Strapi.map(expert['rates']) ?? const {};
-    final voice =
-        J.number(rates['voiceCallRate'] ?? expert['voiceCallRate']) ?? 0;
-    final video =
-        J.number(rates['videoCallRate'] ?? expert['videoCallRate']) ?? 0;
-    if (voice == 0 && video == 0) {
-      return const ProfileWarning(
-        ProfileWarningType.rates,
-        AppRoutes.callRates,
-      );
-    }
-
-    final approvals = Strapi.list(expert['expert_profile_approvals']);
-    String status(JsonMap a) => (J.str(a['status']) ?? '').toLowerCase();
-    final approved = approvals.any(
-      (a) => status(a) == 'approved' || J.boolean(a['is_approved']),
-    );
-    final pending = approvals.any(
-      (a) =>
-          status(a) != 'rejected' &&
-          status(a) != 'approved' &&
-          !J.boolean(a['is_approved']),
-    );
-    if (!approved && !pending) {
-      return const ProfileWarning(
-        ProfileWarningType.approval,
-        AppRoutes.approval,
-      );
-    }
-    return null;
-  }
-}
+export 'helper/profile_warning.dart';
 
 /// RN `TopWarnBar`: tappable profile-completion warning under the top bar.
 /// Renders nothing when the profile is complete.

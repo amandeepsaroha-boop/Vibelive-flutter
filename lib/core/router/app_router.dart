@@ -191,7 +191,12 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.wallet,
-      builder: (context, state) => const WalletScreen(),
+      // `?amount=`: the call balance gate's pre-filled top-up.
+      builder: (context, state) => WalletScreen(
+        prefillAmount: double.tryParse(
+          state.uri.queryParameters['amount'] ?? '',
+        ),
+      ),
     ),
     GoRoute(
       path: AppRoutes.onboardingAge,

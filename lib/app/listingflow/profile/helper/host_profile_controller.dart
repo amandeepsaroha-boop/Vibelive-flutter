@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/analytics/analytics.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/app_router.dart';
@@ -9,11 +12,19 @@ import '../../../../core/utils/log.dart';
 import '../../../api/client/client_queries.dart';
 import '../../../api/listingflow/listing_models.dart';
 import '../../../api/paymentscreen/payment_queries.dart';
+import '../../../api/paymentscreen/runtime_config_queries.dart';
 import '../../../api/paymentscreen/wallet_models.dart';
 import '../../../component/app_share.dart';
 import '../../../component/c_alert.dart';
 import '../../../component/c_toast.dart';
+import '../../../paymentscreen/wallet/helper/balance_gate.dart';
+import '../../../paymentscreen/wallet/widgets/balance_gate_sheet.dart';
+import '../../../paymentscreen/wallet/widgets/transfer_sheet.dart';
 import 'host_profile_rules.dart';
+
+/// Shows the balance gate for a host; null when dismissed.
+typedef BalanceGatePrompt =
+    Future<BalanceGateAction?> Function(BalanceGate gate, HostCard host);
 
 /// What the profile sheet does besides drawing (RN `ProfileModal` logic): the
 /// pre-call checks before a call is handed off, and the share link.
@@ -26,7 +37,10 @@ class HostProfileController {
     required this.navigate,
     required this.confirmStart,
     required this.handOff,
-  });
+    BalanceGatePrompt? showBalanceGate,
+    Future<void> Function(WalletBalance balance)? transferEarnings,
+  }) : _showBalanceGate = showBalanceGate ?? _defaultGate,
+       _transferEarnings = transferEarnings ?? _defaultTransfer;
 
   /// Closes the profile sheet.
   final VoidCallback close;
@@ -39,6 +53,30 @@ class HostProfileController {
 
   /// The call layer (`startOutgoingCall`).
   final Future<void> Function(HostCard host, bool video) handOff;
+
+  final BalanceGatePrompt _showBalanceGate;
+
+  /// RN opens the earnings → cash transfer in place, over the profile.
+  final Future<void> Function(WalletBalance balance) _transferEarnings;
+
+  static Future<BalanceGateAction?> _defaultGate(
+    BalanceGate gate,
+    HostCard host,
+  ) async {
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx == null) return null;
+    return showBalanceGateSheet(ctx, gate: gate, hostName: host.name);
+  }
+
+  static Future<void> _defaultTransfer(WalletBalance balance) async {
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx == null) return;
+    await showTransferSheet(
+      ctx,
+      cash: balance.cashBalance,
+      earnings: balance.earningsBalance,
+    );
+  }
 
   /// Gallery photo shown in the hero.
   final activeImage = ValueNotifier(0);
@@ -170,30 +208,41 @@ class HostProfileController {
     final rate = video ? host.vPrice : host.aPrice;
     if (!company && rate > 0) {
       final balance = await wallet;
-      final required = rate * HostProfileRules.minCallMinutes;
-      if (balance != null && balance.cashBalance < required) {
+      // The minimum comes from config (cached, fallback 5 min); a stale
+      // block is re-read in the background for the next call.
+      unawaited(ensureFreshRuntimeConfig());
+      final gate = balance == null
+          ? null
+          : BalanceGate.check(
+              rate: rate,
+              cash: balance.cashBalance,
+              earnings: balance.earningsBalance,
+              config: currentRuntimeConfig(),
+            );
+      if (balance != null && gate != null) {
         if (_disposed) return false;
-        final earnings = balance.earningsBalance;
-        final go = await CAlert.show(
-          title: 'host:call.low_balance_title',
-          message: earnings > 0
-              ? 'host:call.low_balance_earnings'
-              : 'host:call.low_balance_message',
-          variables: {
-            'cash': HostProfileRules.money(balance.cashBalance),
-            'required': HostProfileRules.money(required),
-            'minutes': HostProfileRules.minCallMinutes,
-            'rate': HostProfileRules.price(rate),
-            'earnings': HostProfileRules.money(earnings),
-          },
-          primaryLabel: earnings > 0
-              ? 'host:call.transfer'
-              : 'host:call.recharge',
-          secondaryLabel: 'actions.cancel',
-          variant: CAlertVariant.warning,
-        );
-        // Earnings move to cash on the wallet screen.
-        if (go == true) _leaveTo(AppRoutes.wallet);
+        final expertId = host.documentId ?? '${host.id}';
+        Analytics.log('balance_gate_shown', {
+          'expert_id': expertId,
+          ...gate.analytics,
+        });
+        switch (await _showBalanceGate(gate, host)) {
+          case BalanceGateAction.addMoney:
+            Analytics.log('balance_gate_topup_tapped', {
+              'expert_id': expertId,
+              'gap': gate.gap,
+              'suggested_amount': gate.suggestedAmount,
+            });
+            // The wallet opens with the amount pre-filled.
+            _leaveTo(
+              '${AppRoutes.wallet}?amount=${gate.suggestedAmount}'
+              '&reason=call_gate',
+            );
+          case BalanceGateAction.transferEarnings:
+            if (!_disposed) await _transferEarnings(balance);
+          case null:
+            break;
+        }
         return false;
       }
     }

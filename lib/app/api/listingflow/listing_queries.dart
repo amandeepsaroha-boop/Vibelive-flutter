@@ -5,6 +5,7 @@ import 'package:fquery_core/fquery_core.dart' show QueryStatus;
 import '../../../core/network/strapi.dart';
 import '../../../core/query/query_hooks.dart';
 import '../../../core/session/session_store.dart';
+import '../../../core/utils/log.dart';
 import 'host_index.dart';
 import 'listing_api.dart';
 import 'listing_keys.dart';
@@ -96,6 +97,22 @@ useHostSheetDetail(BuildContext context, HostCard host) {
     error: missing && detail.data == null ? detail.error : null,
     retry: () => detail.refetch(),
   );
+}
+
+/// Reports the open of a profile sheet once per [expertId] (RN
+/// `trackProfileView`). Fire-and-forget like RN: a view counter must never
+/// interrupt opening a profile, so failures are only logged.
+void useTrackProfileView(String? expertId) {
+  useEffect(() {
+    final id = expertId?.trim() ?? '';
+    if (id.isNotEmpty) {
+      ListingApi.trackProfileView(id).then(
+        (_) {},
+        onError: (Object e) => Log.w('Listing', 'profile view: $e'),
+      );
+    }
+    return null;
+  }, [expertId]);
 }
 
 /// Profile behind a shared link / `openUserId`. Any host opens; the

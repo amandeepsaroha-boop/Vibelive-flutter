@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -7,21 +9,35 @@ import '../../../../core/utils/scale.dart';
 import '../../../component/c_button.dart';
 import '../../../component/c_loader.dart';
 import '../../../component/c_text.dart';
+import '../../../component/confetti_burst.dart';
+import '../helper/topup_celebration.dart';
 import '../helper/topup_checkout.dart';
 import '../helper/wallet_palette.dart';
 
-/// RN "Payment Successful / Received / Failed" modal (fade, black 60%).
-Future<void> showPaymentStatus(BuildContext context, TopUpStatus status) =>
-    showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'payment-status',
-      barrierColor: AppColors.blackA(0.6),
-      transitionDuration: const Duration(milliseconds: 200),
-      transitionBuilder: (_, anim, _, child) =>
-          FadeTransition(opacity: anim, child: child),
-      pageBuilder: (_, _, _) => _StatusCard(status: status),
-    );
+/// RN "Payment Successful / Received / Failed" modal (fade, black 60%). A
+/// success celebrates in the app (coin sound, haptic, one confetti burst)
+/// instead of a push.
+Future<void> showPaymentStatus(BuildContext context, TopUpStatus status) {
+  final success = status.result == TopUpResult.success;
+  if (success) unawaited(TopupCelebration.celebrate());
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'payment-status',
+    barrierColor: AppColors.blackA(0.6),
+    transitionDuration: const Duration(milliseconds: 200),
+    transitionBuilder: (_, anim, _, child) =>
+        FadeTransition(opacity: anim, child: child),
+    pageBuilder: (_, _, _) => success
+        ? Stack(
+            children: [
+              _StatusCard(status: status),
+              const Positioned.fill(child: ConfettiBurst()),
+            ],
+          )
+        : _StatusCard(status: status),
+  );
+}
 
 class _StatusCard extends StatelessWidget {
   const _StatusCard({required this.status});

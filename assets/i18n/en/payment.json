@@ -62,13 +62,20 @@
     "status": {
       "success": "SUCCESS",
       "failure": "FAILURE",
-      "pending": "PENDING"
+      "pending": "PENDING",
+      "abandoned": "ABANDONED"
     },
     "datetime": "{{date}} at {{time}}",
     "invoice": "Invoice",
     "invoice_loading": "Loading...",
     "invoice_url_title": "Invoice URL",
-    "download_error_title": "Download Error"
+    "download_error_title": "Download Error",
+    "bonus_joining": "Joining Bonus",
+    "bonus_first_topup": "First Top-Up Bonus",
+    "bonus_credit": "Bonus Credit",
+    "bonus_expired": "Bonus Expired",
+    "bonus_added": "Added by Vibe Live",
+    "bonus_expired_detail": "Unused bonus expired"
   },
   "add_money": {
     "title": "Add Money",
@@ -111,5 +118,34 @@
     "success_title": "Success",
     "success": "Transfer completed successfully!",
     "failed_title": "Transfer Failed"
+  },
+  "balance_gate": {
+    "of": "of ₹{{required}}",
+    "caption": "Add ₹{{gap}} to start the call",
+    "caption_host": "Add ₹{{gap}} to call {{name}}",
+    "minutes": "Calls start with {{minutes}} minutes at ₹{{rate}}/min",
+    "add": "Add ₹{{amount}}",
+    "minimum_note": "₹{{amount}} is the minimum top-up. The extra stays in your wallet.",
+    "use_earnings": "Use ₹{{amount}} from earnings instead",
+    "transfer_earnings": "Transfer ₹{{amount}} earnings to wallet"
+  },
+  "offer": {
+    "cta": "Add ₹{{amount}} & get ₹{{bonus}}"
+  },
+  "first_topup": {
+    "title": "Your first top-up gets {{percent}}% extra",
+    "subtitle": "Added to your wallet straight away. Use it on any call.",
+    "becomes": "₹{{amount}} becomes ₹{{total}} in your wallet",
+    "minutes": "About {{minutes}} minutes of talking",
+    "not_now": "Not now"
+  },
+  "abandon_offer": {
+    "title": "Changed your mind?",
+    "subtitle": "Finish now and we'll add {{percent}}% extra to your wallet.",
+    "you_add": "You add",
+    "bonus": "Bonus credit",
+    "balance": "Wallet balance",
+    "ends_in": "Offer ends in {{time}}",
+    "later": "Maybe later"
   }
 }

@@ -8,6 +8,7 @@ import '../client/client_queries.dart';
 import '../homescreen/home_queries.dart';
 import '../hosthub/hosthub_queries.dart';
 import '../paymentscreen/payment_queries.dart';
+import '../paymentscreen/runtime_config_queries.dart';
 import '../resourcesscreen/resources_queries.dart';
 import 'splash_queries.dart';
 
@@ -23,6 +24,7 @@ void prefetchStartup() {
   final session = SessionStore.instance.value;
   final uid = session.userDocumentId;
   if (!session.isAuthenticated || uid == null) return;
+  RuntimeConfigRefresher.start();
   final expertId = session.expertDocumentId ?? session.expertId?.toString();
   for (final Future<Object?> f in [
     ensureAppConfig(),

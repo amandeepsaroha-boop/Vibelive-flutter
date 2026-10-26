@@ -11,6 +11,7 @@ import '../../component/c_text.dart';
 import '../../component/pressable.dart';
 import '../../component/skeleton.dart';
 import '../../component/verification_badge.dart';
+import '../helper/busy_label.dart';
 
 /// Discover grid card (RN `DiscoveryCard`): photo, price / rating badges,
 /// name + badge, tagline or city, topic chips. Featured cards are taller and
@@ -40,6 +41,8 @@ class HostGridCard extends StatelessWidget {
     final topics = h.topics.take(featured ? 2 : 1);
     final radius = BorderRadius.circular(featured ? 36.ms : 30.ms);
     final badgeBg = c.isDark ? AppColors.blackA(0.45) : AppColors.blackA(0.36);
+    // On a call, the wait matters more than the rate (RN).
+    final busy = BusyLabel.of(h.presence);
 
     return Pressable(
       activeOpacity: 0.92,
@@ -91,15 +94,19 @@ class HostGridCard extends StatelessWidget {
                               height: 6.ms,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: h.isAvailable
+                                color: busy != null
+                                    ? AppColors.orange
+                                    : h.isAvailable
                                     ? BrandColors.lime
                                     : AppColors.whiteA(0.35),
                               ),
                             ),
-                            text: context.t(
-                              'home:card.price',
-                              variables: {'price': _price(price)},
-                            ),
+                            text: busy != null
+                                ? context.t(busy.key, variables: busy.variables)
+                                : context.t(
+                                    'home:card.price',
+                                    variables: {'price': _price(price)},
+                                  ),
                           ),
                     rating: h.rating > 0
                         ? _Badge(
@@ -287,7 +294,11 @@ class _TopRowLayout extends MultiChildLayoutDelegate {
     var x = 0.0;
     void place(_Slot slot, {bool right = false}) {
       if (!hasChild(slot)) return;
-      final child = layoutChild(slot, natural);
+      // The price pill may carry a busy label: capped, it ellipsizes.
+      final child = layoutChild(
+        slot,
+        slot == _Slot.price ? natural.copyWith(maxWidth: size.width) : natural,
+      );
       final start = x == 0 ? 0.0 : x + gap;
       final fits = start + child.width <= size.width;
       final y = (size.height - child.height) / 2;
@@ -332,12 +343,14 @@ class _Badge extends StatelessWidget {
       children: [
         leading,
         SizedBox(width: gap.ms),
-        CText.raw(
-          text,
-          size: 10,
-          weight: FontWeight.w700,
-          color: AppColors.white,
-          maxLines: 1,
+        Flexible(
+          child: CText.raw(
+            text,
+            size: 10,
+            weight: FontWeight.w700,
+            color: AppColors.white,
+            maxLines: 1,
+          ),
         ),
       ],
     ),

@@ -173,6 +173,38 @@ Future<GeoOption?> ensureCountryByName(String name) =>
       staleDuration: StaleTime.static,
     );
 
+/// Every state (one page): current-location autofill matches against them.
+Future<List<GeoOption>> ensureAllStates() => queryCache.fetchQuery(
+  ClientKeys.states(
+    countryName: GeoApi.defaultCountry,
+    search: '',
+    page: 1,
+    pageSize: 100,
+  ),
+  () => GeoApi.fetchStates(pageSize: 100),
+  staleDuration: StaleTime.static,
+);
+
+/// Every district of [state] (the largest state has 75).
+Future<List<GeoOption>> ensureAllDistricts(GeoOption state) {
+  final stateId = state.filterId ?? '';
+  return queryCache.fetchQuery(
+    ClientKeys.districts(
+      stateId: stateId,
+      stateIdField: state.filterField.name,
+      search: '',
+      page: 1,
+      pageSize: 100,
+    ),
+    () => GeoApi.fetchDistricts(
+      stateId: stateId,
+      field: state.filterField,
+      pageSize: 100,
+    ),
+    staleDuration: StaleTime.static,
+  );
+}
+
 QueryResult<List<GeoOption>, ApiException> useStates(
   BuildContext context, {
   String search = '',

@@ -410,22 +410,18 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('low balance: alert, then the wallet', (tester) async {
+  testWidgets('low balance: progress sheet, then the wallet', (tester) async {
     backend.cash = 10; // 5 min at Rs 20 needs Rs 100
     await open(tester);
 
     await _tap(tester, find.text('₹20/min'));
     await _pump(tester, 400);
-    expect(find.text('Insufficient Balance'), findsOneWidget);
-    expect(
-      find.text(
-        'Your cash balance (Rs 10.00) is less than the minimum required '
-        '(Rs 100.00 for 5 min @ Rs 20/min).',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('₹10'), findsOneWidget);
+    expect(find.text('of ₹100'), findsOneWidget);
+    expect(find.text('Add ₹90 to call MEERA'), findsOneWidget);
+    expect(find.text('Calls start with 5 minutes at ₹20/min'), findsOneWidget);
 
-    await tester.tap(find.text('RECHARGE'));
+    await tester.tap(find.text('ADD ₹90'));
     await _pump(tester, 800);
     expect(find.text('WALLET PAGE'), findsOneWidget);
     await finish(tester);

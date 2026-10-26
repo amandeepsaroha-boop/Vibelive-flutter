@@ -155,6 +155,8 @@ class _ProfileView extends HookWidget {
     final reviewsKey =
         profile.expertProfileDocumentId ??
         (waiting ? null : HostProfileRules.expertKey(profile));
+    // Counted where the open happens (same expert key as the reviews).
+    useTrackProfileView(reviewsKey);
     final reviews = useExpertReviews(
       context,
       reviewsKey,

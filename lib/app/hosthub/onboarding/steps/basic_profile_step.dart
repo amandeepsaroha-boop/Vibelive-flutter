@@ -8,6 +8,8 @@ import '../../../api/client/client_models.dart';
 import '../../../api/client/client_queries.dart';
 import '../../../api/hosthub/catalog_models.dart';
 import '../../../api/hosthub/hosthub_queries.dart';
+import '../../../client/personal_info/helper/location_autofill.dart';
+import '../../../client/personal_info/widgets/use_location_button.dart';
 import '../helper/draft_controller.dart';
 import '../helper/prefill.dart';
 import '../widgets/handle_field.dart';
@@ -129,6 +131,24 @@ class _Location extends HookWidget {
   Widget build(BuildContext context) {
     final s = useValueListenable(state);
     final dist = useValueListenable(district);
+    final locating = useValueNotifier(false);
+
+    void locate({bool silent = false}) => LocationAutofill.run(
+      locating: locating,
+      alive: () => context.mounted,
+      silent: silent,
+      apply: (fill) {
+        state.value = fill.state;
+        district.value = fill.district;
+      },
+    );
+
+    // An empty location fills itself from where the device is, once; a
+    // location already chosen (or restored with the draft) is kept.
+    useEffect(() {
+      if (state.value == null) locate(silent: true);
+      return null;
+    }, const []);
     // A state known only by name (Personal Info's address copy) is looked up
     // once, so its districts can load.
     final lookup = s != null && s.filterId == null ? s.name : '';
@@ -155,25 +175,34 @@ class _Location extends HookWidget {
       if (picked != null) district.value = picked;
     }
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: HostSelectField(
-            key: const ValueKey('hostflow-state'),
-            value: s?.name,
-            hint: 'hostflow:basic.state',
-            onTap: pickState,
-          ),
+        Padding(
+          padding: EdgeInsets.only(bottom: 10.ms),
+          child: UseLocationButton(locating: locating, onPressed: locate),
         ),
-        SizedBox(width: 10.ms),
-        Expanded(
-          child: HostSelectField(
-            key: const ValueKey('hostflow-district'),
-            value: dist?.name,
-            hint: 'hostflow:basic.district',
-            enabled: s?.filterId != null,
-            onTap: pickDistrict,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: HostSelectField(
+                key: const ValueKey('hostflow-state'),
+                value: s?.name,
+                hint: 'hostflow:basic.state',
+                onTap: pickState,
+              ),
+            ),
+            SizedBox(width: 10.ms),
+            Expanded(
+              child: HostSelectField(
+                key: const ValueKey('hostflow-district'),
+                value: dist?.name,
+                hint: 'hostflow:basic.district',
+                enabled: s?.filterId != null,
+                onTap: pickDistrict,
+              ),
+            ),
+          ],
         ),
       ],
     );

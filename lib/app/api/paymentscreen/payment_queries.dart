@@ -323,6 +323,19 @@ Future<void> reportRechargeSuccess(RechargeReport report) =>
 Future<void> reportRechargeFailure(RechargeReport report) =>
     RechargeApi.reportFailure(report);
 
+/// Best effort, never throws (RN `reportCheckoutAbandoned`).
+Future<void> reportCheckoutAbandoned({
+  required String transactionId,
+  required String classification,
+  int? errorCode,
+  String? description,
+}) => RazorpayApi.reportCheckoutAbandoned(
+  transactionId: transactionId,
+  classification: classification,
+  errorCode: errorCode,
+  description: description,
+);
+
 /// RN ignored app-config failures here: the initiate response, or the
 /// build-time key, usually carries the Razorpay key id anyway.
 Future<JsonMap?> _appConfigOrNull() async {

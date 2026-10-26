@@ -67,6 +67,7 @@ abstract final class RechargeApi {
           payer: request.payer,
           description: request.description,
           appConfig: request.appConfig,
+          gstPercent: request.gstPercent,
         );
     }
   }

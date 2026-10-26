@@ -1,8 +1,18 @@
+import '../../../../core/network/strapi.dart';
 import '../../../api/paymentscreen/wallet_models.dart';
 import 'wallet_format.dart';
 
-/// Payment status chip of a row.
-enum TxStatus { success, failure, pending }
+/// Payment status chip of a row. `abandoned`: an old order the backend
+/// closed after checkout was left unpaid.
+enum TxStatus { success, failure, pending, abandoned }
+
+/// Bonus title per `metadata.bonus.reason` (RN `bonusLabels`).
+const _bonusTitles = {
+  'joining': 'payment:tx.bonus_joining',
+  'first_topup': 'payment:tx.bonus_first_topup',
+  'abandon_offer': 'payment:tx.bonus_credit',
+  'expiry': 'payment:tx.bonus_expired',
+};
 
 /// What one history row shows (RN `renderTransaction`), computed once per
 /// row so building the tile does no parsing.
@@ -28,10 +38,18 @@ class TransactionRow {
     final kind = tx.kindFor(myName);
     final credit = tx.isCreditFor(myName);
     final topup = tx.isTopupFor(myName);
+    // A bonus is a topup row: without this it reads "Wallet Top Up", telling
+    // someone they paid in money the platform gave them (RN).
+    final isBonus = (tx.method ?? '').toLowerCase() == 'bonus';
+    final bonusReason = J.str(Strapi.map(tx.metadata?['bonus'])?['reason']);
 
     String? detailKey;
     Map<String, String>? detailVars;
-    if (kind == TransactionKind.walletTransfer) {
+    if (isBonus) {
+      detailKey = bonusReason == 'expiry'
+          ? 'payment:tx.bonus_expired_detail'
+          : 'payment:tx.bonus_added';
+    } else if (kind == TransactionKind.walletTransfer) {
       detailKey = 'payment:tx.earnings_to_cash';
     } else if (!topup) {
       if (tx.isCommission) {
@@ -53,6 +71,7 @@ class TransactionRow {
     final status = switch (raw) {
       'success' => TxStatus.success,
       'failure' => TxStatus.failure,
+      'abandoned' => TxStatus.abandoned,
       _ => TxStatus.pending,
     };
     final created = tx.createdAt;
@@ -64,12 +83,14 @@ class TransactionRow {
       transaction: tx,
       kind: kind,
       isCredit: credit,
-      titleKey: switch (kind) {
-        TransactionKind.walletTransfer => 'payment:tx.wallet_transfer',
-        TransactionKind.topup => 'payment:tx.topup',
-        TransactionKind.received => 'payment:tx.received',
-        TransactionKind.paid => 'payment:tx.paid',
-      },
+      titleKey: isBonus
+          ? _bonusTitles[bonusReason] ?? 'payment:tx.bonus_credit'
+          : switch (kind) {
+              TransactionKind.walletTransfer => 'payment:tx.wallet_transfer',
+              TransactionKind.topup => 'payment:tx.topup',
+              TransactionKind.received => 'payment:tx.received',
+              TransactionKind.paid => 'payment:tx.paid',
+            },
       detailKey: detailKey,
       detailVariables: detailVars,
       reference: tx.reference ?? (tx.id != null ? '${tx.id}' : 'N/A'),

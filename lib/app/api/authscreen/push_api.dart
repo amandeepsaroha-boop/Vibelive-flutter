@@ -83,11 +83,17 @@ abstract final class PushApi {
     );
   }
 
-  /// Logout: empties the user's push tokens (all of them, as RN did).
-  static Future<void> clearPushTokens(Object userId) async {
+  /// Logout: empties the push tokens. With [deviceId] the backend
+  /// disconnects THIS device only and keeps the user's other devices
+  /// reachable; without it every device of the user loses push.
+  static Future<void> clearPushTokens(Object userId, {String? deviceId}) async {
     await ApiClient.put(
       '/public-users/${_segment(userId)}/fcm-token',
-      data: {'firebaseTokens': <String>[], 'voipToken': null},
+      data: {
+        'deviceId': ?J.str(deviceId),
+        'firebaseTokens': <String>[],
+        'voipToken': null,
+      },
     );
   }
 
@@ -132,6 +138,10 @@ abstract final class PushTokens {
   static const fcmKey = 'fcm_token';
   static const voipKey = 'voip_token';
 
+  /// A token whose save gave up after its retries; cleared by the next
+  /// successful save, retried on every foreground until then.
+  static const pendingSyncKey = 'fcm_token_pending_sync';
+
   /// Login retries the PushKit read this often, this far apart (RN
   /// `LoginScreen`: PushKit often issues the token after the login request).
   static const voipLoginAttempts = 3;
@@ -144,8 +154,12 @@ abstract final class PushTokens {
   static String? get fcm => J.str(AppPrefs.getString(fcmKey));
   static String? get voip => J.str(AppPrefs.getString(voipKey));
 
+  static String? get pendingSync => J.str(AppPrefs.getString(pendingSyncKey));
+
   static Future<void> saveFcm(String? token) => _save(fcmKey, token);
   static Future<void> saveVoip(String? token) => _save(voipKey, token);
+  static Future<void> savePendingSync(String? token) =>
+      _save(pendingSyncKey, token);
 
   /// The VoIP token for a login request: the stored one, else up to
   /// [voipLoginAttempts] reads [voipLoginDelay] apart. iOS only.

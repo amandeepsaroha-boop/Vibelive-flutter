@@ -1,6 +1,10 @@
 import 'package:flutter/foundation.dart' show immutable;
 
 import '../../../core/network/strapi.dart';
+import 'host_presence.dart';
+
+export 'host_badges.dart';
+export 'host_presence.dart';
 
 /// What the client-side filters read, shared by [HostCard] and search rows.
 abstract interface class HostTraits {
@@ -52,7 +56,7 @@ class HostCard implements HostTraits {
     required this.languages,
     required this.categories,
     required this.tags,
-    required this.isAvailable,
+    required this.presence,
     required this.audioIntro,
     required this.topics,
     required this.topicValues,
@@ -206,7 +210,7 @@ class HostCard implements HostTraits {
         for (final s in selections)
           ?J.str(_dig(s, const ['snapshot', 'option', 'label'])),
       ],
-      isAvailable: _truthy(e['isActive'] ?? e['is_active']),
+      presence: HostPresence.fromExpert(e),
       audioIntro: audioApproved ? audioUrl : null,
       topics: [
         for (final s in supportTopics)
@@ -274,8 +278,9 @@ class HostCard implements HostTraits {
   /// gender / relationship answers: public cards show [topics] instead.
   final List<String> tags;
 
-  /// Live presence (the feed is sorted on it).
-  final bool isAvailable;
+  /// Can take a call right now (`user_status`): the card dot, busy label.
+  final HostPresence presence;
+  bool get isAvailable => presence.isAvailable;
 
   /// Playable voice intro: approved recordings only.
   final String? audioIntro;
@@ -378,51 +383,6 @@ class HostCard implements HostTraits {
     });
     return out;
   }
-}
-
-/// Verification flags read on their own (RN search badge enrichment).
-@immutable
-class HostBadges {
-  const HostBadges({
-    this.verified = false,
-    this.instaVerified = false,
-    this.facebookVerified = false,
-    this.snapchatVerified = false,
-  });
-
-  /// An `/expert-profiles` row with `expert_verifications` populated. Same
-  /// gate as [HostCard]: social flags count only on a verified badge.
-  factory HostBadges.fromRow(Object? row) {
-    final node = Strapi.map(row) ?? const {};
-    final verifications = Strapi.list(node['expert_verifications']);
-    final ver = verifications.isEmpty
-        ? const <String, dynamic>{}
-        : verifications.first;
-    final badge = ver['Verified_Badge'];
-    final verified =
-        node['isVerified'] == true || badge == true || _lower(badge) == 'true';
-    bool social(String key) =>
-        verified && (ver[key] == true || ver[key] == 'true');
-    return HostBadges(
-      verified: verified,
-      instaVerified: social('insta_verified'),
-      facebookVerified: social('facebook_verified'),
-      snapchatVerified: social('snapchat_verified'),
-    );
-  }
-
-  final bool verified;
-  final bool instaVerified;
-  final bool facebookVerified;
-  final bool snapchatVerified;
-
-  /// A full card's flags (same gate).
-  static HostBadges of(HostCard h) => HostBadges(
-    verified: h.verified,
-    instaVerified: h.instaVerified,
-    facebookVerified: h.facebookVerified,
-    snapchatVerified: h.snapchatVerified,
-  );
 }
 
 /// Interests-form question whose options are Discover's topics.

@@ -9,6 +9,7 @@ import '../../component/keyboard_inset.dart';
 import '../../component/status_bar_style.dart';
 import '../../component/vibe_background.dart';
 import 'helper/gender_answer.dart';
+import 'helper/location_autofill.dart';
 import 'helper/personal_info_actions.dart';
 import 'helper/personal_info_controller.dart';
 import 'helper/personal_info_palette.dart';
@@ -55,6 +56,30 @@ class PersonalInfoScreen extends HookWidget {
     }, [answers.data]);
 
     final actions = usePersonalInfoActions(context, form);
+
+    // No saved location yet: fill state / district from where the device is,
+    // once per visit. A saved address is never replaced automatically; the
+    // "Use current location" link does that on request.
+    final autoLocated = useRef(false);
+    useEffect(() {
+      if (profile == null || autoLocated.value) return null;
+      autoLocated.value = true;
+      if (form.state.value == null && form.district.value == null) {
+        LocationAutofill.run(
+          locating: form.locating,
+          apply: form.applyLocation,
+          alive: () => context.mounted,
+          silent: true,
+        );
+      }
+      return null;
+    }, [profile]);
+
+    void useCurrentLocation() => LocationAutofill.run(
+      locating: form.locating,
+      apply: form.applyLocation,
+      alive: () => context.mounted,
+    );
 
     Future<void> pickState() async {
       final picked = await showGeoPicker(context, kind: GeoPickerKind.state);
@@ -105,6 +130,7 @@ class PersonalInfoScreen extends HookWidget {
               form: form,
               onPickState: pickState,
               onPickDistrict: pickDistrict,
+              onUseLocation: useCurrentLocation,
               bottomPadding: 60 + bottomSafe,
             ),
           ),

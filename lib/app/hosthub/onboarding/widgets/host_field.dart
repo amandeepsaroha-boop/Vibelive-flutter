@@ -25,6 +25,7 @@ class HostField extends StatefulWidget {
     this.textInputAction,
     this.autofillHints,
     this.fieldKey,
+    this.readOnly = false,
   });
 
   final TextEditingController controller;
@@ -43,6 +44,9 @@ class HostField extends StatefulWidget {
 
   /// Key of the inner `TextField` (tests).
   final Key? fieldKey;
+
+  /// Text can't change (e.g. while it is being enhanced).
+  final bool readOnly;
 
   @override
   State<HostField> createState() => _HostFieldState();
@@ -65,6 +69,7 @@ class _HostFieldState extends State<HostField> {
       key: widget.fieldKey,
       controller: widget.controller,
       focusNode: _focus,
+      readOnly: widget.readOnly,
       minLines: widget.minLines,
       maxLines: widget.maxLines,
       maxLength: widget.maxLength,

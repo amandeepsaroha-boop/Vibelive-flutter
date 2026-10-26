@@ -23,6 +23,11 @@ abstract final class FcmTokenRegistrar {
   static StreamSubscription<String>? _refresh;
   static String? _lastSynced;
   static Future<void>? _syncing;
+  static DateTime? _republishedAt;
+
+  /// Foreground re-publishes at most this often (iOS resumes after every
+  /// system dialog); a save that gave up is retried regardless.
+  static const _republishGap = Duration(minutes: 1);
 
   /// Startup: listen for rotations FIRST (on iOS the first token often
   /// arrives on the stream), then fetch, store and sync when signed in.
@@ -76,31 +81,48 @@ abstract final class FcmTokenRegistrar {
     if (!force && key == _lastSynced) return;
     try {
       final deviceId = (await DeviceInfo.get())['deviceId']?.toString();
-      await syncPushTokens(
+      final stored = await syncPushTokens(
         fcmToken: fcm,
         voipToken: voip,
         userId: userId,
         deviceId: deviceId,
       );
-      _lastSynced = key;
+      // A save that gave up must not count as synced.
+      if (stored) _lastSynced = key;
     } catch (e) {
       Log.w(_tag, 'sync failed: $e');
     }
   }
 
-  /// Logout: delete the device token, then fetch and store a fresh one.
-  /// Without the refetch a login without a restart registered the dead
-  /// token (CE, E51).
+  /// Back in the foreground (RN `republishPushToken`): re-publish the
+  /// current token, not only a failed one. The startup fetch runs once; if
+  /// the server pruned this address meanwhile, nothing else puts it back.
+  static Future<void> republish() async {
+    if (!SessionStore.instance.value.isAuthenticated) return;
+    final now = DateTime.now();
+    final last = _republishedAt;
+    final pending = PushTokens.pendingSync != null;
+    if (!pending && last != null && now.difference(last) < _republishGap) {
+      return;
+    }
+    _republishedAt = now;
+    final token = await fetchToken();
+    if (token != null) await PushTokens.saveFcm(token);
+    await syncIfSignedIn(force: true);
+  }
+
+  /// Logout: keeps this install's token (stored for the next login) and
+  /// forgets what was synced.
+  ///
+  /// `deleteToken()` is DISABLED for now (RN 24031d2): it destroys the
+  /// address at Google, and a forced logout (refresh 401) reaches here too,
+  /// leaving a real user unreachable. The server is still told to forget it
+  /// (`clearPushTokens` in logout). Risk accepted: if that clear fails and
+  /// the handset changes hands, a push for the first user could arrive.
   static Future<void> renewAfterSignOut() async {
     _lastSynced = null;
-    await PushTokens.saveFcm(null);
-    if (Firebase.apps.isEmpty) return;
-    try {
-      await FirebaseMessaging.instance.deleteToken();
-    } catch (e) {
-      Log.w(_tag, 'deleteToken failed: $e');
-    }
-    final fresh = await fetchToken();
-    if (fresh != null) await PushTokens.saveFcm(fresh);
+    _republishedAt = null;
+    final current = await fetchToken();
+    if (current != null) await PushTokens.saveFcm(current);
   }
 }

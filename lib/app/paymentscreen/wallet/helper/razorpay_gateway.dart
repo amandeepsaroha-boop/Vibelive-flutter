@@ -5,6 +5,7 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../../../../core/network/strapi.dart';
 import '../../../../core/utils/log.dart';
+import 'checkout_outcome.dart';
 
 /// How the Razorpay checkout ended.
 sealed class CheckoutOutcome {
@@ -20,17 +21,33 @@ class CheckoutPaid extends CheckoutOutcome {
   final String? signature;
 }
 
-/// The user closed the checkout (or picked an external wallet app).
+/// The user closed the checkout (or picked an external wallet app). Nothing
+/// is shown for it.
 class CheckoutCancelled extends CheckoutOutcome {
-  const CheckoutCancelled();
+  const CheckoutCancelled({
+    this.code,
+    this.description,
+    this.end = CheckoutEnd.userDismissed,
+  });
+
+  final int? code;
+  final String? description;
+
+  /// Why it ended; null when it is not a lost payment (external wallet).
+  final CheckoutEnd? end;
 }
 
 /// The gateway reported an error. [description] is Razorpay's own text.
 class CheckoutFailed extends CheckoutOutcome {
-  const CheckoutFailed({this.code, this.description});
+  const CheckoutFailed({
+    this.code,
+    this.description,
+    this.end = CheckoutEnd.paymentFailed,
+  });
 
   final int? code;
   final String? description;
+  final CheckoutEnd end;
 }
 
 /// Seam around the native checkout so tests can fake it. Set
@@ -71,20 +88,34 @@ class NativeRazorpayGateway implements RazorpayGateway {
       ..on(Razorpay.EVENT_PAYMENT_ERROR, (PaymentFailureResponse r) {
         final description = errorDescription(r.message);
         Log.d(_tag, 'checkout error ${r.code}: $description');
+        final end = classifyCheckoutEnd(
+          description: description,
+          misconfigured:
+              r.code == Razorpay.INVALID_OPTIONS ||
+              r.code == Razorpay.INCOMPATIBLE_PLUGIN,
+        );
         finish(
-          isCancel(r.code, description)
-              ? const CheckoutCancelled()
-              : CheckoutFailed(code: r.code, description: description),
+          isCancel(r.code, description) || end == CheckoutEnd.userDismissed
+              ? CheckoutCancelled(
+                  code: r.code,
+                  description: description,
+                  end: end,
+                )
+              : CheckoutFailed(
+                  code: r.code,
+                  description: description,
+                  end: end,
+                ),
         );
       })
       // Paid in another app: the wallet catches up on refresh.
       ..on(Razorpay.EVENT_EXTERNAL_WALLET, (ExternalWalletResponse _) {
-        finish(const CheckoutCancelled());
+        finish(const CheckoutCancelled(end: null));
       });
     try {
       razorpay.open(options);
     } catch (e) {
-      finish(CheckoutFailed(description: '$e'));
+      finish(CheckoutFailed(description: '$e', end: CheckoutEnd.failedToOpen));
     }
     return done.future;
   }

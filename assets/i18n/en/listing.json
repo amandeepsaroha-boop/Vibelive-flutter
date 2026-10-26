@@ -9,5 +9,14 @@
   },
   "search": {
     "default_name": "Expert"
+  },
+  "busy": {
+    "ringing": "Ringing now",
+    "on_call": "On a call",
+    "just_started": "On a call, just started",
+    "minute": "On a call, about a minute",
+    "minutes": "On a call, about {{n}} min",
+    "hour": "On a call, over an hour",
+    "hours": "On a call, over {{n}} hours"
   }
 }

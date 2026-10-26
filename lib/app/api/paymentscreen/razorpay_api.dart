@@ -57,6 +57,7 @@ abstract final class RazorpayApi {
     required PayerInfo payer,
     required String description,
     JsonMap? appConfig,
+    double gstPercent = GstConfig.defaultIgstRate,
   }) {
     final razorpayData = Strapi.map(response['razorpayData']) ?? const {};
     final orderId =
@@ -105,7 +106,7 @@ abstract final class RazorpayApi {
       txnId: txnId,
       orderId: orderId,
       keyId: keyId,
-      amountInPaise: _amountInPaise(response, baseAmount),
+      amountInPaise: _amountInPaise(response, baseAmount, gstPercent),
       currency: J.str(response['currency']) ?? 'INR',
       description: J.str(checkout['description']) ?? description,
       // RN prefilled "User" when nameless; left empty (and editable) instead
@@ -301,12 +302,16 @@ abstract final class RazorpayApi {
       status == 'success' || status == 'already_processed';
 
   /// Paise for the SDK. A response amount under 100 is taken as rupees (RN
-  /// heuristic); without one, the base amount plus 18% GST.
-  static int _amountInPaise(JsonMap response, double baseAmount) {
+  /// heuristic); without one, the base amount plus GST.
+  static int _amountInPaise(
+    JsonMap response,
+    double baseAmount,
+    double gstPercent,
+  ) {
     final raw = response['amount'];
     final present = raw != null && raw != 0 && raw != '' && raw != false;
     if (!present) {
-      final total = GstBreakdown.of(baseAmount).total;
+      final total = GstBreakdown.of(baseAmount, percent: gstPercent).total;
       return ((total > 0 ? total : baseAmount) * 100).round();
     }
     final value = J.number(raw);
@@ -320,6 +325,30 @@ abstract final class RazorpayApi {
     return value < 100 && baseAmount >= 1
         ? (value * 100).round()
         : value.round();
+  }
+
+  /// `POST /razorpay/payments/:transactionId/abandon`. Never throws (RN):
+  /// the person already left checkout, and the backend sweeper catches
+  /// anything this misses.
+  static Future<void> reportCheckoutAbandoned({
+    required String transactionId,
+    required String classification,
+    int? errorCode,
+    String? description,
+  }) async {
+    if (transactionId.isEmpty) return;
+    try {
+      await ApiClient.post(
+        '/razorpay/payments/${Uri.encodeComponent(transactionId)}/abandon',
+        data: {
+          'classification': classification,
+          'errorCode': ?errorCode,
+          'description': ?description,
+        },
+      );
+    } on ApiException catch (e) {
+      Log.w(_tag, 'abandon report failed (non-fatal): $e');
+    }
   }
 
   static String? _firstStr(JsonMap map, List<String> keys) {

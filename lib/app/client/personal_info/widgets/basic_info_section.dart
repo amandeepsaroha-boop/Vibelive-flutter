@@ -8,6 +8,7 @@ import '../helper/personal_info_controller.dart';
 import '../helper/personal_info_palette.dart';
 import 'gender_chips.dart';
 import 'info_fields.dart';
+import 'use_location_button.dart';
 
 /// "BASIC INFO": name, email, mobile, state, district (RN form card). Fills
 /// the rest of the screen; [bottomPadding] clears the home indicator.
@@ -17,12 +18,14 @@ class BasicInfoSection extends StatelessWidget {
     required this.form,
     required this.onPickState,
     required this.onPickDistrict,
+    required this.onUseLocation,
     required this.bottomPadding,
   });
 
   final PersonalInfoController form;
   final VoidCallback onPickState;
   final VoidCallback onPickDistrict;
+  final VoidCallback onUseLocation;
   final double bottomPadding;
 
   @override
@@ -92,6 +95,13 @@ class BasicInfoSection extends StatelessWidget {
             InfoField(
               label: 'client:personal_info.fields.gender',
               child: GenderChips(gender: form.gender),
+            ),
+            Padding(
+              padding: EdgeInsets.only(bottom: 12.ms),
+              child: UseLocationButton(
+                locating: form.locating,
+                onPressed: onUseLocation,
+              ),
             ),
             InfoField(
               label: 'client:personal_info.fields.state',

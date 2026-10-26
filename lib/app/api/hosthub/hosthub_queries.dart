@@ -29,6 +29,7 @@ import 'profile_models.dart';
 import 'profile_patch.dart';
 import 'stats_api.dart';
 import 'stats_models.dart';
+import 'text_enhance_api.dart';
 import 'verification_api.dart';
 import 'verification_models.dart';
 

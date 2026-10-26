@@ -1,4 +1,15 @@
 {
+  "location": {
+    "use": "Use current location",
+    "locating": "Finding your location…",
+    "filled": "Location set to {{-place}}",
+    "state_only": "State set to {{-state}}. Please choose your district.",
+    "service_off": "Location is turned off. Turn it on and try again.",
+    "denied": "Allow location access to fill this automatically.",
+    "denied_forever": "Location access is blocked. Allow it in Settings.",
+    "unavailable": "We couldn't find your location. Please choose it yourself.",
+    "not_found": "Your location isn't in our list yet. Please choose it yourself."
+  },
   "errors": {
     "no_session": "We couldn't find your session. Please log in again.",
     "profile_not_found": "We couldn't load your profile. Please try again.",
