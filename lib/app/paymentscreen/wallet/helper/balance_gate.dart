@@ -73,11 +73,4 @@ class BalanceGate {
 
   /// The suggestion is above the gap because of the wallet minimum.
   bool get liftedToMinimum => suggestedAmount > gap;
-
-  Map<String, Object?> get analytics => {
-    'required': required,
-    'balance': balance,
-    'gap': gap,
-    'suggested_amount': suggestedAmount,
-  };
 }

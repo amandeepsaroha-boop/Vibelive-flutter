@@ -112,6 +112,10 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="default"/>
 
+        <!-- Meta (Facebook) App Events (analytics; RN parity). -->
+        <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="@string/facebook_app_id"/>
+        <meta-data android:name="com.facebook.sdk.ClientToken" android:value="@string/facebook_client_token"/>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

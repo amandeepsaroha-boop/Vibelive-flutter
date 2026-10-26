@@ -81,6 +81,9 @@ abstract final class AppRoutes {
   /// An approved host's weekly schedule / call rates (onboarding widgets).
   static const hostSchedule = '/host/schedule';
   static const hostRates = '/host/rates';
+
+  /// Professional Details opened on one onboarding step (`HostStep.name`).
+  static String hostStep(String step) => '$professionalDetails?step=$step';
 }
 
 /// Reachable signed out; everything else sends a signed-out user to login.
@@ -191,12 +194,15 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.wallet,
-      // `?amount=`: the call balance gate's pre-filled top-up.
-      builder: (context, state) => WalletScreen(
-        prefillAmount: double.tryParse(
-          state.uri.queryParameters['amount'] ?? '',
-        ),
-      ),
+      // `?amount=` (or RN's `?prefillAmount=`): a pre-filled top-up.
+      builder: (context, state) {
+        final q = state.uri.queryParameters;
+        return WalletScreen(
+          prefillAmount: double.tryParse(
+            q['amount'] ?? q['prefillAmount'] ?? '',
+          ),
+        );
+      },
     ),
     GoRoute(
       path: AppRoutes.onboardingAge,
@@ -219,8 +225,17 @@ final GoRouter appRouter = GoRouter(
     // onboarding flow itself on their step, in edit mode.
     GoRoute(
       path: AppRoutes.professionalDetails,
-      builder: (context, state) =>
-          const HostOnboardingScreen(editStep: HostStep.basic),
+      // `?step=`: a warning opens the step it is about; form steps only.
+      builder: (context, state) {
+        final step = HostStep.fromName(state.uri.queryParameters['step']);
+        return HostOnboardingScreen(
+          editStep:
+              step.index >= HostStep.basic.index &&
+                  step.index <= HostStep.availability.index
+              ? step
+              : HostStep.basic,
+        );
+      },
     ),
     GoRoute(
       path: AppRoutes.expertise,

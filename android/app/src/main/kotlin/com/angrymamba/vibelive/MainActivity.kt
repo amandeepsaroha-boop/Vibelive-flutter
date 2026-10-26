@@ -77,6 +77,8 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // The RN build's session, read once on the first Flutter launch.
+        LegacySessionReader.register(flutterEngine.dartExecutor.binaryMessenger, this)
         dartReady = false
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).apply {
             setMethodCallHandler { call, result ->

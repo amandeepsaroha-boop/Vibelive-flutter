@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Meta (Facebook) App Events: same app as the RN build. -->
+    <string name="facebook_app_id">1484057696439582</string>
+    <string name="facebook_client_token">4a495b434759505ed2303e2cb4c8812d</string>
+</resources>

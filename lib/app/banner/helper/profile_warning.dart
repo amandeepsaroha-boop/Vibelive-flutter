@@ -4,6 +4,7 @@ import '../../../core/session/session_store.dart';
 import '../../api/hosthub/profile_models.dart';
 import '../../hosthub/common/host_page.dart';
 import '../../hosthub/common/moderation_banners.dart';
+import '../../hosthub/onboarding/helper/host_steps.dart';
 
 enum ProfileWarningType {
   /// A reviewer turned something down (outranks everything).
@@ -61,7 +62,7 @@ class ProfileWarning {
       if (n.tone == HostTone.danger) {
         return ProfileWarning(
           ProfileWarningType.moderationRejected,
-          AppRoutes.professionalDetails,
+          _noticeRoute(n, host!),
           notice: n,
           more: more,
         );
@@ -72,7 +73,7 @@ class ProfileWarning {
       if (n.tone == HostTone.warning) {
         return ProfileWarning(
           ProfileWarningType.moderationPending,
-          AppRoutes.professionalDetails,
+          _noticeRoute(n, host!),
           notice: n,
           more: more,
         );
@@ -80,6 +81,42 @@ class ProfileWarning {
     }
     return null;
   }
+
+  /// The step a review notice is about: photos → Photos; text changes →
+  /// the first changed field's step (tagline, about → Bio, handle /
+  /// website → Basic). The audio intro has no step of its own: Basic.
+  static String _noticeRoute(HostModerationNotice n, HostProfile host) {
+    if (n.title.startsWith('hostflow:moderation.photos_')) {
+      return AppRoutes.hostStep(HostStep.photos.name);
+    }
+    if (n.title.startsWith('hostflow:moderation.audio_')) {
+      return AppRoutes.hostStep(HostStep.basic.name);
+    }
+    for (final field in host.pendingChangeFields) {
+      final step = _fieldSteps[field];
+      if (step != null) return AppRoutes.hostStep(step.name);
+    }
+    return AppRoutes.hostStep(HostStep.basic.name);
+  }
+
+  /// Expert-profile fields → the onboarding step that edits them.
+  static const _fieldSteps = {
+    'handler': HostStep.basic,
+    'name': HostStep.basic,
+    'language': HostStep.basic,
+    'website': HostStep.basic,
+    'host_profile_images': HostStep.photos,
+    'tagline': HostStep.tagline,
+    'descriptions': HostStep.bio,
+  };
+
+  /// Missing professional field (`banner:fields.*`) → its step.
+  static const _missingSteps = {
+    'banner:fields.handle': HostStep.basic,
+    'banner:fields.languages': HostStep.basic,
+    'banner:fields.tagline': HostStep.tagline,
+    'banner:fields.description': HostStep.bio,
+  };
 
   /// No `isLive` shortcut: that field does not exist on expert-profile and
   /// nothing ever wrote it (RN removed it too).
@@ -114,9 +151,11 @@ class ProfileWarning {
       if (J.str(expert['descriptions']) == null) 'banner:fields.description',
     ];
     if (professional.isNotEmpty) {
+      // The first missing field's step (RN order: handle, tagline,
+      // languages, description).
       return ProfileWarning(
         ProfileWarningType.professional,
-        AppRoutes.professionalDetails,
+        AppRoutes.hostStep(_missingSteps[professional.first]!.name),
         missing: professional,
       );
     }

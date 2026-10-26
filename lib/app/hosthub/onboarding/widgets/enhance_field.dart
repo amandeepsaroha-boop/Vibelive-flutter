@@ -49,6 +49,10 @@ class HostEnhanceField extends HookWidget {
   static const minChars = 3;
   static const undoFor = Duration(seconds: 6);
 
+  /// Temporarily hidden until the backend's enhance API is ready: flip to
+  /// true to show the button again (nothing else changes).
+  static const showButton = false;
+
   @override
   Widget build(BuildContext context) {
     final p = HostPalette.of(context);
@@ -129,60 +133,67 @@ class HostEnhanceField extends HookWidget {
       fieldKey: fieldKey,
       readOnly: busy.value,
       // Same row as "n/max", before it.
-      counterLeading: RepaintBoundary(
-        // Side by side when they fit, else Undo wraps under the button.
-        child: Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 8.ms,
-          runSpacing: 8.ms,
-          children: [
-            // Only the button follows the text (enabled from 3 chars).
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (_, v, _) => _EnhanceButton(
-                busy: busy.value,
-                onPressed:
-                    busy.value || v.text.trim().characters.length < minChars
-                    ? null
-                    : run,
+      counterLeading: !showButton
+          ? null
+          : RepaintBoundary(
+              // Side by side when they fit, else Undo wraps under the button.
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8.ms,
+                runSpacing: 8.ms,
+                children: [
+                  // Only the button follows the text (enabled from 3 chars).
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: controller,
+                    builder: (_, v, _) => _EnhanceButton(
+                      busy: busy.value,
+                      onPressed:
+                          busy.value ||
+                              v.text.trim().characters.length < minChars
+                          ? null
+                          : run,
+                    ),
+                  ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: undo.value == null
+                        ? const SizedBox.shrink()
+                        : Pressable(
+                            key: ValueKey('hostflow-enhance-undo-$kind'),
+                            onPressed: restore,
+                            hitPadding: EdgeInsets.all(8.ms),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12.ms,
+                                vertical: 6.ms,
+                              ),
+                              decoration: BoxDecoration(
+                                color: p.soft,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    LucideIcons.undo2,
+                                    size: 14.ms,
+                                    color: p.text,
+                                  ),
+                                  SizedBox(width: 6.ms),
+                                  CText(
+                                    'hostflow:enhance.undo',
+                                    size: 13.5,
+                                    weight: FontWeight.w700,
+                                    color: p.text,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                  ),
+                ],
               ),
             ),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: undo.value == null
-                  ? const SizedBox.shrink()
-                  : Pressable(
-                      key: ValueKey('hostflow-enhance-undo-$kind'),
-                      onPressed: restore,
-                      hitPadding: EdgeInsets.all(8.ms),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12.ms,
-                          vertical: 6.ms,
-                        ),
-                        decoration: BoxDecoration(
-                          color: p.soft,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(LucideIcons.undo2, size: 14.ms, color: p.text),
-                            SizedBox(width: 6.ms),
-                            CText(
-                              'hostflow:enhance.undo',
-                              size: 13.5,
-                              weight: FontWeight.w700,
-                              color: p.text,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

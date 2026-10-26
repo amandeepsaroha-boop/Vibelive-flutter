@@ -224,7 +224,9 @@ class HostProfileController {
         final expertId = host.documentId ?? '${host.id}';
         Analytics.log('balance_gate_shown', {
           'expert_id': expertId,
-          ...gate.analytics,
+          'required': gate.required,
+          'balance': gate.balance,
+          'gap': gate.gap,
         });
         switch (await _showBalanceGate(gate, host)) {
           case BalanceGateAction.addMoney:

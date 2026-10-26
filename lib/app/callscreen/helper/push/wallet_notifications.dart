@@ -173,7 +173,10 @@ abstract final class WalletClassifier {
 /// 2 s cooldown per kind) and keeps the wallet balance fresh.
 abstract final class WalletNotifications {
   static const cooldown = Duration(seconds: 2);
-  static const topupId = 'wallet_topup_latest';
+
+  /// RN `wallet_topup_${Date.now()}`: top-ups stack, none replaces another.
+  static String topupId() =>
+      'wallet_topup_${DateTime.now().millisecondsSinceEpoch}';
 
   /// Set by a background isolate; the UI isolate refreshes on resume.
   static const _refreshKey = 'push_wallet_refresh';
@@ -234,13 +237,14 @@ abstract final class WalletNotifications {
         (amount == null
             ? PushStrings.t('wallet.topup_body')
             : PushStrings.t('wallet.topup_body_amount', {'amount': amount}));
+    final id = topupId();
     await LocalNotifier.show(
-      id: topupId,
+      id: id,
       title: title,
       body: body,
       envelope: m.copyWith(
         data: {...m.data, 'type': m.data['type'] ?? 'wallet_top_up'},
-        notificationId: topupId,
+        notificationId: id,
       ),
       channelId: NotificationChannels.walletTopup,
       autoCancel: false,

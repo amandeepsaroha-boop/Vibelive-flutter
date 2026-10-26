@@ -24,7 +24,7 @@ import 'wallet_header.dart';
 
 /// How the add-money screen closed: an order to pay, or "profile
 /// incomplete" (the wallet shows that alert). Null: closed by the user.
-typedef AddMoneyExit = ({RazorpayCheckout? checkout, bool profileIncomplete});
+typedef AddMoneyExit = ({RechargeCheckout? checkout, bool profileIncomplete});
 
 /// Full-screen "Add Money" (RN modal, slide up): amount, presets, GST
 /// breakdown, then the backend order. [initialAmount] pre-fills it (the call

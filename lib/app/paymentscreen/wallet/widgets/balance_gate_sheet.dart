@@ -42,7 +42,7 @@ class _BalanceGateSheet extends StatelessWidget {
           textBaseline: TextBaseline.alphabetic,
           children: [
             CText.raw(
-              '₹${WalletFormat.js(gate.balance)}',
+              '₹${WalletFormat.money(gate.balance)}',
               size: 30,
               weight: FontWeight.w800,
               color: p.text,
@@ -50,7 +50,7 @@ class _BalanceGateSheet extends StatelessWidget {
             SizedBox(width: 6.ms),
             CText(
               'payment:balance_gate.of',
-              variables: {'required': WalletFormat.js(gate.required)},
+              variables: {'required': WalletFormat.money(gate.required)},
               size: 17,
               weight: FontWeight.w600,
               color: p.muted,
@@ -64,7 +64,7 @@ class _BalanceGateSheet extends StatelessWidget {
           name.isEmpty
               ? 'payment:balance_gate.caption'
               : 'payment:balance_gate.caption_host',
-          variables: {'gap': WalletFormat.js(gate.gap), 'name': name},
+          variables: {'gap': WalletFormat.money(gate.gap), 'name': name},
           size: 14.5,
           weight: FontWeight.w600,
           color: p.muted,

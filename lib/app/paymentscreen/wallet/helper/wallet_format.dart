@@ -27,6 +27,10 @@ abstract final class WalletFormat {
     return value == value.truncate() ? '${value.truncate()}' : '$value';
   }
 
+  /// [js] after rounding to paise: no float noise (`14.700000000000001`).
+  static String money(num value) =>
+      value.isFinite ? js(num.parse(value.toStringAsFixed(2))) : '0';
+
   /// `{date, time}` of a transaction in device time, e.g. `Oct 05, 2026` and
   /// `3:04 PM`.
   static ({String date, String time}) dateTime(DateTime at) {

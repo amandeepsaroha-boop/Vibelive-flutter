@@ -16,6 +16,7 @@ import 'core/i18n/i18n.dart';
 import 'core/network/network_status.dart';
 import 'core/query/query_client.dart';
 import 'core/router/app_router.dart';
+import 'core/session/legacy_session_migration.dart';
 import 'core/session/session_store.dart';
 import 'core/storage/app_prefs.dart';
 import 'core/theme/app_theme.dart';
@@ -33,6 +34,8 @@ Future<void> main() async {
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   await AppPrefs.init();
+  // RN → Flutter update: continue the RN session (once, before restore).
+  await LegacySessionMigration.run();
   await SessionStore.instance.restore();
   // Firebase eagerly + the FCM background handler (before runApp).
   await PushBootstrap.initFirebase();

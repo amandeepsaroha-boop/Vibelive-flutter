@@ -6,6 +6,12 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>FacebookAppID</key>
+	<string>1484057696439582</string>
+	<key>FacebookClientToken</key>
+	<string>4a495b434759505ed2303e2cb4c8812d</string>
+	<key>FacebookDisplayName</key>
+	<string>VibeLive</string>
 	<key>CFBundleDisplayName</key>
 	<string>Vibe Live</string>
 	<key>CFBundleExecutable</key>

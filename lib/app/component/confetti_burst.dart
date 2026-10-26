@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import '../../core/theme/app_colors.dart';
 
 /// A confetti burst that falls once over its box (RN `Confetti`, loop off):
 /// a moment, not a state. Decorative only, so it never takes a tap.
@@ -57,13 +56,14 @@ class _Piece {
     required this.round,
   });
 
+  // RN Confetti.jsx colours.
   static const _colors = [
-    BrandColors.iconPurple,
-    StatusColors.warning,
-    AiColors.pink,
-    BrandColors.teal,
-    BrandColors.lime,
-    StatusColors.info,
+    Color(0xFF561DE2),
+    Color(0xFFFFD700),
+    Color(0xFFFF6B6B),
+    Color(0xFF4ECDC4),
+    Color(0xFF95E1D3),
+    Color(0xFFF38181),
   ];
 
   /// 0–1 of the width.

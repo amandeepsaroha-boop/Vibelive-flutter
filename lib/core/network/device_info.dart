@@ -11,6 +11,10 @@ import '../utils/log.dart';
 /// (RN `resolveDeviceInfo`). Resolved once, then cached.
 abstract final class DeviceInfo {
   static const _installIdKey = 'install_id';
+
+  /// The RN build's device id, carried over on the first Flutter launch
+  /// (`LegacySessionMigration`): the same device to the backend.
+  static const legacyDeviceIdKey = 'rn_device_id';
   static Map<String, dynamic>? _cached;
 
   static String get platform => Platform.isIOS
@@ -40,7 +44,8 @@ abstract final class DeviceInfo {
     }
 
     return _cached = {
-      'deviceId': '$platform-${_installId()}',
+      'deviceId':
+          AppPrefs.getString(legacyDeviceIdKey) ?? '$platform-${_installId()}',
       'model': model,
       'platform': platform,
       'appVersion': appVersion,

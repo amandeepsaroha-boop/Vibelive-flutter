@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A1B2C3D40000000000000014 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000004 /* GoogleService-Info.plist */; };
 		A1B2C3D40000000000000013 /* VibeCallNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000003 /* VibeCallNetwork.swift */; };
+		A1B2C3D40000000000000032 /* LegacySessionReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000031 /* LegacySessionReader.swift */; };
 		A1B2C3D40000000000000012 /* VibeCallBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000002 /* VibeCallBridge.swift */; };
 		A1B2C3D40000000000000011 /* VibeCallKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000001 /* VibeCallKit.swift */; };
 		0B89917460378612D056EB82 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B14D9FFA916DB1C8280926F2 /* Pods_RunnerTests.framework */; };
@@ -49,6 +50,7 @@
 /* Begin PBXFileReference section */
 		A1B2C3D40000000000000004 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		A1B2C3D40000000000000003 /* VibeCallNetwork.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "VibeCallNetwork.swift"; sourceTree = "<group>"; };
+		A1B2C3D40000000000000031 /* LegacySessionReader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "LegacySessionReader.swift"; sourceTree = "<group>"; };
 		A1B2C3D40000000000000002 /* VibeCallBridge.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "VibeCallBridge.swift"; sourceTree = "<group>"; };
 		A1B2C3D40000000000000001 /* VibeCallKit.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "VibeCallKit.swift"; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
@@ -164,6 +166,7 @@
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				A1B2C3D40000000000000004 /* GoogleService-Info.plist */,
 				A1B2C3D40000000000000003 /* VibeCallNetwork.swift */,
+				A1B2C3D40000000000000031 /* LegacySessionReader.swift */,
 				A1B2C3D40000000000000002 /* VibeCallBridge.swift */,
 				A1B2C3D40000000000000001 /* VibeCallKit.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
@@ -415,6 +418,7 @@
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				A1B2C3D40000000000000013 /* VibeCallNetwork.swift in Sources */,
+				A1B2C3D40000000000000032 /* LegacySessionReader.swift in Sources */,
 				A1B2C3D40000000000000012 /* VibeCallBridge.swift in Sources */,
 				A1B2C3D40000000000000011 /* VibeCallKit.swift in Sources */,
 			);

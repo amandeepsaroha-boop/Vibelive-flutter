@@ -6,6 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/analytics/analytics.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/network/strapi.dart';
 import '../../../core/query/query_hooks.dart';
@@ -34,6 +35,7 @@ import 'widgets/transaction_list.dart';
 import 'widgets/transaction_tabs.dart';
 import 'widgets/transfer_sheet.dart';
 import 'widgets/wallet_header.dart';
+import 'widgets/web_checkout_page.dart';
 
 /// Wallet (RN `WalletScreen`): balances, Razorpay top-up, earnings → cash
 /// transfer and the paged transaction history.
@@ -60,8 +62,21 @@ class WalletScreen extends HookWidget {
     final flow = useMemoized(() => checkout ?? TopUpCheckout(), [checkout]);
     useEffect(() => checkout == null ? flow.dispose : null, [flow]);
     final tab = useValueNotifier(TransactionFilter.all);
+
+    // RN `logWalletOpened` on every wallet load (open, refresh, payment),
+    // with the first wallet row's balance.
+    Future<void> loadBalance({Duration stale = StaleTime.none}) =>
+        ensureWalletBalance(staleDuration: stale).then(
+          (b) => Analytics.log('wallet_opened', {
+            'user_id': SessionStore.instance.value.userDocumentId,
+            'balance': b.primary?.balance ?? 0,
+          }),
+          onError: (Object e) => Log.w(_tag, 'balance refresh failed: $e'),
+        );
+
     useEffect(() {
       unawaited(pager.select(TransactionFilter.all));
+      unawaited(loadBalance(stale: StaleTime.short));
       return null;
     }, const []);
 
@@ -76,19 +91,15 @@ class WalletScreen extends HookWidget {
     configRef.value = config;
 
     Future<void> refresh() async {
-      await Future.wait([
-        ensureWalletBalance(staleDuration: StaleTime.none).then(
-          (_) {},
-          onError: (Object e) => Log.w(_tag, 'balance refresh failed: $e'),
-        ),
-        pager.refresh(),
-      ]);
+      await Future.wait([loadBalance(), pager.refresh()]);
     }
 
     // Invalidating already refetches the balance on screen (and the Home
     // chip): only the history needs a fresh page, no second balance call.
     Future<void> afterPayment() {
       invalidateWalletQueries();
+      // Joins the refetch the invalidation started.
+      unawaited(loadBalance(stale: StaleTime.short));
       return pager.refresh();
     }
 
@@ -128,11 +139,12 @@ class WalletScreen extends HookWidget {
         order,
         payer(),
         onAbandoned: () => abandoned = true,
+        web: (request) => WebCheckoutPage.open(context, request),
       );
       if (!context.mounted) return;
       if (status == null) {
         // Closed by the user: offer a reason to come back, before they go.
-        if (!abandoned) return;
+        if (!abandoned || order is! RazorpayCheckout) return;
         final again = await WalletOffers.afterAbandon(
           context,
           config: configRef.value,

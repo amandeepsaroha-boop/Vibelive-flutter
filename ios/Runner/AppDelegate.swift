@@ -25,6 +25,10 @@ import flutter_callkit_incoming
     if let registrar = registrar(forPlugin: "VibeCallBridge") {
       VibeCallBridge.shared.install(messenger: registrar.messenger())
     }
+    // The RN build's session, read once on the first Flutter launch.
+    if let registrar = registrar(forPlugin: "LegacySessionReader") {
+      LegacySessionReader.install(messenger: registrar.messenger())
+    }
     // flutter_local_notifications: foreground presentation and taps.
     UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
 

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../core/query/query_hooks.dart';
+import '../../../core/query/query_persist.dart';
 import 'splash_api.dart';
 import 'splash_keys.dart';
 import 'splash_models.dart';
@@ -25,8 +26,10 @@ QueryResult<List<String>, ApiException> useHostTopics(BuildContext context) =>
     );
 
 /// Outside widgets (call setup needs the Agora app id, startup prefetch…).
-Future<AppConfig> ensureAppConfig() => queryCache.fetchQuery<AppConfig>(
-  SplashKeys.appConfig,
-  SplashApi.fetchAppConfig,
-  staleDuration: StaleTime.long,
-);
+/// Also refreshes the disk copy (the offline fallback of the runtime config).
+Future<AppConfig> ensureAppConfig() =>
+    queryCache.fetchQuery<AppConfig>(SplashKeys.appConfig, () async {
+      final config = await SplashApi.fetchAppConfig();
+      QueryPersist.write(SplashKeys.appConfig, config.toJson());
+      return config;
+    }, staleDuration: StaleTime.long);
