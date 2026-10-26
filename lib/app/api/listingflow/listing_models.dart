@@ -61,6 +61,7 @@ class HostCard implements HostTraits {
     required this.topics,
     required this.topicValues,
     required this.images,
+    required this.imageThumbs,
     required this.cardImage,
     required this.isApprovedHost,
   });
@@ -112,6 +113,9 @@ class HostCard implements HostTraits {
     final images = gallery.isNotEmpty
         ? [for (final g in gallery) g.url]
         : [?pic];
+    final imageThumbs = gallery.isNotEmpty
+        ? [for (final g in gallery) g.thumb ?? g.url]
+        : [if (pic != null) picThumb ?? pic];
     final cardImage = gallery.isNotEmpty
         ? (gallery.first.thumb ?? gallery.first.url)
         : picThumb;
@@ -221,6 +225,7 @@ class HostCard implements HostTraits {
           ?_nonEmpty(J.str(_dig(s, const ['snapshot', 'option', 'value']))),
       ],
       images: images,
+      imageThumbs: imageThumbs,
       cardImage: cardImage,
       isApprovedHost: _isApproved(e),
     );
@@ -294,6 +299,10 @@ class HostCard implements HostTraits {
   /// Approved gallery images (primary first, then priority), else the
   /// profile picture.
   final List<String> images;
+
+  /// Card-sized rendition (Strapi `medium`) of each of [images], same order:
+  /// what Discover already loaded, shown while the original loads.
+  final List<String> imageThumbs;
 
   /// Card-sized rendition of the first image.
   final String? cardImage;

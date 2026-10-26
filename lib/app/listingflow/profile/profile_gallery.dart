@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -49,7 +50,19 @@ class ProfileGallery extends HookWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final images = host.images;
+    final thumbs = host.imageThumbs;
     final count = images.isEmpty ? 1 : images.length;
+    // Every photo's card-sized rendition (the first is already cached from
+    // Discover), so a tap to the next photo shows at once.
+    useEffect(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        for (final t in thumbs.skip(1)) {
+          precacheImage(CachedNetworkImageProvider(t), context).ignore();
+        }
+      });
+      return null;
+    }, [host.id]);
     final expertId = host.expertProfileDocumentId;
     final favoritable = canFavorite && expertId != null;
     final favorites = useFavorites(context, enabled: favoritable);
@@ -113,6 +126,9 @@ class ProfileGallery extends HookWidget {
                   ? _Letter(name)
                   : CImage(
                       url: images[index % count],
+                      placeholderUrl: index % count < thumbs.length
+                          ? thumbs[index % count]
+                          : null,
                       width: box.maxWidth,
                       height: box.maxHeight,
                     ),

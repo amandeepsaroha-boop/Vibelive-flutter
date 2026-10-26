@@ -201,7 +201,8 @@ class _AddMoneyScreen extends HookWidget {
                             ValueListenableBuilder<int?>(
                               valueListenable: preset,
                               builder: (_, selected, _) => _Presets(
-                                options: presets,
+                                // High to low.
+                                options: presets.reversed.toList(),
                                 selected: selected,
                                 onPick: pick,
                               ),

@@ -18,9 +18,14 @@ class CImage extends StatelessWidget {
     this.radius = 0,
     this.placeholder,
     this.errorWidget,
+    this.placeholderUrl,
   });
 
   final String? url;
+
+  /// A smaller rendition already in the cache (e.g. Discover's card image),
+  /// shown at once while [url] loads, then cross-faded.
+  final String? placeholderUrl;
   final double? width;
   final double? height;
   final BoxFit fit;
@@ -32,9 +37,28 @@ class CImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final dpr = MediaQuery.devicePixelRatioOf(context);
+    final memWidth = width == null ? null : (width! * dpr).round();
+    final fill = Container(
+      width: width,
+      height: height,
+      color: c.surfaceVariant,
+    );
+    final low = placeholderUrl;
+    final hasLow = low != null && low.isNotEmpty && low != url;
     final box =
         placeholder ??
-        Container(width: width, height: height, color: c.surfaceVariant);
+        (!hasLow
+            ? fill
+            : CachedNetworkImage(
+                imageUrl: low,
+                width: width,
+                height: height,
+                fit: fit,
+                memCacheWidth: memWidth,
+                fadeInDuration: Duration.zero,
+                placeholder: (_, _) => fill,
+                errorWidget: (_, _, _) => fill,
+              ));
     final broken =
         errorWidget ??
         Container(
@@ -53,10 +77,11 @@ class CImage extends StatelessWidget {
             width: width,
             height: height,
             fit: fit,
-            memCacheWidth: width == null ? null : (width! * dpr).round(),
+            memCacheWidth: memWidth,
             fadeInDuration: const Duration(milliseconds: 150),
             placeholder: (_, _) => box,
-            errorWidget: (_, _, _) => broken,
+            // The smaller rendition is still a good picture.
+            errorWidget: (_, _, _) => hasLow ? box : broken,
           );
 
     if (radius <= 0) return image;

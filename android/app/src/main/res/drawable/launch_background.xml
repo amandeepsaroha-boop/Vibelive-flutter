@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Plain splash colour, no logo (follows light / dark: values[-night]/colors.xml). -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <bitmap android:gravity="fill" android:src="@drawable/background"/>
-    </item>
+    <item android:drawable="@color/splash_background" />
 </layer-list>

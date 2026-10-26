@@ -47,8 +47,6 @@ abstract final class TransactionApi {
     'fields[3]': 'paymentStatus',
     'fields[4]': 'transactionType',
     'fields[5]': 'method',
-    // Bonus labels and call display amounts read it.
-    'fields[6]': 'metadata',
     'populate[call][fields][0]': 'type',
     'populate[call][populate][caller][fields][0]': 'name',
     'populate[call][populate][receiver][fields][0]': 'name',

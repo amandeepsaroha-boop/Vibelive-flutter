@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#561DE2</color>
+    <!-- Launch window = the Flutter splash background (white light / #080808 dark), with
+         no logo, so launch -> Flutter splash is one seamless screen. -->
+    <color name="splash_background">#FFFFFF</color>
     <!-- Small-icon tint for FCM-drawn notifications (RN #561de2). -->
     <color name="notification_icon_color">#561DE2</color>
 </resources>

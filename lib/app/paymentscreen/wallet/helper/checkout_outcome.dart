@@ -29,13 +29,21 @@ const _dismissalMarkers = [
 /// by user". The description is the only signal that carries intent, so it
 /// is read first; only a bare code means checkout failed to open.
 /// [misconfigured] is the plugin's "invalid options / incompatible" signal.
+/// [cancelCode]: razorpay_flutter's own PAYMENT_CANCELLED. Unlike RN's
+/// module it is only sent when the person closed checkout, often with no
+/// text (or "undefined"): that is a dismissal, not a failure to open.
 CheckoutEnd classifyCheckoutEnd({
   required String? description,
   bool misconfigured = false,
+  bool cancelCode = false,
 }) {
-  final text = (description ?? '').trim();
+  var text = (description ?? '').trim();
+  if (text == 'undefined' || text == 'null') text = '';
   final lower = text.toLowerCase();
   if (text.isNotEmpty && _dismissalMarkers.any(lower.contains)) {
+    return CheckoutEnd.userDismissed;
+  }
+  if (cancelCode && text.isEmpty && !misconfigured) {
     return CheckoutEnd.userDismissed;
   }
   if (text.isEmpty || misconfigured) return CheckoutEnd.failedToOpen;

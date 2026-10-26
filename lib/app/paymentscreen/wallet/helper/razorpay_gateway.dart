@@ -93,6 +93,7 @@ class NativeRazorpayGateway implements RazorpayGateway {
           misconfigured:
               r.code == Razorpay.INVALID_OPTIONS ||
               r.code == Razorpay.INCOMPATIBLE_PLUGIN,
+          cancelCode: r.code == Razorpay.PAYMENT_CANCELLED,
         );
         finish(
           isCancel(r.code, description) || end == CheckoutEnd.userDismissed
