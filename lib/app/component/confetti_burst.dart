@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-
 /// A confetti burst that falls once over its box (RN `Confetti`, loop off):
 /// a moment, not a state. Decorative only, so it never takes a tap.
 class ConfettiBurst extends StatefulWidget {

@@ -65,6 +65,7 @@ abstract final class WalletOffers {
       offer: offer,
       percent: percent,
       windowMinutes: bonus.abandonOfferWindowMinutes,
+      gstPercent: config.gstPercent,
     );
     if (!accepted) return null;
     Analytics.log('abandon_offer_accepted', params);

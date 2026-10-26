@@ -377,9 +377,9 @@ void prefetchExpertReviews(String? expertId) {
     ...key,
     '#page',
   ], () => ApiClient.guard(() => ReviewApi.fetchByExpert(id))).then((page) {
-    // Kept when no sheet joined it (the sheet then finds it cached).
-    if (queryCache.entry<InfiniteQueryData<ReviewPage, int>>(key)?.data ==
-        null) {
+    // Kept only when no sheet joined it (the sheet then finds it cached);
+    // a sheet that joined stores its own page 1.
+    if (queryCache.canSeed<InfiniteQueryData<ReviewPage, int>>(key)) {
       queryCache.setQueryData<InfiniteQueryData<ReviewPage, int>, ApiException>(
         key,
         (_) => InfiniteQueryData(pages: [page], pageParams: [1]),

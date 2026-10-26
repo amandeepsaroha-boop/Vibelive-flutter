@@ -13,13 +13,13 @@ import '../../../api/paymentscreen/runtime_config_queries.dart';
 import '../../../component/c_alert.dart';
 import '../../../component/c_button.dart';
 import '../../../component/c_text.dart';
-import '../../../component/keyboard_inset.dart';
-import '../../../component/pressable.dart';
 import '../../../component/vibe_background.dart';
+import '../helper/topup_bonus.dart';
 import '../helper/topup_checkout.dart';
 import '../helper/wallet_amounts.dart';
 import '../helper/wallet_format.dart';
 import '../helper/wallet_palette.dart';
+import 'amount_cards.dart';
 import 'wallet_header.dart';
 
 /// How the add-money screen closed: an order to pay, or "profile
@@ -34,6 +34,7 @@ Future<AddMoneyExit?> showAddMoney(
   required TopUpCheckout flow,
   required PayerInfo Function() payer,
   double? initialAmount,
+  TopUpBonus? bonus,
 }) => showGeneralDialog<AddMoneyExit>(
   context: context,
   barrierDismissible: false,
@@ -46,8 +47,12 @@ Future<AddMoneyExit?> showAddMoney(
     ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
     child: child,
   ),
-  pageBuilder: (_, _, _) =>
-      _AddMoneyScreen(flow: flow, payer: payer, initialAmount: initialAmount),
+  pageBuilder: (_, _, _) => _AddMoneyScreen(
+    flow: flow,
+    payer: payer,
+    initialAmount: initialAmount,
+    bonus: bonus,
+  ),
 );
 
 class _AddMoneyScreen extends HookWidget {
@@ -55,71 +60,49 @@ class _AddMoneyScreen extends HookWidget {
     required this.flow,
     required this.payer,
     this.initialAmount,
+    this.bonus,
   });
 
   final TopUpCheckout flow;
   final PayerInfo Function() payer;
   final double? initialAmount;
 
+  /// Previewed on the cards and in the breakdown (first top-up, come-back).
+  final TopUpBonus? bonus;
+
   @override
   Widget build(BuildContext context) {
     final p = WalletPalette.of(context);
     final config = useRuntimeConfig(context);
-    final presets = config.presetAmounts;
+    // An exact amount handed in (call balance gate, come-back offer) is
+    // pre-selected; one that isn't a preset gets its own card.
     final initial = initialAmount;
-    final initialText = initial != null && initial.isFinite && initial > 0
-        ? WalletFormat.js(initial)
-        : '';
-    final controller = useTextEditingController(text: initialText);
-    final preset = useValueNotifier<int?>(
-      TopUpAmount.presetFor(initialText, presets),
-    );
-    final effective = useValueNotifier<double>(
-      TopUpAmount.effective(initialText, null),
-    );
+    final prefill = initial != null && initial.isFinite && initial > 0
+        ? initial.ceil()
+        : null;
+    final presets = config.presetAmounts;
+    final options = [
+      ...presets,
+      if (prefill != null && !presets.contains(prefill)) prefill,
+    ];
+    final selected = useValueNotifier<int?>(prefill);
     final loading = useValueNotifier<bool>(false);
 
-    void sync() =>
-        effective.value = TopUpAmount.effective(controller.text, preset.value);
-
-    void onChanged(String text) {
-      preset.value = TopUpAmount.presetFor(text, presets);
-      sync();
-    }
-
-    void pick(int value) {
-      if (preset.value == value) {
-        preset.value = null;
-        controller.clear();
-      } else {
-        preset.value = value;
-        controller.text = '$value';
-      }
-      sync();
-    }
+    void pick(int value) =>
+        selected.value = selected.value == value ? null : value;
 
     Future<void> submit() async {
-      if (loading.value) return;
+      final amount = selected.value;
+      if (loading.value || amount == null) return;
       final who = payer();
       if ((who.name ?? '').isEmpty || (who.email ?? '').isEmpty) {
         Navigator.of(context).pop((checkout: null, profileIncomplete: true));
         return;
       }
-      final amount = TopUpAmount.effective(controller.text, preset.value);
-      if (amount <= 0) {
-        unawaited(
-          CAlert.show(
-            title: 'payment:add_money.invalid_title',
-            message: 'payment:add_money.invalid_message',
-            variant: CAlertVariant.warning,
-          ),
-        );
-        return;
-      }
       loading.value = true;
       try {
         final checkout = await flow.createOrder(
-          amount: amount,
+          amount: amount.toDouble(),
           payer: who,
           description: context.t('payment:add_money.description'),
           gstPercent: config.gstPercent,
@@ -171,69 +154,72 @@ class _AddMoneyScreen extends HookWidget {
                   ),
                 ),
                 Expanded(
-                  child: KeyboardInset(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTap: () => FocusScope.of(context).unfocus(),
-                      child: SingleChildScrollView(
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        padding: EdgeInsets.fromLTRB(
-                          20.ms,
-                          20.ms,
-                          20.ms,
-                          100.ms,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const _SectionLabel(
-                              'payment:add_money.enter_amount',
-                            ),
-                            _AmountField(
-                              controller: controller,
-                              onChanged: onChanged,
-                            ),
+                  child: SingleChildScrollView(
+                    // Top room for the "Most Popular" badge.
+                    padding: EdgeInsets.fromLTRB(20.ms, 22.ms, 20.ms, 24.ms),
+                    child: ValueListenableBuilder<int?>(
+                      valueListenable: selected,
+                      builder: (_, amount, _) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          AmountCards(
+                            options: options,
+                            selected: amount,
+                            onPick: pick,
+                            gstPercent: config.gstPercent,
+                            bonus: bonus,
+                          ),
+                          if (amount != null) ...[
                             SizedBox(height: 24.ms),
-                            const _SectionLabel(
-                              'payment:add_money.quick_select',
+                            _GstCard(
+                              amount: amount.toDouble(),
+                              percent: config.gstPercent,
+                              bonus: bonus,
                             ),
-                            ValueListenableBuilder<int?>(
-                              valueListenable: preset,
-                              builder: (_, selected, _) => _Presets(
-                                // High to low.
-                                options: presets.reversed.toList(),
-                                selected: selected,
-                                onPick: pick,
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Pinned: shown once a card is picked, never scrolls away.
+                ValueListenableBuilder<int?>(
+                  valueListenable: selected,
+                  builder: (_, amount, _) => AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, a) => SizeTransition(
+                      sizeFactor: a,
+                      axisAlignment: -1,
+                      child: FadeTransition(opacity: a, child: child),
+                    ),
+                    child: amount == null
+                        ? const SizedBox(width: double.infinity)
+                        : Container(
+                            key: const ValueKey('add-money-bar'),
+                            padding: EdgeInsets.fromLTRB(
+                              20.ms,
+                              12.ms,
+                              20.ms,
+                              12.ms,
+                            ),
+                            decoration: BoxDecoration(
+                              color: p.bg,
+                              border: Border(
+                                top: BorderSide(color: p.cardBorder),
                               ),
                             ),
-                            SizedBox(height: 28.ms),
-                            ValueListenableBuilder<double>(
-                              valueListenable: effective,
-                              builder: (_, amount, _) => amount > 0
-                                  ? _GstCard(
-                                      amount: amount,
-                                      percent: config.gstPercent,
-                                    )
-                                  : const SizedBox.shrink(),
-                            ),
-                            ListenableBuilder(
-                              listenable: Listenable.merge([
-                                effective,
-                                loading,
-                              ]),
-                              builder: (_, _) => CButton(
+                            child: ValueListenableBuilder<bool>(
+                              valueListenable: loading,
+                              builder: (_, busy, _) => CButton(
                                 title: 'payment:add_money.submit',
                                 showArrow: false,
-                                loading: loading.value,
-                                disabled: effective.value <= 0,
+                                loading: busy,
                                 onPressed: submit,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
+                          ),
                   ),
                 ),
               ],
@@ -245,125 +231,19 @@ class _AddMoneyScreen extends HookWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.only(bottom: 12.ms),
-    child: CText(
-      text,
-      size: 10,
-      weight: FontWeight.w900,
-      letterSpacing: 2,
-      color: WalletPalette.of(context).muted,
-    ),
-  );
-}
-
-class _AmountField extends StatelessWidget {
-  const _AmountField({required this.controller, required this.onChanged});
-
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = WalletPalette.of(context);
-    OutlineInputBorder border(Color color) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(22.ms),
-      borderSide: BorderSide(color: color),
-    );
-    return MediaQuery.withNoTextScaling(
-      child: TextField(
-        controller: controller,
-        onChanged: onChanged,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: const [TopUpAmountFormatter()],
-        textAlign: TextAlign.center,
-        cursorColor: p.accent,
-        style: TextStyle(
-          fontSize: 32.ms,
-          fontWeight: FontWeight.w900,
-          color: p.text,
-        ),
-        decoration: InputDecoration(
-          hintText: '₹0.00',
-          hintStyle: TextStyle(
-            fontSize: 32.ms,
-            fontWeight: FontWeight.w900,
-            color: p.subtle,
-          ),
-          filled: true,
-          fillColor: p.inputBg,
-          isDense: true,
-          contentPadding: EdgeInsets.all(16.ms),
-          enabledBorder: border(p.inputBorder),
-          focusedBorder: border(p.inputBorder),
-          border: border(p.inputBorder),
-        ),
-      ),
-    );
-  }
-}
-
-class _Presets extends StatelessWidget {
-  const _Presets({
-    required this.options,
-    required this.selected,
-    required this.onPick,
-  });
-
-  final List<int> options;
-  final int? selected;
-  final ValueChanged<int> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = WalletPalette.of(context);
-    return Wrap(
-      spacing: 10.ms,
-      runSpacing: 10.ms,
-      children: [
-        for (final value in options)
-          Pressable(
-            onPressed: () => onPick(value),
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 18.ms, vertical: 12.ms),
-              decoration: BoxDecoration(
-                color: value == selected
-                    ? WalletPalette.presetSelectedBg
-                    : p.inputBg,
-                borderRadius: BorderRadius.circular(14.ms),
-                border: Border.all(
-                  color: value == selected ? p.accent : p.inputBorder,
-                ),
-              ),
-              child: CText.raw(
-                '₹${WalletFormat.whole(value)}',
-                size: 14,
-                weight: FontWeight.w900,
-                color: value == selected ? p.accent : p.text,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 /// Recharge amount, GST, total payable (RN GST breakdown).
 class _GstCard extends StatelessWidget {
-  const _GstCard({required this.amount, required this.percent});
+  const _GstCard({required this.amount, required this.percent, this.bonus});
   final double amount;
   final double percent;
+  final TopUpBonus? bonus;
 
   @override
   Widget build(BuildContext context) {
     final p = WalletPalette.of(context);
     final b = TopUpAmount.breakdown(amount, percent);
     if (b.base <= 0) return const SizedBox.shrink();
+    final extra = bonus?.on(b.base) ?? 0;
     Widget row(Widget label, String value, {required Color color}) => Row(
       children: [
         Expanded(child: label),
@@ -425,8 +305,13 @@ class _GstCard extends StatelessWidget {
           ),
           SizedBox(height: 12.ms),
           CText(
-            'payment:add_money.will_be_added',
-            variables: {'amount': WalletFormat.fixed2(b.base)},
+            extra > 0
+                ? 'payment:add_money.will_be_added_bonus'
+                : 'payment:add_money.will_be_added',
+            variables: {
+              'amount': WalletFormat.fixed2(b.base + extra),
+              'bonus': WalletFormat.whole(extra),
+            },
             size: 11,
             weight: FontWeight.w700,
             italic: true,

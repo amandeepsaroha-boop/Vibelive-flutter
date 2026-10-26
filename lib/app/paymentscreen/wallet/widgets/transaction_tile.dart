@@ -41,13 +41,13 @@ class TransactionTile extends StatelessWidget {
     final detail = row.detailKey;
     final vars = row.detailVariables;
 
+    // One continuous list: rows flush to the edges, a single line between
+    // them (no gaps, no rounded cards). Only the content is inset.
     return Container(
-      margin: EdgeInsets.only(bottom: 10.ms),
-      padding: EdgeInsets.all(14.ms),
+      padding: EdgeInsets.symmetric(horizontal: 16.ms, vertical: 14.ms),
       decoration: BoxDecoration(
         color: p.cardBg,
-        borderRadius: BorderRadius.circular(18.ms),
-        border: Border.all(color: p.cardBorder),
+        border: Border(bottom: BorderSide(color: p.cardBorder)),
       ),
       child: Column(
         children: [

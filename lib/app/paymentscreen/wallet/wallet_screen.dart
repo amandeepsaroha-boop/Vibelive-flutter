@@ -23,6 +23,7 @@ import '../../component/c_alert.dart';
 import '../../component/c_text.dart';
 import '../../component/status_bar_style.dart';
 import '../../component/vibe_background.dart';
+import 'helper/topup_bonus.dart';
 import 'helper/topup_checkout.dart';
 import 'helper/transaction_pager.dart';
 import 'helper/transaction_row.dart';
@@ -116,7 +117,21 @@ class WalletScreen extends HookWidget {
       }
     }
 
-    Future<void> addMoney({double? initialAmount}) async {
+    // History that can tell "never paid" (all / cash tab, loaded).
+    Iterable<WalletTransaction>? paidHistory() {
+      final st = pager.value;
+      final usable =
+          (st.filter == TransactionFilter.all ||
+              st.filter == TransactionFilter.cash) &&
+          st.page >= 1 &&
+          st.error == null;
+      return usable ? st.rows : null;
+    }
+
+    Future<void> addMoney({
+      double? initialAmount,
+      bool comeback = false,
+    }) async {
       final u = userRef.value;
       bool has(String key) => (J.str(u?[key]) ?? '').isNotEmpty;
       if (!has('name') || !has('email') || !has('mobile')) {
@@ -128,6 +143,11 @@ class WalletScreen extends HookWidget {
         flow: flow,
         payer: payer,
         initialAmount: initialAmount,
+        bonus: TopUpBonus.resolve(
+          config: configRef.value,
+          history: paidHistory(),
+          comeback: comeback,
+        ),
       );
       if (exit == null || !context.mounted) return;
       final order = exit.checkout;
@@ -151,7 +171,7 @@ class WalletScreen extends HookWidget {
           order: order,
         );
         if (again != null && context.mounted) {
-          await addMoney(initialAmount: again);
+          await addMoney(initialAmount: again, comeback: true);
         }
         return;
       }

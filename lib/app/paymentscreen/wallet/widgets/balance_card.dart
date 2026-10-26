@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/i18n/i18n.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../api/paymentscreen/wallet_models.dart';
 import '../../../component/c_text.dart';
 import '../../../component/pressable.dart';
-import '../../../component/skeleton.dart';
 import '../helper/wallet_format.dart';
 import '../helper/wallet_palette.dart';
 
-/// Total balance + ADD, then cash ⇠ earnings with the transfer button (RN
-/// balance card). [balance] null: skeletons. [showSplit] false hides the
-/// cash / earnings row (RN hides it on iOS).
+/// The wallet's balance card, laid out like a standard bank card: one left
+/// edge, an 8-pt spacing grid, sentence-case labels. On the same surface as
+/// the list below (soft accent tint, accent bubbles). Total balance on top;
+/// cash | earnings as two columns under a hairline; then two equal actions,
+/// Add money (filled) and Transfer (outlined). [balance] null: placeholders.
+/// [showSplit] false (iOS, like RN) hides the split and Transfer.
 class BalanceCard extends StatelessWidget {
   const BalanceCard({
     super.key,
@@ -34,73 +35,120 @@ class BalanceCard extends StatelessWidget {
     final b = balance;
     final cash = b?.cashBalance ?? 0;
     final earnings = b?.earningsBalance ?? 0;
+    // Same surface as the list below, lifted by a soft accent tint.
+    Color tint(double a) =>
+        Color.alphaBlend(p.accent.withValues(alpha: a), p.cardBg);
+
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.ms, 0, 16.ms, 6.ms),
+      padding: EdgeInsets.fromLTRB(16.ms, 0, 16.ms, 8.ms),
       child: Container(
-        padding: EdgeInsets.all(20.ms),
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: p.cardBg,
-          borderRadius: BorderRadius.circular(28.ms),
-          border: Border.all(color: p.cardBorder),
+          borderRadius: BorderRadius.circular(22.ms),
+          border: Border.all(color: p.accent.withValues(alpha: 0.18)),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [tint(p.dark ? 0.14 : 0.12), tint(0.03)],
+          ),
         ),
-        child: Column(
+        child: Stack(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            // Bubbles: plain shapes off the edges (no blur, no layer).
+            Positioned(
+              top: -46.ms,
+              right: -30.ms,
+              child: _Bubble(size: 130.ms, color: p.accent, alpha: 0.10),
+            ),
+            Positioned(
+              top: 34.ms,
+              right: 70.ms,
+              child: _Bubble(size: 26.ms, color: p.accent, alpha: 0.08),
+            ),
+            Positioned(
+              bottom: -40.ms,
+              left: -24.ms,
+              child: _Bubble(size: 96.ms, color: p.accent, alpha: 0.07),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(16.ms, 14.ms, 16.ms, 16.ms),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
                     children: [
-                      const _Label(
-                        'payment:wallet.total_balance',
-                        size: 10,
-                        ls: 2,
+                      Expanded(
+                        child: CText(
+                          'payment:wallet.total_balance_label',
+                          size: 12.5,
+                          weight: FontWeight.w600,
+                          color: p.muted,
+                          maxLines: 1,
+                        ),
                       ),
-                      SizedBox(height: 4.ms),
-                      _Money(
-                        b == null ? null : cash + earnings,
-                        size: 26,
-                        skeleton: Size(140.ms, 32.ms),
-                        skeletonRadius: 8,
-                        align: Alignment.centerLeft,
-                      ),
+                      Icon(LucideIcons.wallet, size: 18.ms, color: p.accent),
                     ],
                   ),
-                ),
-                SizedBox(width: 12.ms),
-                _AddButton(onPressed: onAdd),
-              ],
-            ),
-            SizedBox(height: 20.ms),
-            Container(height: 1, color: p.cardBorder),
-            SizedBox(height: 18.ms),
-            if (showSplit)
-              Padding(
-                padding: EdgeInsets.only(top: 4.ms),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _Split(
-                        label: 'payment:wallet.cash',
-                        hint: 'payment:wallet.cash_hint',
-                        amount: b == null ? null : cash,
-                        icon: LucideIcons.creditCard,
-                        iconColor: AppColors.green,
-                      ),
-                    ),
-                    _TransferButton(onPressed: onTransfer),
-                    Expanded(
-                      child: _Split(
-                        label: 'payment:wallet.earnings',
-                        hint: 'payment:wallet.earnings_hint',
-                        amount: b == null ? null : earnings,
-                        icon: LucideIcons.trendingUp,
-                        iconColor: p.accent,
+                  SizedBox(height: 4.ms),
+                  _Money(
+                    b == null ? null : cash + earnings,
+                    size: 28,
+                    color: p.text,
+                    placeholder: Size(150.ms, 32.ms),
+                  ),
+                  if (showSplit) ...[
+                    SizedBox(height: 12.ms),
+                    Container(height: 1, color: p.cardBorder),
+                    SizedBox(height: 12.ms),
+                    IntrinsicHeight(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _Stat(
+                              label: 'payment:wallet.cash_label',
+                              amount: b == null ? null : cash,
+                            ),
+                          ),
+                          Container(width: 1, color: p.cardBorder),
+                          SizedBox(width: 16.ms),
+                          Expanded(
+                            child: _Stat(
+                              label: 'payment:wallet.earnings_label',
+                              amount: b == null ? null : earnings,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
+                  SizedBox(height: 14.ms),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _Action(
+                          label: 'payment:wallet.add_money',
+                          icon: LucideIcons.plus,
+                          filled: true,
+                          onPressed: onAdd,
+                        ),
+                      ),
+                      if (showSplit) ...[
+                        SizedBox(width: 12.ms),
+                        Expanded(
+                          child: _Action(
+                            label: 'payment:wallet.transfer_short',
+                            icon: LucideIcons.arrowLeftRight,
+                            filled: false,
+                            semanticLabel: context.t('payment:wallet.transfer'),
+                            onPressed: onTransfer,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
               ),
+            ),
           ],
         ),
       ),
@@ -108,190 +156,155 @@ class BalanceCard extends StatelessWidget {
   }
 }
 
-class _Label extends StatelessWidget {
-  const _Label(this.text, {required this.size, required this.ls});
-  final String text;
+class _Bubble extends StatelessWidget {
+  const _Bubble({required this.size, required this.color, required this.alpha});
   final double size;
-  final double ls;
+  final Color color;
+  final double alpha;
 
   @override
-  Widget build(BuildContext context) => CText(
-    text,
-    size: size,
-    weight: FontWeight.w900,
-    letterSpacing: ls,
-    color: WalletPalette.of(context).muted,
-    maxLines: 1,
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: size,
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withValues(alpha: alpha),
+      ),
+    ),
   );
 }
 
-/// `₹1,234.5`, shrinking rather than cut off; a skeleton while unknown.
+/// `₹1,234.5`, shrinking rather than cut off; a soft bar while unknown.
 class _Money extends StatelessWidget {
   const _Money(
     this.amount, {
     required this.size,
-    required this.skeleton,
-    required this.skeletonRadius,
-    required this.align,
+    required this.color,
+    required this.placeholder,
   });
 
   final double? amount;
   final double size;
-  final Size skeleton;
-  final double skeletonRadius;
-  final Alignment align;
+  final Color color;
+  final Size placeholder;
 
   @override
   Widget build(BuildContext context) {
     final value = amount;
     if (value == null) {
-      return Shimmer(
-        child: SkeletonBox(
-          width: skeleton.width,
-          height: skeleton.height,
-          radius: skeletonRadius,
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          width: placeholder.width,
+          height: placeholder.height,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(8.ms),
+          ),
         ),
       );
     }
     return FittedBox(
       fit: BoxFit.scaleDown,
-      alignment: align,
+      alignment: Alignment.centerLeft,
       child: CText.raw(
         '₹${WalletFormat.amount(value)}',
         size: size,
-        weight: FontWeight.w900,
-        color: WalletPalette.of(context).text,
+        weight: FontWeight.w800,
+        letterSpacing: -0.5,
+        color: color,
         maxLines: 1,
       ),
     );
   }
 }
 
-class _AddButton extends StatelessWidget {
-  const _AddButton({required this.onPressed});
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = WalletPalette.of(context);
-    return Pressable(
-      onPressed: onPressed,
-      child: Container(
-        height: 40.ms,
-        padding: EdgeInsets.only(left: 14.ms, right: 18.ms),
-        decoration: BoxDecoration(
-          color: p.accent,
-          borderRadius: BorderRadius.circular(20.ms),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.plus, size: 16.ms, color: p.onAccent, weight: 800),
-            SizedBox(width: 4.ms),
-            CText(
-              'payment:wallet.add',
-              size: 11,
-              weight: FontWeight.w900,
-              letterSpacing: 1.2,
-              color: p.onAccent,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Split extends StatelessWidget {
-  const _Split({
-    required this.label,
-    required this.hint,
-    required this.amount,
-    required this.icon,
-    required this.iconColor,
-  });
+/// "Cash" over its amount, left-aligned.
+class _Stat extends StatelessWidget {
+  const _Stat({required this.label, required this.amount});
 
   final String label;
-  final String hint;
   final double? amount;
-  final IconData icon;
-  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
     final p = WalletPalette.of(context);
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _Label(label, size: 9, ls: 1.5),
-        SizedBox(height: 4.ms),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Flexible(
-              child: _Money(
-                amount,
-                size: 18,
-                skeleton: Size(80.ms, 24.ms),
-                skeletonRadius: 6,
-                align: Alignment.center,
-              ),
-            ),
-            SizedBox(width: 6.ms),
-            Icon(icon, size: 18.ms, color: iconColor),
-          ],
-        ),
-        SizedBox(height: 4.ms),
         CText(
-          hint,
-          size: 9,
-          weight: FontWeight.w700,
-          color: p.subtle,
+          label,
+          size: 11.5,
+          weight: FontWeight.w600,
+          color: p.muted,
           maxLines: 1,
-          align: TextAlign.center,
+        ),
+        SizedBox(height: 2.ms),
+        _Money(
+          amount,
+          size: 16,
+          color: p.text,
+          placeholder: Size(68.ms, 20.ms),
         ),
       ],
     );
   }
 }
 
-/// Crisp ringed circle between the two wallets (no glow): opens the
-/// transfer sheet.
-class _TransferButton extends StatelessWidget {
-  const _TransferButton({required this.onPressed});
+/// A 40 px action: filled (accent gradient) or outlined (accent).
+class _Action extends StatelessWidget {
+  const _Action({
+    required this.label,
+    required this.icon,
+    required this.filled,
+    required this.onPressed,
+    this.semanticLabel,
+  });
+
+  /// i18n key.
+  final String label;
+  final IconData icon;
+  final bool filled;
   final VoidCallback onPressed;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final p = WalletPalette.of(context);
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8.ms),
-      child: Pressable(
-        onPressed: onPressed,
-        semanticLabel: context.t('payment:wallet.transfer'),
-        // One shape for fill, ring and glow (stroke kept inside the edge):
-        // a separate border + shadow left a broken-looking ring on device.
-        child: RepaintBoundary(
-          child: SizedBox.square(
-            dimension: 44.ms,
-            child: DecoratedBox(
-              decoration: ShapeDecoration(
-                color: p.dark ? AppColors.darkSurface : AppColors.white,
-                shape: CircleBorder(
-                  side: BorderSide(
-                    color: p.accent,
-                    width: 2.5,
-                    strokeAlign: BorderSide.strokeAlignInside,
-                  ),
+    final fg = filled ? p.onAccent : p.accent;
+    return Pressable(
+      onPressed: onPressed,
+      semanticLabel: semanticLabel,
+      child: Container(
+        height: 40.ms,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          gradient: filled ? LinearGradient(colors: p.accentGradient) : null,
+          color: filled ? null : p.cardBg,
+          borderRadius: BorderRadius.circular(12.ms),
+          border: filled
+              ? null
+              : Border.all(color: p.accent.withValues(alpha: 0.5), width: 1.2),
+        ),
+        // With a semantic label the visible text is not read on top of it.
+        child: ExcludeSemantics(
+          excluding: semanticLabel != null,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16.ms, color: fg),
+              SizedBox(width: 8.ms),
+              Flexible(
+                child: CText(
+                  label,
+                  size: 14,
+                  weight: FontWeight.w700,
+                  color: fg,
+                  maxLines: 1,
                 ),
               ),
-              child: Center(
-                child: Icon(
-                  LucideIcons.arrowLeft,
-                  size: 22.ms,
-                  color: p.accent,
-                ),
-              ),
-            ),
+            ],
           ),
         ),
       ),

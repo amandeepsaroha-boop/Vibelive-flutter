@@ -155,6 +155,11 @@ abstract final class HostProfileRules {
         if (stripLang(l) case final s when s.isNotEmpty) s,
     ];
     final seen = {for (final l in langs) l.toUpperCase()};
+    // The host's own languages are the truth (stored in their script,
+    // "हिंदी"); a language-looking interest tag ("Hindi") would only add a
+    // second, English copy or a language they never chose. Tags fill in
+    // only when the host has none.
+    final fromTags = langs.isEmpty;
     final topics = <String>[];
 
     for (final tag in tags) {
@@ -163,11 +168,13 @@ abstract final class HostProfileRules {
       if (clean.isEmpty || _excludedTags.contains(clean)) continue;
       if (clean.startsWith('LANG_') || clean.startsWith('LANGUAGE_')) {
         final parsed = stripLang(clean);
-        if (parsed.isNotEmpty && seen.add(parsed)) langs.add(parsed);
+        if (fromTags && parsed.isNotEmpty && seen.add(parsed)) {
+          langs.add(parsed);
+        }
         continue;
       }
       if (_knownLanguages.contains(clean)) {
-        if (seen.add(clean)) langs.add(raw);
+        if (fromTags && seen.add(clean)) langs.add(raw);
         continue;
       }
       if (_ageBracket.hasMatch(clean) || _agePlus.hasMatch(clean)) continue;

@@ -154,8 +154,8 @@ void prefetchDiscover() {
       ...HomeKeys.feed,
       '#page',
     ], () => _fetchFeedPage(1)).then((page) {
-      if (queryCache.getQueryData<FeedData, ApiException>(HomeKeys.feed) ==
-          null) {
+      // A grid that joined stores its own page 1 (seeding too doubles it).
+      if (queryCache.canSeed<FeedData>(HomeKeys.feed)) {
         queryCache.setQueryData<FeedData, ApiException>(
           HomeKeys.feed,
           (_) => FeedData(pages: [page], pageParams: [1]),

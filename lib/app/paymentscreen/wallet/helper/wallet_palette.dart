@@ -56,6 +56,12 @@ class WalletPalette {
 
   final bool dark;
 
+  /// Filled accent surfaces (pills, badges, offer cards): purple → deep
+  /// purple in light, lime → deeper lime in dark. Text on it: [onAccent].
+  List<Color> get accentGradient => dark
+      ? const [BrandColors.lime, BrandColors.limeLight]
+      : const [BrandColors.purple, BrandColors.purpleDark];
+
   /// Screen and modal background.
   final Color bg;
   final Color text;

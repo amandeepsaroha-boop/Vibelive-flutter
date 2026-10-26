@@ -330,14 +330,15 @@ void main() {
     expect(find.text('₹30/min'), findsOneWidget);
     expect(find.text('"Let us talk"'), findsOneWidget);
     expect(find.text('Listener and coach.'), findsOneWidget);
-    // Demographic answers are dropped, language answers move to languages.
+    // Demographic answers are dropped; the host's own languages win over a
+    // language-looking answer (no extra "English" from the tag).
     await tester.scrollUntilVisible(
-      find.text('ENGLISH'),
+      find.text('HINDI'),
       200,
       scrollable: list,
     );
     expect(find.text('Breakup'), findsOneWidget);
-    expect(find.text('HINDI'), findsOneWidget);
+    expect(find.text('ENGLISH'), findsNothing);
     expect(find.text('Female'), findsNothing);
     // A complete card is not fetched again.
     expect(backend.requests, isNot(contains('GET /api/expert-profiles')));

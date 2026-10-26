@@ -2,71 +2,74 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../component/c_button.dart';
-import '../../../component/c_loader.dart';
 import '../../../component/c_text.dart';
-import '../../../component/confetti_burst.dart';
 import '../helper/topup_celebration.dart';
 import '../helper/topup_checkout.dart';
 import '../helper/wallet_palette.dart';
+import 'payment_status_motion.dart';
 
-/// RN "Payment Successful / Received / Failed" modal (fade, black 60%). A
-/// success celebrates in the app (coin sound, haptic, one confetti burst)
-/// instead of a push.
-Future<void> showPaymentStatus(BuildContext context, TopUpStatus status) {
-  final success = status.result == TopUpResult.success;
-  if (success) unawaited(TopupCelebration.celebrate());
-  return showGeneralDialog<void>(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: 'payment-status',
-    barrierColor: AppColors.blackA(0.6),
-    transitionDuration: const Duration(milliseconds: 200),
-    transitionBuilder: (_, anim, _, child) =>
-        FadeTransition(opacity: anim, child: child),
-    pageBuilder: (_, _, _) => success
-        ? Stack(
-            children: [
-              _StatusCard(status: status),
-              const Positioned.fill(child: ConfettiBurst()),
-            ],
-          )
-        : _StatusCard(status: status),
-  );
-}
+/// RN "Payment Successful / Received / Failed" modal (fade, black 60%).
+/// A success celebrates in the app instead of a push: the painted burst,
+/// and the coin sound + haptic the moment its check lands. The text follows
+/// it in; failure and pending show theirs at once.
+Future<void> showPaymentStatus(BuildContext context, TopUpStatus status) =>
+    showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'payment-status',
+      barrierColor: AppColors.blackA(0.6),
+      transitionDuration: const Duration(milliseconds: 200),
+      transitionBuilder: (_, anim, _, child) =>
+          FadeTransition(opacity: anim, child: child),
+      pageBuilder: (_, _, _) => _StatusCard(status: status),
+    );
 
-class _StatusCard extends StatelessWidget {
+class _StatusCard extends StatefulWidget {
   const _StatusCard({required this.status});
   final TopUpStatus status;
 
+  @override
+  State<_StatusCard> createState() => _StatusCardState();
+}
+
+class _StatusCardState extends State<_StatusCard> {
   /// RN: the gateway's own reason, unless it is the bare default.
   static const _genericReason = 'Payment failed';
+
+  late final _revealed = ValueNotifier<bool>(
+    widget.status.result != TopUpResult.success,
+  );
+
+  void _landed() {
+    if (_revealed.value) return;
+    _revealed.value = true;
+    unawaited(TopupCelebration.celebrate());
+  }
+
+  @override
+  void dispose() {
+    _revealed.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final p = WalletPalette.of(context);
-    final (icon, color, tile, title) = switch (status.result) {
-      TopUpResult.success => (
-        LucideIcons.circleCheck,
-        BrandColors.lime,
-        const Color(0x2479FF3F),
-        'payment:status.success_title',
-      ),
-      TopUpResult.pending => (
-        LucideIcons.clock,
-        const Color(0xFFFAAD14),
-        const Color(0x24FAAD14),
-        'payment:verification.pending_title',
-      ),
-      TopUpResult.failure => (
-        LucideIcons.circleX,
-        WalletPalette.error,
-        const Color(0x24FF4D4F),
-        'payment:status.failure_title',
+    final status = widget.status;
+    final title = switch (status.result) {
+      TopUpResult.success => 'payment:status.success_title',
+      TopUpResult.pending => 'payment:verification.pending_title',
+      TopUpResult.failure => 'payment:status.failure_title',
+    };
+    final art = switch (status.result) {
+      TopUpResult.success => PaymentSuccessBurst(onLanded: _landed),
+      TopUpResult.pending => const PaymentConfirmingRing(),
+      TopUpResult.failure => const PaymentStatusMark(
+        kind: PaymentMarkKind.failed,
       ),
     };
     final raw = status.message;
@@ -87,7 +90,7 @@ class _StatusCard extends StatelessWidget {
             child: Container(
               width: double.infinity,
               constraints: BoxConstraints(maxWidth: 340.ms),
-              padding: EdgeInsets.all(32.ms),
+              padding: EdgeInsets.fromLTRB(28.ms, 18.ms, 28.ms, 28.ms),
               decoration: BoxDecoration(
                 color: p.bg,
                 borderRadius: BorderRadius.circular(32.ms),
@@ -96,47 +99,58 @@ class _StatusCard extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 72.ms,
-                    height: 72.ms,
-                    decoration: BoxDecoration(
-                      color: tile,
-                      shape: BoxShape.circle,
+                  art,
+                  // Rebuilds once, when the check lands.
+                  ValueListenableBuilder<bool>(
+                    valueListenable: _revealed,
+                    builder: (_, shown, child) => AnimatedSlide(
+                      offset: shown ? Offset.zero : const Offset(0, 0.08),
+                      duration: const Duration(milliseconds: 420),
+                      curve: Curves.easeOutCubic,
+                      child: AnimatedOpacity(
+                        opacity: shown ? 1 : 0,
+                        duration: const Duration(milliseconds: 320),
+                        child: child,
+                      ),
                     ),
-                    child: Icon(icon, size: 36.ms, color: color),
-                  ),
-                  SizedBox(height: 16.ms),
-                  CText(
-                    title,
-                    size: 20,
-                    weight: FontWeight.w900,
-                    color: p.text,
-                    align: TextAlign.center,
-                  ),
-                  SizedBox(height: 8.ms),
-                  if (status.result == TopUpResult.failure && rawReason != null)
-                    CText.raw(
-                      rawReason,
-                      size: 14,
-                      weight: FontWeight.w600,
-                      height: 20,
-                      color: p.muted,
-                      align: TextAlign.center,
-                    )
-                  else
-                    CText(
-                      messageKey,
-                      size: 14,
-                      weight: FontWeight.w600,
-                      height: 20,
-                      color: p.muted,
-                      align: TextAlign.center,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CText(
+                          title,
+                          size: 20,
+                          weight: FontWeight.w900,
+                          color: p.text,
+                          align: TextAlign.center,
+                        ),
+                        SizedBox(height: 8.ms),
+                        if (status.result == TopUpResult.failure &&
+                            rawReason != null)
+                          CText.raw(
+                            rawReason,
+                            size: 14,
+                            weight: FontWeight.w600,
+                            height: 20,
+                            color: p.muted,
+                            align: TextAlign.center,
+                          )
+                        else
+                          CText(
+                            messageKey,
+                            size: 14,
+                            weight: FontWeight.w600,
+                            height: 20,
+                            color: p.muted,
+                            align: TextAlign.center,
+                          ),
+                        SizedBox(height: 24.ms),
+                        CButton(
+                          title: 'payment:status.continue',
+                          showArrow: false,
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
                     ),
-                  SizedBox(height: 24.ms),
-                  CButton(
-                    title: 'payment:status.continue',
-                    showArrow: false,
-                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
@@ -197,8 +211,8 @@ class _VerifyingCard extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                RepaintBoundary(child: CLoader(size: 36, color: p.accent)),
-                SizedBox(height: 16.ms),
+                const PaymentConfirmingRing(size: 96),
+                SizedBox(height: 8.ms),
                 CText(
                   'payment:status.verifying_title',
                   size: 17,

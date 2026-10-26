@@ -112,19 +112,21 @@ class RuntimeConfig {
         _num(_pick(sp, key)) ??
         (legacyKey == null ? null : _positive(legacy[legacyKey])) ??
         fallback;
-    double b(String key, double fallback) => _num(_pick(sb, key)) ?? fallback;
-    bool flag(String key, bool fallback) {
-      final v = _pick(sb, key);
+    // Bonus settings: the admin's Pricing config field first, then the
+    // app-config copy, then the default.
+    double b(String key, double fallback, String admin) =>
+        _num(legacy[admin]) ?? _num(_pick(sb, key)) ?? fallback;
+    bool flag(String key, bool fallback, String admin) {
+      final v = legacy[admin] ?? _pick(sb, key);
       return v == null ? fallback : J.boolean(v);
     }
 
-    final presets = <int>{
-      for (final v
-          in (server?['presetAmounts'] is List
-              ? server!['presetAmounts'] as List
-              : const []))
-        if (_positive(v) case final n?) n.round(),
-    }.toList()..sort();
+    // Admin's `wallet_preset_amounts` (Pricing config) first, then the
+    // app-config copy, then the built-in list.
+    final fromAdmin = presetList(legacy['wallet_preset_amounts']);
+    final presets = fromAdmin.isNotEmpty
+        ? fromAdmin
+        : presetList(server?['presetAmounts']);
 
     return RuntimeConfig(
       pricing: RuntimePricing(
@@ -164,29 +166,50 @@ class RuntimeConfig {
         ),
       ),
       bonus: RuntimeBonus(
-        joiningEnabled: flag('joiningEnabled', db.joiningEnabled),
-        joiningAmount: b('joiningAmount', db.joiningAmount),
-        joiningExpiryDays: b('joiningExpiryDays', db.joiningExpiryDays),
+        joiningEnabled: flag(
+          'joiningEnabled',
+          db.joiningEnabled,
+          'joining_bonus_enabled',
+        ),
+        joiningAmount: b(
+          'joiningAmount',
+          db.joiningAmount,
+          'joining_bonus_amount',
+        ),
+        joiningExpiryDays: b(
+          'joiningExpiryDays',
+          db.joiningExpiryDays,
+          'joining_bonus_expiry_days',
+        ),
         abandonOfferEnabled: flag(
           'abandonOfferEnabled',
           db.abandonOfferEnabled,
+          'abandon_offer_enabled',
         ),
-        abandonOfferPercent: b('abandonOfferPercent', db.abandonOfferPercent),
+        abandonOfferPercent: b(
+          'abandonOfferPercent',
+          db.abandonOfferPercent,
+          'abandon_offer_percent',
+        ),
         abandonOfferWindowMinutes: b(
           'abandonOfferWindowMinutes',
           db.abandonOfferWindowMinutes,
+          'abandon_offer_window_minutes',
         ),
         firstTopupBonusEnabled: flag(
           'firstTopupBonusEnabled',
           db.firstTopupBonusEnabled,
+          'first_topup_bonus_enabled',
         ),
         firstTopupBonusPercent: b(
           'firstTopupBonusPercent',
           db.firstTopupBonusPercent,
+          'first_topup_bonus_percent',
         ),
         bonusCreditHostPayoutEnabled: flag(
           'bonusCreditHostPayoutEnabled',
           db.bonusCreditHostPayoutEnabled,
+          'bonus_credit_host_payout_enabled',
         ),
       ),
       presetAmounts: presets.isEmpty ? d.presetAmounts : presets,
@@ -227,6 +250,23 @@ class RuntimeConfig {
   static double? _num(Object? v) {
     final n = v is String && v.trim().isEmpty ? null : J.number(v);
     return n != null && n.isFinite ? n : null;
+  }
+
+  /// Top-up amounts from a list (`[50, 100]`) or admin text separated by
+  /// commas, spaces or semicolons (`"50, 100, 200"`): positive, whole,
+  /// de-duplicated, smallest first. Anything unreadable is skipped.
+  static List<int> presetList(Object? raw) {
+    final items = raw is List
+        ? raw
+        : raw is String
+        ? raw.split(RegExp(r'[,;\s]+'))
+        : const [];
+    return <int>{
+      for (final v in items)
+        if (_positive(v is String ? v.replaceAll(RegExp(r'[^0-9.\-]'), '') : v)
+            case final n?)
+          n.round(),
+    }.toList()..sort();
   }
 
   static double? _positive(Object? v) {

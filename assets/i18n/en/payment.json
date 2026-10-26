@@ -44,7 +44,13 @@
     "incomplete_title": "Profile Incomplete",
     "incomplete_add": "Please update your Name, Email, and Mobile in Personal Info before adding money.",
     "incomplete_pay": "Please update your Name and Email in Personal Info before adding money.",
-    "update_profile": "Update Profile"
+    "update_profile": "Update Profile",
+    "total_hint": "Use it for voice & video calls",
+    "total_balance_label": "Total balance",
+    "cash_label": "Cash",
+    "earnings_label": "Earnings",
+    "add_money": "Add money",
+    "transfer_short": "Transfer"
   },
   "tx": {
     "wallet_transfer": "Wallet Transfer",
@@ -88,7 +94,13 @@
     "submit": "ADD MONEY",
     "description": "Wallet Recharge",
     "invalid_title": "Invalid Amount",
-    "invalid_message": "Please enter a valid amount."
+    "invalid_message": "Please enter a valid amount.",
+    "choose_title": "Choose Amount",
+    "choose_subtitle": "Add credits to unlock more, connect better!",
+    "bonus_first": "First top-up bonus: get {{percent}}% extra on this recharge 🎁",
+    "bonus_comeback": "Your {{percent}}% extra is still waiting. Finish this top-up to claim it 🎁",
+    "will_be_added_bonus": "₹{{amount}} will be added to your wallet (incl. ₹{{bonus}} bonus)",
+    "cards_legend": "\"You get\" is added to your wallet. GST ({{percent}}%) is added at checkout."
   },
   "status": {
     "success_title": "Payment Successful",
@@ -140,15 +152,39 @@
     "not_now": "Not now"
   },
   "abandon_offer": {
-    "title": "Changed your mind?",
-    "subtitle": "Finish now and we'll add {{percent}}% extra to your wallet.",
+    "title": "Wait! Your bonus is ready 🎁",
+    "subtitle": "Finish this top-up now and get {{percent}}% extra in your wallet.",
     "you_add": "You add",
     "bonus": "Bonus credit",
     "balance": "Wallet balance",
     "ends_in": "Offer ends in {{time}}",
-    "later": "Maybe later"
+    "later": "Maybe later",
+    "expired_title": "Offer expired",
+    "expired_subtitle": "The {{percent}}% bonus has ended, but you can still add money.",
+    "free": "+₹{{bonus}} FREE",
+    "on_topup": "on your ₹{{amount}} top-up",
+    "you_pay": "YOU PAY",
+    "wallet_gets": "WALLET GETS",
+    "incl_bonus": "incl. bonus",
+    "cta": "Pay now · +₹{{bonus}} extra",
+    "cta_plain": "Add ₹{{amount}}"
   },
   "web_checkout": {
     "title": "Complete Payment"
+  },
+  "tiers": {
+    "starter": "Starter",
+    "popular": "Top Pick",
+    "great": "Good Value",
+    "more": "Great Value",
+    "best": "Best Deal",
+    "super": "Super Saver",
+    "pro": "Pro Pack",
+    "premium": "Premium",
+    "max": "Max Value",
+    "most_popular": "Most Popular",
+    "you_get": "YOU GET",
+    "with_bonus": "+₹{{bonus}} bonus",
+    "pay": "Pay ₹{{amount}}"
   }
 }

@@ -284,9 +284,7 @@ class _VersionChip extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.ms, vertical: 4.ms),
       decoration: BoxDecoration(
-        color: c.isDark
-            ? c.accent.withValues(alpha: 0.1)
-            : const Color(0xFFEAE2FC),
+        color: c.accent.withValues(alpha: c.isDark ? 0.1 : 0.12),
         borderRadius: BorderRadius.circular(12.ms),
       ),
       child: CText.raw(

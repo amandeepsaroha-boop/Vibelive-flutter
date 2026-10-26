@@ -77,6 +77,15 @@ extension QueryCacheX on QueryCache {
     return invalidated != null && !updatedAt.isAfter(invalidated) ? null : data;
   }
 
+  /// Whether a prefetched result may be stored under [key]: nothing stored
+  /// yet and no screen loading it. A paged screen that joined the same
+  /// request appends its own first page when it lands (fquery adds a fetched
+  /// page to the stored ones), so seeding it too would show page 1 twice.
+  bool canSeed<T>(RawQueryKey key) {
+    final query = entry<T>(key);
+    return query == null || (query.data == null && !query.isFetching);
+  }
+
   /// The cache entry under [key] (data, timestamps, flags), or null.
   Query<T, ApiException>? entry<T>(RawQueryKey key) {
     try {

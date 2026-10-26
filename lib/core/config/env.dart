@@ -25,11 +25,18 @@ abstract final class Env {
   );
 
   static const String agoraAppId = String.fromEnvironment('AGORA_APP_ID');
+  // Google OAuth client ids are public (they also sit in
+  // google-services.json and Info.plist), so they default here: Google
+  // sign-in never breaks on a run or build started without env.json.
   static const String googleWebClientId = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
+    defaultValue:
+        '833208176078-de0s7kisp7tvsis5li0acc9d4hpjv46o.apps.googleusercontent.com',
   );
   static const String googleIosClientId = String.fromEnvironment(
     'GOOGLE_IOS_CLIENT_ID',
+    defaultValue:
+        '833208176078-3dc9iovvbt3cclt67cgrilnt1v3ck8aa.apps.googleusercontent.com',
   );
   static const String razorpayKeyId = String.fromEnvironment('RAZORPAY_KEY_ID');
 }

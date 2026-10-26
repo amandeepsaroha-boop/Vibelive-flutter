@@ -312,10 +312,10 @@ void main() {
 
   /// Add Money → ₹500 preset → ADD MONEY.
   Future<void> startTopUp(WidgetTester tester) async {
-    await tester.tap(find.text('ADD'));
+    await tester.tap(find.text('Add money'));
     await _pump(tester, 400);
     expect(find.text('Add Money'), findsOneWidget);
-    await tester.tap(find.text('₹500'));
+    await tester.tap(find.text('₹500').first);
     await _pump(tester, 100);
     await _tap(tester, find.text('ADD MONEY'));
     await _pump(tester, 600);
@@ -334,7 +334,7 @@ void main() {
     expect(find.text('₹1,118.0'), findsOneWidget);
     expect(find.text('₹1,000.0'), findsOneWidget);
     expect(find.text('₹118.0'), findsOneWidget);
-    expect(find.text('Used for calls'), findsOneWidget);
+    expect(find.text('Cash'), findsOneWidget); // the split
     // Row 1: a top-up with its invoice; row 2: a paid video call.
     expect(find.text('Wallet Top Up'), findsWidgets);
     expect(find.text('+₹100.00'), findsWidgets);
@@ -473,7 +473,7 @@ void main() {
       accessToken: 'access',
     );
     await open(tester);
-    await tester.tap(find.text('ADD'));
+    await tester.tap(find.text('Add money'));
     await _pump(tester, 400);
     expect(find.text('Profile Incomplete'), findsOneWidget);
     expect(find.text('Add Money'), findsNothing);
@@ -484,26 +484,27 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('add money: presets and the 18% GST breakdown', (tester) async {
+  testWidgets('add money: cards only, pinned button once one is picked', (
+    tester,
+  ) async {
     await open(tester);
-    await tester.tap(find.text('ADD'));
+    await tester.tap(find.text('Add money'));
     await _pump(tester, 400);
-    await tester.enterText(find.byType(TextField), '5a0.129');
-    await _pump(tester, 100);
-    // Letters and a third decimal stripped.
-    expect(find.text('50.12'), findsOneWidget);
-    expect(find.text('₹9.02'), findsOneWidget);
-    expect(find.text('₹59.14'), findsOneWidget); // 50.12 + 9.0216
+    // No manual amount box; the button waits for a card.
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('ADD MONEY'), findsNothing);
 
-    await tester.enterText(find.byType(TextField), '0750');
-    await _pump(tester, 100);
-    expect(find.text('750'), findsOneWidget); // leading zero dropped
-
-    await tester.enterText(find.byType(TextField), '1000');
-    await _pump(tester, 100);
+    await tester.tap(find.text('₹1,000').first);
+    await _pump(tester, 300);
+    expect(find.text('ADD MONEY'), findsOneWidget);
     expect(find.text('₹180.00'), findsOneWidget);
     expect(find.text('₹1180.00'), findsOneWidget);
     expect(find.text('₹1000.00 will be added to your wallet'), findsOneWidget);
+
+    // Tapping it again clears the pick: the button goes away.
+    await tester.tap(find.text('₹1,000').first);
+    await _pump(tester, 300);
+    expect(find.text('ADD MONEY'), findsNothing);
     await finish(tester);
   });
 
@@ -621,7 +622,7 @@ void main() {
     try {
       await open(tester);
       expect(find.text('₹1,118.0'), findsOneWidget);
-      expect(find.text('Used for calls'), findsNothing);
+      expect(find.text('Cash'), findsNothing); // no split on iOS
       expect(find.bySemanticsLabel('Transfer earnings to cash'), findsNothing);
       await finish(tester);
     } finally {
@@ -639,12 +640,17 @@ void main() {
       );
       final add = tester.widget<Container>(
         find
-            .ancestor(of: find.text('ADD'), matching: find.byType(Container))
+            .ancestor(of: find.text('Add money'), matching: find.byType(Container))
             .first,
       );
+      // Add money: the accent gradient, on-accent text.
       expect(
-        (add.decoration! as BoxDecoration).color,
+        (add.decoration! as BoxDecoration).gradient!.colors.first,
         dark ? BrandColors.lime : BrandColors.purple,
+      );
+      expect(
+        tester.widget<Text>(find.text('Add money')).style?.color,
+        dark ? AppColors.black : AppColors.white,
       );
       await finish(tester);
     });
@@ -663,9 +669,9 @@ void main() {
     await _pump(tester, 500);
     expect(find.text('Earnings → Cash'), findsNothing);
 
-    await tester.tap(find.text('ADD'));
+    await tester.tap(find.text('Add money'));
     await _pump(tester, 400);
-    await tester.tap(find.text('₹1,500'));
+    await tester.tap(find.text('₹1,500').first);
     await _pump(tester, 200);
     expect(find.text('₹1770.00'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -682,9 +688,9 @@ void main() {
         await open(tester, size: const Size(375, 812), dark: dark);
         await _save(tester, renderDir!, 'wallet_$mode');
 
-        await tester.tap(find.text('ADD'));
+        await tester.tap(find.text('Add money'));
         await _pump(tester, 500);
-        await tester.tap(find.text('₹500'));
+        await tester.tap(find.text('₹500').first);
         await _pump(tester, 200);
         await _save(tester, renderDir, 'add_money_$mode');
         await tester.tap(find.bySemanticsLabel('Close'));

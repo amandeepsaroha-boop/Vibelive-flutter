@@ -69,12 +69,8 @@ class _TransactionListState extends State<TransactionList> {
           loadMoreFailed: s.loadMoreFailed,
           onLoadMore: pager.loadMore,
           onRefresh: widget.onRefresh,
-          padding: EdgeInsets.fromLTRB(
-            16.ms,
-            0,
-            16.ms,
-            40.ms + widget.bottomPadding,
-          ),
+          // Edge to edge; only the safe-area / navbar room at the end.
+          padding: EdgeInsets.only(bottom: widget.bottomPadding),
           slivers: [
             if (rows.isEmpty)
               const SliverToBoxAdapter(child: _Empty())
@@ -152,47 +148,47 @@ class TransactionListSkeleton extends StatelessWidget {
         child: OverflowBox(
           alignment: Alignment.topCenter,
           maxHeight: double.infinity,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 30.ms),
-            child: Shimmer(
-              child: Column(
-                children: [
-                  for (var i = 0; i < 6; i++)
-                    Padding(
-                      padding: EdgeInsets.only(top: 14.ms, bottom: 24.ms),
-                      child: Row(
-                        children: [
-                          SkeletonBox(width: 44.ms, height: 44.ms, radius: 14),
-                          SizedBox(width: 12.ms),
-                          Expanded(
-                            child: SkeletonLines(
-                              lines: 3,
-                              height: 10.ms,
-                              gap: 6.ms,
-                            ),
-                          ),
-                          SizedBox(width: 24.ms),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              SkeletonBox(
-                                width: 64.ms,
-                                height: 16.ms,
-                                radius: 6,
-                              ),
-                              SizedBox(height: 6.ms),
-                              SkeletonBox(
-                                width: 48.ms,
-                                height: 12.ms,
-                                radius: 6,
-                              ),
-                            ],
-                          ),
-                        ],
+          child: Shimmer(
+            child: Column(
+              children: [
+                // Same frame as the rows: flush, one line between.
+                for (var i = 0; i < 6; i++)
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 16.ms,
+                      vertical: 14.ms,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: WalletPalette.of(context).cardBorder,
+                        ),
                       ),
                     ),
-                ],
-              ),
+                    child: Row(
+                      children: [
+                        SkeletonBox(width: 44.ms, height: 44.ms, radius: 14),
+                        SizedBox(width: 12.ms),
+                        Expanded(
+                          child: SkeletonLines(
+                            lines: 3,
+                            height: 10.ms,
+                            gap: 6.ms,
+                          ),
+                        ),
+                        SizedBox(width: 24.ms),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            SkeletonBox(width: 64.ms, height: 16.ms, radius: 6),
+                            SizedBox(height: 6.ms),
+                            SkeletonBox(width: 48.ms, height: 12.ms, radius: 6),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
