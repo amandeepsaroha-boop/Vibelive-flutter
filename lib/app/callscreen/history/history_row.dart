@@ -113,46 +113,46 @@ class HistoryRow extends StatelessWidget {
       if (e.showPing) ...[SizedBox(height: 8.ms), _NudgePill(entry: e)],
     ];
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: HistoryLayout.gap),
-      child: Pressable(
-        activeOpacity: 0.86,
-        onPressed: e.isExpert ? () => onOpen(e) : null,
-        child: Container(
-          padding: EdgeInsets.fromLTRB(
-            HistoryLayout.padH,
-            HistoryLayout.padV,
-            0,
-            HistoryLayout.padV,
-          ),
-          decoration: BoxDecoration(
-            color: c.surface,
-            borderRadius: BorderRadius.circular(HistoryLayout.radius),
-            border: Border.all(
+    return Pressable(
+      activeOpacity: 0.86,
+      onPressed: e.isExpert ? () => onOpen(e) : null,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(
+          HistoryLayout.padH,
+          HistoryLayout.padV,
+          0,
+          HistoryLayout.padV,
+        ),
+        // Flush row, one line under it.
+        decoration: BoxDecoration(
+          color: c.surface,
+          border: Border(
+            bottom: BorderSide(
               color: c.isDark ? AppColors.whiteA(0.08) : AppColors.blackA(0.09),
+              width: HistoryLayout.border,
             ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: _StatusAvatar(entry: e, name: name),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: _StatusAvatar(entry: e, name: name),
+            ),
+            SizedBox(width: 10.ms),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: lines,
               ),
-              SizedBox(width: 10.ms),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: lines,
-                ),
-              ),
-              _MenuStrip(
-                ping: e.showPing,
-                color: meta,
-                onPressed: () => onMenu(e),
-              ),
-            ],
-          ),
+            ),
+            _MenuStrip(
+              ping: e.showPing,
+              color: meta,
+              onPressed: () => onMenu(e),
+            ),
+          ],
         ),
       ),
     );

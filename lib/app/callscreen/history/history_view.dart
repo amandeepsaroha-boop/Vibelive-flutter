@@ -83,19 +83,14 @@ class HistoryView extends HookWidget {
     final busy = first.isLoading || first.isFetching;
     // RN: 120 under the last row inside the bottom safe area, which clears
     // the floating navbar. View padding: fixed while a keyboard is up.
-    final padding = EdgeInsets.fromLTRB(
-      5.ms,
-      0,
-      5.ms,
-      120.ms + MediaQuery.viewPaddingOf(context).bottom,
+    // Edge to edge: only the room under the last row.
+    final padding = EdgeInsets.only(
+      bottom: 120.ms + MediaQuery.viewPaddingOf(context).bottom,
     );
 
     final Widget body;
     if (entries.isEmpty && hasUser && first.data == null && busy) {
-      body = Padding(
-        padding: EdgeInsets.symmetric(horizontal: 5.ms),
-        child: const HistorySkeleton(),
-      );
+      body = const HistorySkeleton();
     } else {
       // RN: a failed page 1 shows a retry, never "No call history found".
       final failed = entries.isEmpty && (first.isError || !hasUser);

@@ -27,26 +27,26 @@ class HistorySkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final extent = HistoryLayout.extent(ping: false);
-    final frame = Padding(
-      padding: EdgeInsets.only(bottom: HistoryLayout.gap),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(HistoryLayout.radius),
-          border: Border.all(
+    // Same frame as the rows: flush, one line under each.
+    final frame = DecoratedBox(
+      decoration: BoxDecoration(
+        color: c.surface,
+        border: Border(
+          bottom: BorderSide(
             color: c.isDark ? AppColors.whiteA(0.08) : AppColors.blackA(0.09),
+            width: HistoryLayout.border,
           ),
         ),
-        child: const SizedBox.expand(),
       ),
+      child: const SizedBox.expand(),
     );
 
     Widget bones(int i) => Padding(
       padding: EdgeInsets.fromLTRB(
-        HistoryLayout.padH + HistoryLayout.border,
+        HistoryLayout.padH,
+        HistoryLayout.padV,
+        HistoryLayout.padH,
         HistoryLayout.padV + HistoryLayout.border,
-        HistoryLayout.padH + HistoryLayout.border,
-        HistoryLayout.padV + HistoryLayout.border + HistoryLayout.gap,
       ),
       child: Row(
         children: [
