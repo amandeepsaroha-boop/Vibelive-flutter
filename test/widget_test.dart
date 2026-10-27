@@ -6,6 +6,7 @@ import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:vibelive/app/component/app_logo.dart';
+import 'package:vibelive/app/splashscreen/launch_logo.dart';
 import 'package:vibelive/app/splashscreen/onboarding_view.dart';
 import 'package:vibelive/app/splashscreen/splash_motion.dart';
 import 'package:vibelive/app/splashscreen/splash_screen.dart';
@@ -83,7 +84,13 @@ void main() {
     expect(find.byType(SplashLogo), findsOneWidget);
     expect(find.byType(OnboardingView), findsNothing);
 
-    await _wait(tester, 2500 + 900);
+    // At 2.5 s the logo flies up into the slides' logo, then lands there.
+    await _wait(tester, 2600);
+    expect(LaunchLogo.flying.value, isTrue);
+    expect(find.byType(LaunchLogoAnchor), findsOneWidget); // the slides'
+    expect(find.byType(AppLogo), findsNWidgets(2)); // it and the flight
+    await _wait(tester, 1200);
+    expect(LaunchLogo.flying.value, isFalse);
     expect(find.byType(OnboardingView), findsOneWidget);
     expect(find.text('TALK IT THROUGH.'), findsOneWidget);
     // Offline: the topic marquee falls back to the bundled topics.
