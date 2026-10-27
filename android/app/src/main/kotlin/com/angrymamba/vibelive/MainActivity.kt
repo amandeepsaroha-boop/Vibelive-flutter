@@ -150,6 +150,16 @@ class MainActivity : FlutterActivity() {
                     "drainNativeDeclines" -> result.success(
                         DeadProcessDeclines.drain(this@MainActivity),
                     )
+                    // Video call privacy: the system blocks screenshots and records the
+                    // window as black (Recents too, and the PiP window) while it is set.
+                    "setSecureScreen" -> {
+                        if (call.argument<Boolean>("secure") == true) {
+                            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                        } else {
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                        }
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             }

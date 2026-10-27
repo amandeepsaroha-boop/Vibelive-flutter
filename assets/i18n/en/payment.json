@@ -177,7 +177,11 @@
     "insufficient_message": "Earnings balance is not enough for this transfer including GST.",
     "success_title": "Success",
     "success": "Transfer completed successfully!",
-    "failed_title": "Transfer Failed"
+    "failed_title": "Transfer Failed",
+    "no_withdraw": "Cash cannot be withdrawn. Money moved from Earnings to Cash can only be used for calls on Vibe Live — it will not go to your bank account.",
+    "warn_title": "Use for calls only",
+    "warn_message": "₹{{amount}} will move from Earnings to Cash.\n\nCash can only be used to make calls. It cannot be withdrawn to your bank and cannot be moved back to Earnings.",
+    "warn_confirm": "Yes, transfer"
   },
   "balance_gate": {
     "of": "of ₹{{required}}",

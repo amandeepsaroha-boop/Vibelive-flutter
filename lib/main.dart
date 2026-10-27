@@ -7,6 +7,7 @@ import 'package:fquery/fquery.dart';
 
 import 'app/authscreen/helper/deep_links.dart';
 import 'app/callscreen/call/call_overlay_host.dart';
+import 'app/callscreen/call/capture_shield.dart';
 import 'app/callscreen/call_flow.dart';
 import 'app/callscreen/helper/push/push_bootstrap.dart';
 import 'app/splashscreen/splash_screen.dart';
@@ -98,9 +99,13 @@ class VibeLiveApp extends StatelessWidget {
             builder: (context, child) {
               Scale.update(MediaQuery.sizeOf(context));
               // The update notice sits under the call overlay: never over a call.
-              return CallOverlayHost(
-                child: UpdateNoticeHost(
-                  child: child ?? const SizedBox.shrink(),
+              // The capture shield sits over everything: a recorded video call
+              // shows the logo, not the call.
+              return CaptureShield(
+                child: CallOverlayHost(
+                  child: UpdateNoticeHost(
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 ),
               );
             },

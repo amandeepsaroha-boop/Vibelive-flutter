@@ -98,7 +98,19 @@ class _TransferSheet extends HookWidget {
         );
         return;
       }
+      // Cash is call credit, not money the host can take out: say so at the
+      // moment of the transfer, and only go on when they confirm.
       busy.value = true;
+      final accepted = await CAlert.confirm(
+        title: 'payment:transfer.warn_title',
+        message: 'payment:transfer.warn_message',
+        variables: {'amount': WalletFormat.js(quote.amount)},
+        confirmLabel: 'payment:transfer.warn_confirm',
+      );
+      if (!accepted) {
+        busy.value = false;
+        return;
+      }
       try {
         // Null means another transfer is still running: not a success.
         final result = await transfer.mutateAsync(quote.amount);
@@ -202,6 +214,37 @@ class _TransferSheet extends HookWidget {
             ),
             SizedBox(height: 12.ms),
             TransferSummary(quote: quote),
+            SizedBox(height: 12.ms),
+            Container(
+              padding: EdgeInsets.all(12.ms),
+              decoration: BoxDecoration(
+                color: WalletPalette.pending.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14.ms),
+                border: Border.all(
+                  color: WalletPalette.pending.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    LucideIcons.triangleAlert,
+                    size: 16.ms,
+                    color: WalletPalette.pending,
+                  ),
+                  SizedBox(width: 8.ms),
+                  Expanded(
+                    child: CText(
+                      'payment:transfer.no_withdraw',
+                      size: 12,
+                      weight: FontWeight.w700,
+                      height: 17,
+                      color: p.text,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             SizedBox(height: 14.ms),
             CButton(
               title: 'payment:transfer.confirm',

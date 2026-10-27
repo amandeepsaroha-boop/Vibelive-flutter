@@ -525,8 +525,25 @@ void main() {
     expect(find.text('+ ₹50.0'), findsOneWidget);
     expect(find.text('₹9.0'), findsOneWidget);
     expect(find.text('- ₹59.0'), findsOneWidget);
+    // Cash is call credit only: said in the sheet, and again on Transfer.
+    expect(find.textContaining('Cash cannot be withdrawn'), findsOneWidget);
 
     await _tap(tester, find.text('CONFIRM TRANSFER'));
+    await _pump(tester, 400);
+    expect(find.text('Use for calls only'), findsOneWidget);
+    expect(
+      find.textContaining('cannot be withdrawn to your bank'),
+      findsOneWidget,
+    );
+    // Cancel: nothing moves, the sheet stays.
+    await tester.tap(find.text('CANCEL'));
+    await _pump(tester, 400);
+    expect(backend.posted['/api/wallet-transfer/earnings-to-cash'], isNull);
+    expect(find.text('Earnings → Cash'), findsOneWidget);
+
+    await _tap(tester, find.text('CONFIRM TRANSFER'));
+    await _pump(tester, 400);
+    await tester.tap(find.text('YES, TRANSFER'));
     await _pump(tester, 600);
     expect(backend.posted['/api/wallet-transfer/earnings-to-cash'], {
       'amount': 50.0,
@@ -573,6 +590,8 @@ void main() {
     await tester.tap(find.text('50%'));
     await _pump(tester, 100);
     await _tap(tester, find.text('CONFIRM TRANSFER'));
+    await _pump(tester, 400);
+    await tester.tap(find.text('YES, TRANSFER'));
     await _pump(tester, 600);
     expect(find.text('Transfer Failed'), findsOneWidget);
     expect(find.text('Transfer completed successfully!'), findsNothing);
@@ -640,7 +659,10 @@ void main() {
       );
       final add = tester.widget<Container>(
         find
-            .ancestor(of: find.text('Add money'), matching: find.byType(Container))
+            .ancestor(
+              of: find.text('Add money'),
+              matching: find.byType(Container),
+            )
             .first,
       );
       // Add money: the accent gradient, on-accent text.

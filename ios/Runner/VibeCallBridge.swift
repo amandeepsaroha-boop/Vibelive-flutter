@@ -77,6 +77,8 @@ final class VibeCallBridge: NSObject, FlutterStreamHandler {
       result(VibeCallNetwork.shared.drainFailedEnds())
     case "isDeviceLocked":
       result(!UIApplication.shared.isProtectedDataAvailable)
+    case "isScreenCaptured":  // screen recording / mirroring / AirPlay in progress
+      result(UIScreen.main.isCaptured)
     case "promoteToCallKit":  // {payload} → true when CallKit now rings it
       result(VibeCallKit.shared.ringFromDart(args["payload"] as? [String: Any] ?? [:]))
     case "answerLive":  // {callId}: in-app Accept of the CallKit-ringing call (I6)
