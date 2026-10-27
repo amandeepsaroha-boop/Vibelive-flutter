@@ -19,7 +19,11 @@ class CImage extends StatelessWidget {
     this.placeholder,
     this.errorWidget,
     this.placeholderUrl,
+    this.alignment = Alignment.center,
   });
+
+  /// Which part a cropping [fit] keeps: portraits keep their top (the face).
+  final Alignment alignment;
 
   final String? url;
 
@@ -76,6 +80,7 @@ class CImage extends StatelessWidget {
                 width: width,
                 height: height,
                 fit: fit,
+                alignment: alignment,
                 memCacheWidth: memWidth,
                 fadeInDuration: Duration.zero,
                 placeholder: (_, _) => fill,
@@ -99,6 +104,7 @@ class CImage extends StatelessWidget {
             width: width,
             height: height,
             fit: fit,
+            alignment: alignment,
             memCacheWidth: memWidth,
             fadeInDuration: const Duration(milliseconds: 150),
             placeholder: (_, _) => box,

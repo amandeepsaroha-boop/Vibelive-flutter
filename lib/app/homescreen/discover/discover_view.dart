@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -25,6 +26,7 @@ import '../../navbar/bottombar/navbar_collapse.dart';
 import '../helper/discover_layout.dart';
 import '../helper/home_controller.dart';
 import 'active_filters.dart';
+import 'discover_hero.dart';
 import 'topic_tabs.dart';
 
 /// The Discover tab (RN `VibeScreen`): topic strip, active filters, and the
@@ -180,6 +182,19 @@ class DiscoverView extends HookWidget {
       isPopular ? await popular.refetch() : await feed.refresh();
     }
 
+    // Explore Now: past the hero, to the topics and the grid.
+    void explore() {
+      if (!scroll.hasClients) return;
+      final p = scroll.position;
+      unawaited(
+        scroll.animateTo(
+          math.min(p.maxScrollExtent, DiscoverHero.height + 10.ms),
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    }
+
     // RN: 140 above the bottom safe area, clear of the floating navbar.
     final padding = EdgeInsets.fromLTRB(
       10.ms,
@@ -187,8 +202,13 @@ class DiscoverView extends HookWidget {
       10.ms,
       140.ms + MediaQuery.viewPaddingOf(context).bottom,
     );
-    return Column(
+    // Hero, topics and active filters scroll with the feed (mockup); while
+    // the first page loads they sit above its skeleton.
+    final header = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        DiscoverHero(onExplore: explore),
         TopicTabs(
           tabs: tabs,
           selected: tab.value,
@@ -200,78 +220,80 @@ class DiscoverView extends HookWidget {
             filter: filter,
             onChanged: (f) => home.filter.value = f,
           ),
+      ],
+    );
+    return Column(
+      children: [
         Expanded(
-          child: loading
-              ? Padding(
-                  padding: padding.copyWith(bottom: 0),
-                  child: const _FeedSkeleton(),
-                )
-              : LayoutBuilder(
-                  builder: (context, box) {
-                    listWidth.value = box.maxWidth;
-                    return InfiniteScroll(
-                      controller: scroll,
-                      padding: padding,
-                      hasMore: !isPopular && feed.hasMore,
-                      loadingMore: feed.isLoadingMore,
-                      loadMoreFailed: feed.query.isFetchNextPageError,
-                      onLoadMore: feed.loadMore,
-                      // A page is ~8 rows (~2.5 screens): ask while that much is
-                      // still below, so it lands before the user gets there.
-                      loadAhead: 2.5,
-                      onRefresh: refresh,
-                      endLabel: rows.isEmpty ? null : 'home:feed.end',
-                      onScroll: NavbarCollapse.instance.track,
-                      // Filtered view: the count is unknown, so one plain pair
-                      // row (never a spinner in a list).
-                      loadingBuilder: next == null
-                          ? (_) => const Shimmer(child: _SkeletonRow())
-                          : (_) => _MoreSkeleton(next),
-                      slivers: [
-                        if (error != null)
-                          SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: _LoadError(error: error, onRetry: refresh),
-                          )
-                        else if (rows.isEmpty)
-                          SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: CStateView.empty(
-                              title: tab.value.emptyKey,
-                              message: null,
-                            ),
-                          )
-                        else
-                          SliverVariedExtentList.builder(
-                            itemCount: rows.length,
-                            itemExtentBuilder: (i, _) =>
-                                i < rows.length ? rows[i].height + 12.ms : null,
-                            findChildIndexCallback: (key) =>
-                                key is ValueKey<String>
-                                ? rowIndex[key.value]
-                                : null,
-                            itemBuilder: (context, i) {
-                              final row = rows[i];
-                              // The half row the next card lands in: its empty
-                              // slot shows that card's skeleton meanwhile.
-                              if ((next?.fillsSlot ?? false) &&
-                                  i == rows.length - 1) {
-                                return _Row(
-                                  row,
-                                  key: ValueKey(row.key),
-                                  pendingSlot: true,
-                                );
-                              }
-                              return rowWidgets[row] ??= _Row(
-                                row,
-                                key: ValueKey(row.key),
-                              );
-                            },
-                          ),
-                      ],
-                    );
-                  },
-                ),
+          // One scroll view in every state: swapping the tree when the first
+          // page landed tore down a Scrollable mid-drag (`_hold == null`).
+          child: LayoutBuilder(
+            builder: (context, box) {
+              listWidth.value = box.maxWidth;
+              return InfiniteScroll(
+                controller: scroll,
+                padding: padding,
+                hasMore: !loading && !isPopular && feed.hasMore,
+                loadingMore: feed.isLoadingMore,
+                loadMoreFailed: feed.query.isFetchNextPageError,
+                onLoadMore: feed.loadMore,
+                // A page is ~8 rows (~2.5 screens): ask while that much is
+                // still below, so it lands before the user gets there.
+                loadAhead: 2.5,
+                onRefresh: refresh,
+                endLabel: loading || rows.isEmpty ? null : 'home:feed.end',
+                onScroll: NavbarCollapse.instance.track,
+                // Filtered view: the count is unknown, so one plain pair
+                // row (never a spinner in a list).
+                loadingBuilder: next == null
+                    ? (_) => const Shimmer(child: _SkeletonRow())
+                    : (_) => _MoreSkeleton(next),
+                slivers: [
+                  SliverToBoxAdapter(child: header),
+                  if (loading)
+                    const SliverToBoxAdapter(child: _FeedSkeleton())
+                  else if (error != null)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _LoadError(error: error, onRetry: refresh),
+                    )
+                  else if (rows.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: CStateView.empty(
+                        title: tab.value.emptyKey,
+                        message: null,
+                      ),
+                    )
+                  else
+                    SliverVariedExtentList.builder(
+                      itemCount: rows.length,
+                      itemExtentBuilder: (i, _) =>
+                          i < rows.length ? rows[i].height + 12.ms : null,
+                      findChildIndexCallback: (key) =>
+                          key is ValueKey<String> ? rowIndex[key.value] : null,
+                      itemBuilder: (context, i) {
+                        final row = rows[i];
+                        // The half row the next card lands in: its empty
+                        // slot shows that card's skeleton meanwhile.
+                        if ((next?.fillsSlot ?? false) &&
+                            i == rows.length - 1) {
+                          return _Row(
+                            row,
+                            key: ValueKey(row.key),
+                            pendingSlot: true,
+                          );
+                        }
+                        return rowWidgets[row] ??= _Row(
+                          row,
+                          key: ValueKey(row.key),
+                        );
+                      },
+                    ),
+                ],
+              );
+            },
+          ),
         ),
       ],
     );
@@ -321,20 +343,35 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     void open(HostCard h) => showHostProfile(context, h);
+    // Call Now: the same profile sheet as a tap, where the call starts.
+    void call(HostCard h) => open(h);
     final gap = SizedBox(width: 12.ms);
     return Padding(
       padding: EdgeInsets.only(bottom: 12.ms),
       child: row.featured
-          ? HostGridCard(host: row.hosts.first, featured: true, onTap: open)
+          ? HostGridCard(
+              host: row.hosts.first,
+              featured: true,
+              onTap: open,
+              onCall: call,
+            )
           : Row(
               children: [
                 Expanded(
-                  child: HostGridCard(host: row.hosts.first, onTap: open),
+                  child: HostGridCard(
+                    host: row.hosts.first,
+                    onTap: open,
+                    onCall: call,
+                  ),
                 ),
                 gap,
                 Expanded(
                   child: row.hosts.length > 1
-                      ? HostGridCard(host: row.hosts[1], onTap: open)
+                      ? HostGridCard(
+                          host: row.hosts[1],
+                          onTap: open,
+                          onCall: call,
+                        )
                       : pendingSlot
                       ? const Shimmer(child: HostGridCardSkeleton())
                       : const SizedBox.shrink(),
@@ -403,26 +440,17 @@ class _SkeletonRow extends StatelessWidget {
 class _FeedSkeleton extends StatelessWidget {
   const _FeedSkeleton();
 
+  /// A featured row and three pairs: more than a screen below the hero.
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (_, box) {
-      final gap = 12.ms;
-      final rows = <Widget>[const _SkeletonRow(featured: true)];
-      var filled = DiscoverRow.heightOf(featured: true) + gap;
-      while (filled < box.maxHeight) {
-        rows.add(const _SkeletonRow());
-        filled += DiscoverRow.heightOf(featured: false) + gap;
-      }
-      return ClipRect(
-        child: Shimmer(
-          child: OverflowBox(
-            alignment: Alignment.topCenter,
-            maxHeight: double.infinity,
-            child: Column(mainAxisSize: MainAxisSize.min, children: rows),
-          ),
-        ),
-      );
-    },
+  Widget build(BuildContext context) => const Shimmer(
+    child: Column(
+      children: [
+        _SkeletonRow(featured: true),
+        _SkeletonRow(),
+        _SkeletonRow(),
+        _SkeletonRow(),
+      ],
+    ),
   );
 }
 

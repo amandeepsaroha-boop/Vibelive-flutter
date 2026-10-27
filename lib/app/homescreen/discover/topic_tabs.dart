@@ -93,11 +93,12 @@ class _TopicTabsState extends State<TopicTabs> {
     final text = c.isDark ? AppColors.whiteA(0.75) : const Color(0xFF555555);
 
     return SizedBox(
-      height: 48.ms,
+      height: 52.ms,
       child: ListView(
         controller: _scroll,
         scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: 15.ms, vertical: 8.ms),
+        // In line with the hero card above.
+        padding: EdgeInsets.symmetric(horizontal: 6.ms, vertical: 8.ms),
         children: [
           for (final tab in widget.tabs)
             Padding(
@@ -124,8 +125,8 @@ class _TopicTabsState extends State<TopicTabs> {
                       padding: EdgeInsets.only(right: 8.ms),
                       child: SkeletonBox(
                         width: w.ms,
-                        height: 32.ms,
-                        radius: 6.ms,
+                        height: 36.ms,
+                        radius: 14.ms,
                       ),
                     ),
                 ],
@@ -159,33 +160,41 @@ class _Chip extends StatelessWidget {
     final key = tab.titleKey;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
-      height: 32.ms,
-      padding: EdgeInsets.symmetric(horizontal: 12.ms),
+      height: 36.ms,
+      padding: EdgeInsets.symmetric(horizontal: 16.ms),
       decoration: BoxDecoration(
         color: selected ? c.accent : bg,
-        borderRadius: BorderRadius.circular(6.ms),
+        borderRadius: BorderRadius.circular(14.ms),
         border: Border.all(color: selected ? c.accent : border),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: c.accent.withValues(alpha: 0.25),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (tab.isPopular) ...[
-            Icon(LucideIcons.zap, size: 16.ms, color: fg),
+            Icon(
+              LucideIcons.flame,
+              size: 15.ms,
+              color: selected ? fg : AppColors.orange,
+            ),
             SizedBox(width: 6.ms),
           ],
           key == null
               ? CText.raw(
                   tab.label,
-                  size: 11,
-                  weight: selected ? FontWeight.w700 : FontWeight.w600,
+                  size: 12,
+                  weight: FontWeight.w800,
                   color: fg,
                 )
-              : CText(
-                  key,
-                  size: 11,
-                  weight: selected ? FontWeight.w700 : FontWeight.w600,
-                  color: fg,
-                ),
+              : CText(key, size: 12, weight: FontWeight.w800, color: fg),
         ],
       ),
     );

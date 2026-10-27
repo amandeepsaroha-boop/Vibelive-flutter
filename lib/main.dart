@@ -10,6 +10,7 @@ import 'app/callscreen/call/call_overlay_host.dart';
 import 'app/callscreen/call/capture_shield.dart';
 import 'app/callscreen/call_flow.dart';
 import 'app/callscreen/helper/push/push_bootstrap.dart';
+import 'app/splashscreen/launch_logo.dart';
 import 'app/splashscreen/splash_screen.dart';
 import 'app/update/update_notice.dart';
 import 'core/app_scope.dart';
@@ -104,7 +105,10 @@ class VibeLiveApp extends StatelessWidget {
               return CaptureShield(
                 child: CallOverlayHost(
                   child: UpdateNoticeHost(
-                    child: child ?? const SizedBox.shrink(),
+                    // The splash logo's flight into the first screen.
+                    child: LaunchLogoLayer(
+                      child: child ?? const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               );

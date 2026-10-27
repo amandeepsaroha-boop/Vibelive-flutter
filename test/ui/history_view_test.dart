@@ -429,8 +429,7 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    expect(find.text('LOGS'), findsOneWidget);
-    expect(find.text('CALL HISTORY'), findsOneWidget);
+    // The title is the home shell's HistoryTopBar (home_discover_test).
     expect(find.byType(HistorySkeleton), findsOneWidget);
 
     await _pump(tester, 400);
@@ -448,10 +447,9 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('Hindi: header, labels and rows lay out cleanly', (tester) async {
+  testWidgets('Hindi: labels and rows lay out cleanly', (tester) async {
     await open(tester, locale: const Locale('hi'));
     await _pump(tester, 400);
-    expect(find.text('लॉग्स'), findsOneWidget);
     expect(find.text('याद दिलाएँ'), findsOneWidget); // NUDGE
     expect(find.text('Host One'), findsOneWidget);
     expect(tester.takeException(), isNull);

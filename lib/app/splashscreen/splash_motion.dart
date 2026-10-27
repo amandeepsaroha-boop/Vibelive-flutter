@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../component/app_logo.dart';
+import 'launch_logo.dart';
 
 /// "vibe meets Live": the wordmark arrives in two halves — "~vibe" from the
 /// left, "Live" from the right — that meet in the middle with a little
@@ -49,15 +50,21 @@ class SplashLogo extends HookWidget {
 
     final height = size * AppLogo.aspect;
     final logo = AppLogo(size: size, height: height);
-    return RepaintBoundary(
-      child: SizedBox(
-        width: size,
-        height: height,
-        child: AnimatedBuilder(
-          animation: Listenable.merge([enter, beat]),
-          child: logo,
-          builder: (_, child) =>
-              _frame(enter.value, beat.isAnimating ? beat.value : null, child!),
+    // Hidden from the hand-off on: its copy flies up (LaunchLogo).
+    return LaunchLogoHidden(
+      child: RepaintBoundary(
+        child: SizedBox(
+          width: size,
+          height: height,
+          child: AnimatedBuilder(
+            animation: Listenable.merge([enter, beat]),
+            child: logo,
+            builder: (_, child) => _frame(
+              enter.value,
+              beat.isAnimating ? beat.value : null,
+              child!,
+            ),
+          ),
         ),
       ),
     );

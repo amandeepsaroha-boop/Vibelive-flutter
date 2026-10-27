@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:vibelive/app/authscreen/login_screen.dart';
 import 'package:vibelive/app/client/personal_info/personal_info_screen.dart';
+import 'package:vibelive/app/client/me/helper/host_availability_controller.dart';
 import 'package:vibelive/app/client/me/widgets/me_skeleton.dart';
 import 'package:vibelive/app/component/infinite_scroll.dart';
 import 'package:vibelive/app/navbar/bottombar/bottom_navbar.dart';
@@ -191,6 +193,7 @@ void main() {
   });
 
   setUp(() {
+    addTearDown(HostAvailabilityController.reset);
     rootBundle.clear();
     queryCache.clear();
     ApiClient.dio.httpClientAdapter = backend = _Backend();
@@ -501,6 +504,138 @@ void main() {
     await tester.fling(_meScrollable, const Offset(0, -3000), 3000);
     await _pump(tester, 800);
     expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('Dark mode row: the switch flips the app theme', (tester) async {
+    await openMe(tester, user: _Backend.client);
+    await _pump(tester, 600);
+    final row = find.text('Dark mode');
+    await tester.dragUntilVisible(
+      row,
+      find.byType(CustomScrollView).last,
+      const Offset(0, -200),
+    );
+    await _pump(tester, 200);
+    expect(row, findsOneWidget);
+    expect(find.text('On'), findsOneWidget);
+
+    await tester.tap(find.byType(Switch).last);
+    await _pump(tester, 400);
+    expect(find.text('Off'), findsOneWidget);
+
+    await tester.tap(row); // the whole row toggles too
+    await _pump(tester, 400);
+    expect(find.text('On'), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('host: status pill in the dock opens Host Availability', (
+    tester,
+  ) async {
+    await openMe(
+      tester,
+      user: backend.hostUser(),
+      expert: backend.expert(),
+      size: const Size(320, 568),
+    );
+    appRouter.go(AppRoutes.home);
+    await _pump(tester, 800);
+    expect(tester.takeException(), isNull); // dock + header fit 320 px
+    final pill = find.bySemanticsLabel(RegExp('Change availability'));
+    expect(pill, findsOneWidget);
+    expect(find.text('Online'), findsOneWidget);
+    // Discover's banner speaks to the host about their status.
+    expect(find.text("You're Live! Someone May Call Soon."), findsOneWidget);
+    expect(find.text('Feel Heard, Feel Better.'), findsNothing);
+
+    await tester.tap(pill);
+    await _pump(tester, 400);
+    expect(find.text('Host Availability'), findsOneWidget);
+    expect(find.text('Online & Ready for Calls'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // A choice closes the sheet at once; the pill shows it while it saves.
+    final offline = find.textContaining('Go Offline');
+    await tester.ensureVisible(offline); // a small phone scrolls the sheet
+    await _pump(tester, 200);
+    await tester.tap(offline);
+    await tester.pump();
+    expect(find.text('Offline'), findsOneWidget);
+    await _pump(tester, 400);
+    expect(find.text('Host Availability'), findsNothing);
+    expect(backend.requests, contains('PUT /api/expert-profiles/exp1'));
+    expect(backend.vacation, isTrue);
+    expect(find.text('Ready to Earn? Go Online Now.'), findsOneWidget);
+
+    // The banner's Go Online saves in one tap.
+    await tester.tap(find.text('Go Online'));
+    await _pump(tester, 600);
+    expect(backend.vacation, isFalse);
+    expect(find.text('Online'), findsOneWidget);
+    expect(find.text("You're Live! Someone May Call Soon."), findsOneWidget);
+
+    // Offline for 30 min: the pill counts down.
+    await tester.tap(pill);
+    await _pump(tester, 400);
+    await tester.ensureVisible(find.text('30 min'));
+    await _pump(tester, 200);
+    await tester.tap(find.text('30 min'));
+    await _pump(tester, 1500);
+    expect(find.text('Host Availability'), findsNothing);
+    expect(find.textContaining(RegExp(r'^29m \d+s left$')), findsOneWidget);
+    expect(HostAvailabilityController.offlineUntil.value, isNotNull);
+
+    // Back online by hand ends the timer.
+    await tester.tap(pill);
+    await _pump(tester, 400);
+    expect(find.textContaining('Back online in 29m'), findsOneWidget);
+    await tester.tap(find.text('Online & Ready for Calls'));
+    await _pump(tester, 600);
+    expect(find.text('Online'), findsOneWidget);
+    expect(backend.vacation, isFalse);
+    expect(HostAvailabilityController.offlineUntil.value, isNull);
+    expect(HostAvailabilityController.remaining.value, isNull);
+
+    // Working hours open the schedule step; nothing saved from the sheet.
+    final puts = backend.requests.length;
+    await tester.tap(pill);
+    await _pump(tester, 400);
+    await tester.tap(find.text('Follow My Working Hours'));
+    await _pump(tester, 800);
+    final top = appRouter.routerDelegate.currentConfiguration.last;
+    expect(
+      top is ImperativeRouteMatch ? top.matches.uri.path : null,
+      AppRoutes.hostSchedule,
+    );
+    expect(
+      backend.requests.skip(puts).where((r) => r.startsWith('PUT')),
+      isEmpty,
+    );
+    await finish(tester);
+  });
+
+  test('offline timer ends at the next 9 AM', () {
+    expect(
+      HostAvailabilityController.untilMorning(DateTime(2026, 1, 1, 7)),
+      const Duration(hours: 2),
+    );
+    expect(
+      HostAvailabilityController.untilMorning(DateTime(2026, 1, 1, 22)),
+      const Duration(hours: 11),
+    );
+    expect(formatOfflineLeft(const Duration(minutes: 80)), '1h 20m');
+    expect(formatOfflineLeft(const Duration(seconds: 1750)), '29m 10s');
+    expect(formatOfflineLeft(const Duration(seconds: 45)), '45s');
+  });
+
+  testWidgets('client: no status pill in the dock', (tester) async {
+    await openMe(tester, user: _Backend.client);
+    appRouter.go(AppRoutes.home);
+    await _pump(tester, 800);
+    expect(find.bySemanticsLabel(RegExp('Change availability')), findsNothing);
+    expect(find.text('Feel Heard, Feel Better.'), findsOneWidget);
+    expect(find.text('Start Talking'), findsOneWidget);
     await finish(tester);
   });
 }

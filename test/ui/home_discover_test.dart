@@ -193,7 +193,7 @@ void main() {
     expect(find.textContaining('HOST 1'), findsOneWidget); // featured
     expect(find.byType(HostGridCard), findsWidgets);
     expect(find.text('Breakup'), findsOneWidget); // topic tab from the form
-    expect(find.text('Rs 120.5'), findsOneWidget); // wallet chip
+    expect(find.text('₹ 120.5'), findsOneWidget); // wallet chip
     await finish(tester);
   });
 
@@ -214,11 +214,19 @@ void main() {
     await openHome(tester);
     await _pump(tester, 600);
     expect(find.byType(DiscoverTopBar), findsOneWidget);
+    // Light / dark moved to Me → Settings.
+    expect(find.bySemanticsLabel('Switch theme'), findsNothing);
 
     await tester.tap(find.bySemanticsLabel('Profile'));
     await _pump(tester, 400);
     expect(find.byType(MeTopBar), findsOneWidget);
     expect(find.byType(DiscoverTopBar), findsNothing);
+
+    // History has a top bar like the other tabs.
+    await tester.tap(find.bySemanticsLabel('History'));
+    await _pump(tester, 400);
+    expect(find.byType(HistoryTopBar), findsOneWidget);
+    expect(find.text('Call History'), findsOneWidget);
 
     await tester.tap(find.bySemanticsLabel('Discover'));
     await _pump(tester, 400);
@@ -235,11 +243,11 @@ void main() {
     await _pump(tester, 600);
     expect(tester.takeException(), isNull); // no RenderFlex overflow
     expect(find.byType(HostGridCard), findsWidgets);
-    expect(find.text('Rs 1250.75/M'), findsWidgets); // price as stored (RN)
+    expect(find.text('₹ 1250.75/min'), findsWidgets); // price as stored (RN)
     // No tagline, no district: RN's "INDIA" fallback and "STAR".
     expect(find.text('INDIA  •  4.6 STAR'), findsWidgets);
-    expect(find.text('Rs 98765432.5'), findsOneWidget); // shrinks, not cut
-    final chip = tester.getRect(find.text('Rs 98765432.5'));
+    expect(find.text('₹ 98765.4k'), findsOneWidget); // shrinks, not cut
+    final chip = tester.getRect(find.text('₹ 98765.4k'));
     expect(chip.right, lessThanOrEqualTo(320));
     await finish(tester);
   });

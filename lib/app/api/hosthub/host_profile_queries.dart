@@ -80,6 +80,25 @@ useUpdateHostProfile({
   onError: (e, _) => onError?.call(e),
 );
 
+/// [useUpdateHostProfile] for availability, outside any widget: the sheet
+/// closes on the tap and the save carries on; the offline timer runs from no
+/// screen at all. Same save, re-read and invalidation.
+Future<HostProfile?> updateHostAvailability(
+  String expertId,
+  HostAvailability mode,
+) async {
+  final saved = await _updateHostProfile((
+    expertId: expertId,
+    patch: HostProfilePatch.availability(mode),
+  ));
+  queryCache.invalidateAll([
+    HostHubKeys.profileAll,
+    ListingKeys.all,
+    ClientKeys.profiles,
+  ]);
+  return saved;
+}
+
 /// Professional Details: uploads new photos and the audio intro, creates or
 /// updates the profile, then syncs the photo rows. The caller still updates
 /// the user record (`profilePic`, `role`) via the client feature; see

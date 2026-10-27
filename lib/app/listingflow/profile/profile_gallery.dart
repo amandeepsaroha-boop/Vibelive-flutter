@@ -131,6 +131,8 @@ class ProfileGallery extends HookWidget {
                           : null,
                       width: box.maxWidth,
                       height: box.maxHeight,
+                      // Portraits keep the head, as on the cards.
+                      alignment: Alignment.topCenter,
                     ),
             ),
           ),

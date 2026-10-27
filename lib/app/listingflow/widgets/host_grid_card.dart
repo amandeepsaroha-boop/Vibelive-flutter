@@ -22,11 +22,15 @@ class HostGridCard extends StatelessWidget {
     required this.host,
     required this.onTap,
     this.featured = false,
+    this.onCall,
   });
 
   final HostCard host;
   final bool featured;
   final ValueChanged<HostCard> onTap;
+
+  /// "Call Now" under the card's text (Discover); none, no button.
+  final ValueChanged<HostCard>? onCall;
 
   /// As stored, like RN (`12`, `12.5`, `12.75`).
   static String _price(double v) =>
@@ -64,6 +68,8 @@ class HostGridCard extends StatelessWidget {
                   : CImage(
                       url: image,
                       placeholderUrl: h.cardPlaceholder,
+                      // Wide (featured) crops cut portraits: keep the face.
+                      alignment: Alignment.topCenter,
                       width: box.maxWidth,
                       height: box.maxHeight,
                     ),
@@ -79,7 +85,7 @@ class HostGridCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: EdgeInsets.all(16.ms),
+              padding: EdgeInsets.all(onCall == null ? 16.ms : 12.ms),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -124,7 +130,11 @@ class HostGridCard extends StatelessWidget {
                         : null,
                   ),
                   const Spacer(),
-                  _Name(host: h, featured: featured),
+                  _Name(
+                    host: h,
+                    featured: featured,
+                    lines: onCall == null ? 2 : 1,
+                  ),
                   if (h.tagline.isNotEmpty)
                     Padding(
                       padding: EdgeInsets.only(top: 3.ms),
@@ -134,7 +144,7 @@ class HostGridCard extends StatelessWidget {
                         height: 15,
                         weight: FontWeight.w600,
                         color: AppColors.whiteA(0.92),
-                        maxLines: 3,
+                        maxLines: onCall == null ? 3 : 2,
                       ),
                     )
                   else
@@ -153,14 +163,14 @@ class HostGridCard extends StatelessWidget {
                                   vertical: 3.ms,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.whiteA(0.18),
-                                  borderRadius: BorderRadius.circular(999),
+                                  color: AppColors.whiteA(0.25),
+                                  borderRadius: BorderRadius.circular(6.ms),
                                 ),
                                 child: CText.raw(
                                   t,
                                   size: 9,
                                   letterSpacing: 0.3,
-                                  weight: FontWeight.w600,
+                                  weight: FontWeight.w900,
                                   color: AppColors.white,
                                   maxLines: 1,
                                 ),
@@ -168,6 +178,11 @@ class HostGridCard extends StatelessWidget {
                             ),
                         ],
                       ),
+                    ),
+                  if (onCall != null)
+                    Padding(
+                      padding: EdgeInsets.only(top: 8.ms),
+                      child: _CallNow(onPressed: () => onCall!(h)),
                     ),
                 ],
               ),
@@ -179,31 +194,81 @@ class HostGridCard extends StatelessWidget {
   }
 }
 
-class _Name extends StatelessWidget {
-  const _Name({required this.host, required this.featured});
-  final HostCard host;
-  final bool featured;
+/// White "Call Now" bar at the bottom of a Discover card.
+class _CallNow extends StatelessWidget {
+  const _CallNow({required this.onPressed});
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final size = featured ? 30.0 : 18.0;
+    final c = context.colors;
+    // The light theme's accent on white; the dark theme's lime would vanish.
+    final fg = c.isDark ? BrandColors.purple : c.accent;
+    return Pressable(
+      activeOpacity: 0.85,
+      semanticLabel: context.t('home:card.call_now'),
+      onPressed: onPressed,
+      child: Container(
+        height: 32.ms,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.blackA(0.25),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.phoneCall, size: 13.ms, color: fg),
+            SizedBox(width: 6.ms),
+            CText(
+              'home:card.call_now',
+              size: 12,
+              weight: FontWeight.w900,
+              color: fg,
+              maxLines: 1,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Name extends StatelessWidget {
+  const _Name({required this.host, required this.featured, this.lines = 2});
+  final HostCard host;
+  final bool featured;
+
+  /// One line on a card with Call Now: the button needs the room.
+  final int lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = featured ? 21.0 : 15.0;
     return Text.rich(
       TextSpan(
-        text: host.name.isEmpty
-            ? context.t(HostCard.unknownNameKey)
-            : host.name,
+        text:
+            (host.name.isEmpty ? context.t(HostCard.unknownNameKey) : host.name)
+                .toUpperCase(),
         children: [
           const TextSpan(text: ' '),
           WidgetSpan(
             alignment: PlaceholderAlignment.middle,
             child: VerificationBadge(
               user: host.badgeFlags,
-              size: featured ? 25.ms : 19.ms,
+              size: featured ? 19.ms : 15.ms,
             ),
           ),
         ],
       ),
-      maxLines: 2,
+      maxLines: lines,
       overflow: TextOverflow.ellipsis,
       textScaler: TextScaler.noScaling,
       style: TextStyle(
@@ -211,6 +276,7 @@ class _Name extends StatelessWidget {
         fontSize: size.ms,
         fontWeight: FontWeight.w900,
         fontStyle: FontStyle.italic,
+        letterSpacing: 0.4,
         height: 1.15,
         shadows: [
           Shadow(

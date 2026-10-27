@@ -122,9 +122,14 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.home,
-      builder: (context, state) => HomeScreen(
-        initialTab: HomeTab.fromParam(state.uri.queryParameters['tab']),
-        topic: state.uri.queryParameters['topic'],
+      // Fades in instead of sliding: the splash's logo flies into its top
+      // bar meanwhile (LaunchLogo) and must find it in place.
+      pageBuilder: (context, state) => _FadeInPage(
+        key: state.pageKey,
+        child: HomeScreen(
+          initialTab: HomeTab.fromParam(state.uri.queryParameters['tab']),
+          topic: state.uri.queryParameters['topic'],
+        ),
       ),
     ),
     // RN tab routes: same shell, other tab.
@@ -299,6 +304,30 @@ final GoRouter appRouter = GoRouter(
   // Screens not built yet land here instead of an error page.
   errorBuilder: (context, state) => const _PlaceholderScreen(),
 );
+
+/// Comes in with a fade; covered by a pushed page it moves like any other
+/// (the platform's transition, e.g. the iOS parallax).
+class _FadeInPage extends CustomTransitionPage<void> {
+  _FadeInPage({super.key, required super.child})
+    : super(
+        transitionDuration: const Duration(milliseconds: 320),
+        reverseTransitionDuration: const Duration(milliseconds: 220),
+        transitionsBuilder: (context, animation, secondary, child) =>
+            FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOut,
+              ),
+              child: Theme.of(context).pageTransitionsTheme.buildTransitions(
+                ModalRoute.of(context)! as PageRoute<void>,
+                context,
+                kAlwaysCompleteAnimation,
+                secondary,
+                child,
+              ),
+            ),
+      );
+}
 
 class _PlaceholderScreen extends StatelessWidget {
   const _PlaceholderScreen();

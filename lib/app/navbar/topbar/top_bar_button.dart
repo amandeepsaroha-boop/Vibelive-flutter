@@ -17,7 +17,11 @@ class TopBarButton extends StatelessWidget {
     this.color,
     this.badge = 0,
     this.semanticLabel,
+    this.size = 44,
   });
+
+  /// Unscaled side; the icon scales with it.
+  final double size;
 
   final IconData icon;
   final VoidCallback onPressed;
@@ -33,16 +37,16 @@ class TopBarButton extends StatelessWidget {
       onPressed: onPressed,
       semanticLabel: semanticLabel,
       child: Container(
-        width: 44.ms,
-        height: 44.ms,
+        width: size.ms,
+        height: size.ms,
         decoration: BoxDecoration(
           color: c.isDark ? AppColors.whiteA(0.05) : AppColors.blackA(0.04),
-          borderRadius: BorderRadius.circular(14.ms),
+          borderRadius: BorderRadius.circular((size * 14 / 44).ms),
           border: Border.all(
             color: c.isDark ? AppColors.whiteA(0.12) : AppColors.blackA(0.09),
           ),
         ),
-        child: Icon(icon, size: 18.ms, color: color ?? c.text),
+        child: Icon(icon, size: (size * 18 / 44).ms, color: color ?? c.text),
       ),
     );
     final withLongPress = onLongPress == null

@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../../core/utils/scale.dart';
 import '../component/app_logo.dart';
+import 'launch_logo.dart';
 import '../component/c_button.dart';
 import '../component/c_text.dart';
 import 'onboarding_visuals.dart';
@@ -93,7 +94,7 @@ class OnboardingView extends HookWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    AppLogo(size: 120.ms),
+                    LaunchLogoAnchor(child: AppLogo(size: 120.ms)),
                     CButton(
                       title: 'splash:skip',
                       variant: CButtonVariant.ghost,

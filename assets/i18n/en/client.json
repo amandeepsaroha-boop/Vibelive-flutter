@@ -87,6 +87,23 @@
       "custom": "Custom schedule active"
     },
     "availability": {
+      "sheet": {
+        "title": "Host Availability",
+        "subtitle": "Select when you want to receive calls",
+        "online_title": "Online & Ready for Calls",
+        "online_desc": "Listeners can call you right now.",
+        "schedule_title": "Follow My Working Hours",
+        "schedule_unset": "No hours set yet. Tap to set them.",
+        "hours": "{{start}} - {{end}} ({{days}} days/wk)",
+        "offline_title": "Go Offline (Take a Break)",
+        "offline_desc": "Pause calls until you switch back.",
+        "back_in": "Back online in {{time}}",
+        "timed": "Or go offline for:",
+        "for_30m": "30 min",
+        "for_1h": "1 hour",
+        "for_2h": "2 hours",
+        "till_morning": "Till 9 AM"
+      },
       "title": "AVAILABILITY MODES",
       "manage": "Manage Schedule",
       "available": "Available",
@@ -149,6 +166,11 @@
     "wallet": {
       "title": "MY WALLET",
       "subtitle": "VIEW BALANCE & TRANSACTIONS"
+    },
+    "theme": {
+      "title": "Dark mode",
+      "on": "On",
+      "off": "Off"
     },
     "categories": {
       "identity": "IDENTITY",

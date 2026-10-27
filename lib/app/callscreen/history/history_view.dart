@@ -7,14 +7,12 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/session/session_store.dart';
-import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
 import '../../api/callscreen/call_models.dart';
 import '../../api/callscreen/call_queries.dart';
 import '../../api/listingflow/listing_queries.dart';
 import '../../api/splashscreen/splash_queries.dart';
 import '../../component/c_state_view.dart';
-import '../../component/c_text.dart';
 import '../../component/c_toast.dart';
 import '../../component/infinite_scroll.dart';
 import '../../homescreen/helper/home_controller.dart';
@@ -141,47 +139,8 @@ class HistoryView extends HookWidget {
       );
     }
 
-    return Column(
-      children: [
-        const _Header(),
-        Expanded(child: body),
-      ],
-    );
-  }
-}
-
-/// RN "LOGS / CALL HISTORY" title block (this tab has no top bar).
-class _Header extends StatelessWidget {
-  const _Header();
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(7.ms, 8.ms, 7.ms, 10.ms),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CText(
-              'call:history.title',
-              size: 34,
-              weight: FontWeight.w900,
-              letterSpacing: -1,
-              color: c.text,
-            ),
-            CText(
-              'call:history.subtitle',
-              size: 10,
-              weight: FontWeight.w900,
-              letterSpacing: 2,
-              color: c.accent,
-            ),
-          ],
-        ),
-      ),
-    );
+    // The title is the shell's HistoryTopBar, like the other tabs.
+    return body;
   }
 }
 

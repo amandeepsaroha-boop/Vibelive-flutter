@@ -334,7 +334,7 @@ void main() {
     expect(find.text('₹1,118.0'), findsOneWidget);
     expect(find.text('₹1,000.0'), findsOneWidget);
     expect(find.text('₹118.0'), findsOneWidget);
-    expect(find.text('Cash'), findsOneWidget); // the split
+    expect(find.text('Call Balance'), findsOneWidget); // the split
     // Row 1: a top-up with its invoice; row 2: a paid video call.
     expect(find.text('Wallet Top Up'), findsWidgets);
     expect(find.text('+₹100.00'), findsWidgets);
@@ -512,9 +512,9 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    await tester.tap(find.bySemanticsLabel('Transfer earnings to cash'));
+    await tester.tap(find.bySemanticsLabel('Transfer earnings to call balance'));
     await _pump(tester, 500);
-    expect(find.text('Earnings → Cash'), findsOneWidget);
+    expect(find.text('Earnings → Call Balance'), findsOneWidget);
     // 118 earnings at 18% GST: at most 100 can move.
     expect(find.text('MAX: ₹100.0'), findsOneWidget);
     expect(find.text('—'), findsNWidgets(3));
@@ -526,7 +526,7 @@ void main() {
     expect(find.text('₹9.0'), findsOneWidget);
     expect(find.text('- ₹59.0'), findsOneWidget);
     // Cash is call credit only: said in the sheet, and again on Transfer.
-    expect(find.textContaining('Cash cannot be withdrawn'), findsOneWidget);
+    expect(find.textContaining('Call Balance cannot be withdrawn'), findsOneWidget);
 
     await _tap(tester, find.text('CONFIRM TRANSFER'));
     await _pump(tester, 400);
@@ -539,7 +539,7 @@ void main() {
     await tester.tap(find.text('CANCEL'));
     await _pump(tester, 400);
     expect(backend.posted['/api/wallet-transfer/earnings-to-cash'], isNull);
-    expect(find.text('Earnings → Cash'), findsOneWidget);
+    expect(find.text('Earnings → Call Balance'), findsOneWidget);
 
     await _tap(tester, find.text('CONFIRM TRANSFER'));
     await _pump(tester, 400);
@@ -549,14 +549,14 @@ void main() {
       'amount': 50.0,
     });
     expect(find.text('Transfer completed successfully!'), findsOneWidget);
-    expect(find.text('Earnings → Cash'), findsNothing);
+    expect(find.text('Earnings → Call Balance'), findsNothing);
     await finish(tester);
   });
 
   Future<void> openTransfer(WidgetTester tester) async {
-    await tester.tap(find.bySemanticsLabel('Transfer earnings to cash'));
+    await tester.tap(find.bySemanticsLabel('Transfer earnings to call balance'));
     await _pump(tester, 500);
-    expect(find.text('Earnings → Cash'), findsOneWidget);
+    expect(find.text('Earnings → Call Balance'), findsOneWidget);
   }
 
   testWidgets('transfer presets: RN rounding, 100% equals MAX', (tester) async {
@@ -597,7 +597,7 @@ void main() {
     expect(find.text('Transfer completed successfully!'), findsNothing);
     await tester.tap(find.text('OK'));
     await _pump(tester, 400);
-    expect(find.text('Earnings → Cash'), findsOneWidget);
+    expect(find.text('Earnings → Call Balance'), findsOneWidget);
     await finish(tester);
   });
 
@@ -606,12 +606,12 @@ void main() {
     await openTransfer(tester);
     await tester.tap(find.bySemanticsLabel('Close'));
     await _pump(tester, 500);
-    expect(find.text('Earnings → Cash'), findsNothing);
+    expect(find.text('Earnings → Call Balance'), findsNothing);
 
     await openTransfer(tester);
     await tester.tapAt(const Offset(200, 40)); // backdrop above the sheet
     await _pump(tester, 500);
-    expect(find.text('Earnings → Cash'), findsNothing);
+    expect(find.text('Earnings → Call Balance'), findsNothing);
     expect(
       backend.requests,
       isNot(contains('POST /api/wallet-transfer/earnings-to-cash')),
@@ -622,7 +622,7 @@ void main() {
   testWidgets('transfer below the minimum cannot be confirmed', (tester) async {
     backend.earnings = 10; // max 8.47 once GST is added
     await open(tester);
-    await tester.tap(find.bySemanticsLabel('Transfer earnings to cash'));
+    await tester.tap(find.bySemanticsLabel('Transfer earnings to call balance'));
     await _pump(tester, 500);
     await tester.tap(find.text('MAX'));
     await _pump(tester, 100);
@@ -641,8 +641,8 @@ void main() {
     try {
       await open(tester);
       expect(find.text('₹1,118.0'), findsOneWidget);
-      expect(find.text('Cash'), findsNothing); // no split on iOS
-      expect(find.bySemanticsLabel('Transfer earnings to cash'), findsNothing);
+      expect(find.text('Call Balance'), findsNothing); // no split on iOS
+      expect(find.bySemanticsLabel('Transfer earnings to call balance'), findsNothing);
       await finish(tester);
     } finally {
       debugDefaultTargetPlatformOverride = null;
@@ -683,13 +683,13 @@ void main() {
     await open(tester, size: const Size(320, 568));
     expect(find.text('₹12,34,567.9'), findsOneWidget);
 
-    await tester.tap(find.bySemanticsLabel('Transfer earnings to cash'));
+    await tester.tap(find.bySemanticsLabel('Transfer earnings to call balance'));
     await _pump(tester, 500);
     await tester.tap(find.text('75%'));
     await _pump(tester, 100);
     await tester.tap(find.bySemanticsLabel('Close'));
     await _pump(tester, 500);
-    expect(find.text('Earnings → Cash'), findsNothing);
+    expect(find.text('Earnings → Call Balance'), findsNothing);
 
     await tester.tap(find.text('Add money'));
     await _pump(tester, 400);
@@ -718,7 +718,7 @@ void main() {
         await tester.tap(find.bySemanticsLabel('Close'));
         await _pump(tester, 500);
 
-        await tester.tap(find.bySemanticsLabel('Transfer earnings to cash'));
+        await tester.tap(find.bySemanticsLabel('Transfer earnings to call balance'));
         await _pump(tester, 600);
         await tester.tap(find.text('50%'));
         await _pump(tester, 200);

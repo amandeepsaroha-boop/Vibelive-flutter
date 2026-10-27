@@ -58,6 +58,11 @@ class MeData {
   bool get isCompany => profile.isCompanyAccount;
   String? get name => profile.name;
   String? get avatarUrl => profile.profilePicUrl;
+
+  /// The navbar's Profile avatar: a host's primary photo, else the account
+  /// picture.
+  String? get navAvatarUrl =>
+      host?.profileImages.firstOrNull?.imageUrl ?? avatarUrl;
   String? get userDocumentId => profile.documentId;
 
   /// Per-account key for one-time UI (documentId, else id).

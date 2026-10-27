@@ -94,6 +94,7 @@ class HomeScreen extends HookWidget {
                       const ReturnToCallBar(),
                       if (tab == HomeTab.discover) DiscoverTopBar(home: home),
                       if (tab == HomeTab.me) MeTopBar(home: home),
+                      if (tab == HomeTab.history) HistoryTopBar(home: home),
                       if (tab != HomeTab.history)
                         TopWarnBar(moderation: tab == HomeTab.discover),
                       Expanded(child: body!),

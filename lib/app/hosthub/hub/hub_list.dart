@@ -53,7 +53,11 @@ class HubListRow extends StatelessWidget {
     this.trailing,
     this.leading,
     this.dimmed = false,
+    this.chevron = true,
   });
+
+  /// False for a row that acts in place (a switch) rather than opening one.
+  final bool chevron;
 
   final IconData icon;
 
@@ -150,8 +154,10 @@ class HubListRow extends StatelessWidget {
                 ),
               ),
             ],
-            SizedBox(width: 6.ms),
-            Icon(LucideIcons.chevronRight, size: 18.ms, color: p.muted),
+            if (chevron) ...[
+              SizedBox(width: 6.ms),
+              Icon(LucideIcons.chevronRight, size: 18.ms, color: p.muted),
+            ],
             SizedBox(width: 12.ms),
           ],
         ),

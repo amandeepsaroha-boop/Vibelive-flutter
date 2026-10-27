@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/app_scope.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/theme/vibe_colors.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../component/c_alert.dart';
 import '../../../component/c_toast.dart';
@@ -166,6 +168,8 @@ class MeSettingsList extends HookWidget {
           ),
         ],
         gap,
+        const _ThemeCard(),
+        gap,
         HubListCard(
           rows: [
             HubListRow(
@@ -175,6 +179,36 @@ class MeSettingsList extends HookWidget {
               onTap: () => MeActions.open(context, MeMenu.resourcesRoute),
             ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Light / dark (it was a button on the Discover header). Switching it sets
+/// an explicit mode; the app follows the system until it is first used.
+class _ThemeCard extends StatelessWidget {
+  const _ThemeCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final theme = AppScope.of(context).theme;
+    void set(bool dark) =>
+        theme.setMode(dark ? ThemeMode.dark : ThemeMode.light).ignore();
+    return HubListCard(
+      rows: [
+        HubListRow(
+          icon: c.isDark ? LucideIcons.moon : LucideIcons.sun,
+          label: 'client:me.theme.title',
+          subtitle: c.isDark ? 'client:me.theme.on' : 'client:me.theme.off',
+          chevron: false,
+          onTap: () => set(!c.isDark),
+          trailing: Switch.adaptive(
+            value: c.isDark,
+            activeTrackColor: c.accent,
+            onChanged: set,
+          ),
         ),
       ],
     );
