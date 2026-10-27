@@ -161,18 +161,28 @@ void main() {
     await tester.pump(const Duration(minutes: 6));
   }
 
-  testWidgets('load more: the skeleton is the next cards, page 2 rebuilds '
-      'only the row it completes', (tester) async {
+  testWidgets('load more: asked on the first scroll, the skeleton is the '
+      'next cards, page 2 rebuilds only the row it completes', (tester) async {
     await openHome(tester, total: 12);
-    // Card 6's row is on screen before the page is asked for.
-    await tester.drag(
-      find.byType(CustomScrollView).last,
-      const Offset(0, -300),
-    );
-    await pumpFrames(tester, 20, ms: 50);
-    expect(backend.feedPages, [1]);
-    var rebuilt = await rebuiltCards(tester, () => scrollToEnd(tester));
+    expect(backend.feedPages, [1]); // nothing more until the user scrolls
+    // Look-ahead: the first scroll asks for page 2, long before the end, and
+    // starting it rebuilds no card — only 6's row swaps its empty slot for
+    // the next card's skeleton.
+    var rebuilt = await rebuiltCards(tester, () async {
+      await tester.drag(
+        find.byType(CustomScrollView).last,
+        const Offset(0, -300),
+      );
+      await pumpFrames(tester, 20, ms: 50);
+    });
     expect(backend.feedPages, [1, 2]); // asked once
+    // 6's row may first be built by this scroll; no other card rebuilds.
+    expect(rebuilt.difference({'HOST 6'}), isEmpty);
+    // Scrolling to the end while it is held asks nothing more and rebuilds
+    // no card.
+    rebuilt = await rebuiltCards(tester, () => scrollToEnd(tester));
+    expect(backend.feedPages, [1, 2]);
+    expect(rebuilt, isEmpty);
     // Card 7 fills 6's row, then a pair row (8, 9): three skeleton cards,
     // laid out exactly where those cards will be.
     expect(find.byType(HostGridCardSkeleton), findsNWidgets(3));
@@ -185,9 +195,6 @@ void main() {
     );
     expect(slot.top, six.top);
     expect(slot.height, six.height);
-    // Scrolling and the load start rebuilt no card: only 6's row swapped
-    // its empty slot for the skeleton.
-    expect(rebuilt, {'HOST 6'});
 
     // Where the skeletons sit, relative to card 6 (scrolling may settle).
     final skeletonTops = [
