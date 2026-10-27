@@ -36,10 +36,16 @@
     <!-- DND state flutter_callkit_incoming reads before ringing. -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY"/>
 
+    <!-- No backup or device-to-device copy. A Play reinstall restored the old prefs (user,
+         device id, a stale push token) but not the Keystore key that decrypts the session
+         tokens: signed in on screen, unable to refresh, and never rung. -->
     <application
         android:label="Vibe Live"
         android:name=".VibeApplication"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         <!-- singleTask: notification Accept, the notification tap, the full-screen intent and
              app links all reuse the one task (RN + CE).
              NO showWhenLocked / turnScreenOn here: they would put every screen (wallet,

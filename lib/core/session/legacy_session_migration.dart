@@ -66,18 +66,24 @@ abstract final class LegacySessionMigration {
         ? (raw['errors'] as List).join(',')
         : '';
 
-    // Even a signed-out user keeps their device identity (and their answers).
-    await _adoptDeviceId(async['device_id']);
+    // Even a signed-out user keeps their answers.
     for (final e in async.entries) {
       if (e.key.startsWith('@language_step_done:')) {
         await AppPrefs.setString(e.key.substring(1), e.value);
       }
     }
 
-    // Flutter already signed someone in: theirs is newer, keep it.
+    // Flutter already signed someone in: theirs is newer, keep it — and keep
+    // the device id that session was created with. Adopting RN's id here
+    // (a first launch whose read failed, then a fresh login) moved every
+    // later token sync to an id the live session doesn't have, so its push
+    // token never reached the session a call rings.
     if (AppPrefs.getString('session_user') != null) {
       return _done('flutter_session');
     }
+
+    // Signed out: keep the RN device identity.
+    await _adoptDeviceId(async['device_id']);
 
     final access = secure['access_token'] ?? async['access_token'];
     final refresh = secure['refresh_token'] ?? async['refresh_token'];

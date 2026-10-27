@@ -73,6 +73,17 @@ abstract final class Strapi {
       f('medium') ?? f('small') ?? f('large') ?? m['url'] ?? f('thumbnail'),
     );
   }
+
+  /// The `thumbnail` rendition only (~245 px, a few KB): a placeholder that
+  /// lands long before the card image. Null without one — a placeholder as
+  /// large as the image it stands in for buys nothing.
+  static String? mediaTinyFromAsset(dynamic asset) {
+    final m = map(asset) ?? const {};
+    final Map formats = m['formats'] is Map ? m['formats'] as Map : const {};
+    return mediaUrl(
+      formats['thumbnail'] is Map ? formats['thumbnail']['url'] : null,
+    );
+  }
 }
 
 /// Lenient readers for loosely typed JSON (numbers as strings, etc.).

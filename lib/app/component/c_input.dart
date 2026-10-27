@@ -41,9 +41,16 @@ class CInput extends StatefulWidget {
     this.countryCode = '+91',
     this.countryFlag = '🇮🇳',
     this.bottomSpacing = 16,
+    this.icon,
+    this.keyboardType,
   });
 
   final CInputType type;
+
+  /// Overrides the [type]'s icon and keyboard, for fields with no type of
+  /// their own (a bank account number: digits, but not a phone number).
+  final IconData? icon;
+  final TextInputType? keyboardType;
   final String? placeholder;
   final TextEditingController? controller;
   final String? initialValue;
@@ -186,13 +193,15 @@ class _CInputState extends State<CInput> {
     super.dispose();
   }
 
-  IconData get _icon => switch (widget.type) {
-    CInputType.mobile => LucideIcons.phone,
-    CInputType.email => LucideIcons.mail,
-    CInputType.password => LucideIcons.lock,
-    CInputType.referral => LucideIcons.ticket,
-    CInputType.name || CInputType.text => LucideIcons.user,
-  };
+  IconData get _icon =>
+      widget.icon ??
+      switch (widget.type) {
+        CInputType.mobile => LucideIcons.phone,
+        CInputType.email => LucideIcons.mail,
+        CInputType.password => LucideIcons.lock,
+        CInputType.referral => LucideIcons.ticket,
+        CInputType.name || CInputType.text => LucideIcons.user,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -214,13 +223,15 @@ class _CInputState extends State<CInput> {
       obscureText: isPassword && _obscured,
       autocorrect: false,
       enableSuggestions: !isPassword && !isEmail,
-      keyboardType: switch (type) {
-        CInputType.mobile => TextInputType.number,
-        CInputType.email => TextInputType.emailAddress,
-        CInputType.password => TextInputType.visiblePassword,
-        CInputType.name => TextInputType.name,
-        _ => TextInputType.text,
-      },
+      keyboardType:
+          widget.keyboardType ??
+          switch (type) {
+            CInputType.mobile => TextInputType.number,
+            CInputType.email => TextInputType.emailAddress,
+            CInputType.password => TextInputType.visiblePassword,
+            CInputType.name => TextInputType.name,
+            _ => TextInputType.text,
+          },
       textCapitalization: switch (type) {
         CInputType.name => TextCapitalization.words,
         CInputType.referral => TextCapitalization.characters,

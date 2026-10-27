@@ -63,6 +63,7 @@ class HostGridCard extends StatelessWidget {
                   ? _Letter(h.name)
                   : CImage(
                       url: image,
+                      placeholderUrl: h.cardPlaceholder,
                       width: box.maxWidth,
                       height: box.maxHeight,
                     ),

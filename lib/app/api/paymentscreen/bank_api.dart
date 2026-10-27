@@ -8,6 +8,12 @@ import 'payment_json.dart';
 abstract final class BankApi {
   /// `GET /bank-details`: the newest row of [userId] (documentId, or numeric
   /// id), or null when none is saved yet.
+  ///
+  /// Reads the draft version: bank-detail has draft & publish on and the
+  /// backend creates it with no publish step, so a just-submitted account may
+  /// exist only as a draft, which a published read misses (the form would
+  /// come back). Every row has a draft, and the admin's verification lands
+  /// there first.
   static Future<BankDetail?> fetchBankDetail(String userId) async {
     final body = await ApiClient.get(
       '/bank-details',
@@ -16,6 +22,7 @@ abstract final class BankApi {
         'populate': '*',
         'sort[0]': 'createdAt:desc',
         'pagination[limit]': 1,
+        'status': 'draft',
       },
     );
     final first = paymentRows(body).firstOrNull;

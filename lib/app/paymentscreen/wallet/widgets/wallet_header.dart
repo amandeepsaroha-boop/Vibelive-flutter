@@ -8,6 +8,7 @@ import '../../../../core/utils/scale.dart';
 import '../../../component/c_text.dart';
 import '../../../component/pressable.dart';
 import '../helper/wallet_palette.dart';
+import 'bank_sheet.dart';
 
 /// Icon button of the wallet screens (RN header buttons: ms42, bordered,
 /// soft fill). Rounded square (radius ms14) for X; [circle] for arrows.
@@ -109,6 +110,8 @@ class WalletHeader extends StatelessWidget {
               ],
             ),
           ),
+          SizedBox(width: 10.ms),
+          const BankButton(),
         ],
       ),
     );

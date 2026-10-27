@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -13,6 +15,7 @@ import '../../api/listingflow/filter_models.dart';
 import '../../api/listingflow/listing_models.dart';
 import '../../api/paymentscreen/payment_queries.dart';
 import '../../component/c_button.dart';
+import '../../component/c_image.dart';
 import '../../component/c_state_view.dart';
 import '../../component/infinite_scroll.dart';
 import '../../component/skeleton.dart';
@@ -99,6 +102,21 @@ class DiscoverView extends HookWidget {
       () => {for (final (i, r) in rows.indexed) r.key: i},
       [rows],
     );
+
+    // Each page's card photos load and decode the moment the page lands —
+    // with loadAhead below, about two screens before its cards scroll in —
+    // so they paint on their first frame instead of fading in from a box.
+    final listWidth = useRef<double?>(null);
+    final warmed = useRef(<String>{});
+    useEffect(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final width = listWidth.value;
+        if (context.mounted && width != null) {
+          _warmCards(context, rows, width, warmed.value);
+        }
+      });
+      return null;
+    }, [rows]);
 
     // Discover tapped again: scroll to the top, or refresh when already there.
     final latestFeed = useRef(feed)..value = feed;
@@ -188,66 +206,97 @@ class DiscoverView extends HookWidget {
                   padding: padding.copyWith(bottom: 0),
                   child: const _FeedSkeleton(),
                 )
-              : InfiniteScroll(
-                  controller: scroll,
-                  padding: padding,
-                  hasMore: !isPopular && feed.hasMore,
-                  loadingMore: feed.isLoadingMore,
-                  loadMoreFailed: feed.query.isFetchNextPageError,
-                  onLoadMore: feed.loadMore,
-                  onRefresh: refresh,
-                  endLabel: rows.isEmpty ? null : 'home:feed.end',
-                  onScroll: NavbarCollapse.instance.track,
-                  // Filtered view: the count is unknown, so one plain pair
-                  // row (never a spinner in a list).
-                  loadingBuilder: next == null
-                      ? (_) => const Shimmer(child: _SkeletonRow())
-                      : (_) => _MoreSkeleton(next),
-                  slivers: [
-                    if (error != null)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _LoadError(error: error, onRetry: refresh),
-                      )
-                    else if (rows.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: CStateView.empty(
-                          title: tab.value.emptyKey,
-                          message: null,
-                        ),
-                      )
-                    else
-                      SliverVariedExtentList.builder(
-                        itemCount: rows.length,
-                        itemExtentBuilder: (i, _) =>
-                            i < rows.length ? rows[i].height + 12.ms : null,
-                        findChildIndexCallback: (key) => key is ValueKey<String>
-                            ? rowIndex[key.value]
-                            : null,
-                        itemBuilder: (context, i) {
-                          final row = rows[i];
-                          // The half row the next card lands in: its empty
-                          // slot shows that card's skeleton meanwhile.
-                          if ((next?.fillsSlot ?? false) &&
-                              i == rows.length - 1) {
-                            return _Row(
-                              row,
-                              key: ValueKey(row.key),
-                              pendingSlot: true,
-                            );
-                          }
-                          return rowWidgets[row] ??= _Row(
-                            row,
-                            key: ValueKey(row.key),
-                          );
-                        },
-                      ),
-                  ],
+              : LayoutBuilder(
+                  builder: (context, box) {
+                    listWidth.value = box.maxWidth;
+                    return InfiniteScroll(
+                      controller: scroll,
+                      padding: padding,
+                      hasMore: !isPopular && feed.hasMore,
+                      loadingMore: feed.isLoadingMore,
+                      loadMoreFailed: feed.query.isFetchNextPageError,
+                      onLoadMore: feed.loadMore,
+                      // A page is ~8 rows (~2.5 screens): ask while that much is
+                      // still below, so it lands before the user gets there.
+                      loadAhead: 2.5,
+                      onRefresh: refresh,
+                      endLabel: rows.isEmpty ? null : 'home:feed.end',
+                      onScroll: NavbarCollapse.instance.track,
+                      // Filtered view: the count is unknown, so one plain pair
+                      // row (never a spinner in a list).
+                      loadingBuilder: next == null
+                          ? (_) => const Shimmer(child: _SkeletonRow())
+                          : (_) => _MoreSkeleton(next),
+                      slivers: [
+                        if (error != null)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: _LoadError(error: error, onRetry: refresh),
+                          )
+                        else if (rows.isEmpty)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: CStateView.empty(
+                              title: tab.value.emptyKey,
+                              message: null,
+                            ),
+                          )
+                        else
+                          SliverVariedExtentList.builder(
+                            itemCount: rows.length,
+                            itemExtentBuilder: (i, _) =>
+                                i < rows.length ? rows[i].height + 12.ms : null,
+                            findChildIndexCallback: (key) =>
+                                key is ValueKey<String>
+                                ? rowIndex[key.value]
+                                : null,
+                            itemBuilder: (context, i) {
+                              final row = rows[i];
+                              // The half row the next card lands in: its empty
+                              // slot shows that card's skeleton meanwhile.
+                              if ((next?.fillsSlot ?? false) &&
+                                  i == rows.length - 1) {
+                                return _Row(
+                                  row,
+                                  key: ValueKey(row.key),
+                                  pendingSlot: true,
+                                );
+                              }
+                              return rowWidgets[row] ??= _Row(
+                                row,
+                                key: ValueKey(row.key),
+                              );
+                            },
+                          ),
+                      ],
+                    );
+                  },
                 ),
         ),
       ],
     );
+  }
+
+  /// Precaches the card photos (placeholder first) of hosts not done yet, at
+  /// the size each card decodes them: the list's side padding, the 12 gap
+  /// of a pair, and [HostGridCard]'s 1 px border on each side.
+  static void _warmCards(
+    BuildContext context,
+    List<DiscoverRow> rows,
+    double listWidth,
+    Set<String> done,
+  ) {
+    final rowWidth = listWidth - 20.ms;
+    for (final row in rows) {
+      final card = row.featured ? rowWidth : (rowWidth - 12.ms) / 2;
+      final imageWidth = card - 2;
+      for (final h in row.hosts) {
+        final url = h.cardImage ?? (h.images.isEmpty ? null : h.images.first);
+        if (url == null || !done.add(url)) continue;
+        unawaited(CImage.precache(context, h.cardPlaceholder, imageWidth));
+        unawaited(CImage.precache(context, url, imageWidth));
+      }
+    }
   }
 
   static List<SupportTopic> _topicsOf(InterestForm? form) => [

@@ -33,6 +33,28 @@ class CImage extends StatelessWidget {
   final Widget? placeholder;
   final Widget? errorWidget;
 
+  /// Loads [url] decoded exactly as a `CImage(url: url, width: width)` asks
+  /// for it — the provider CachedNetworkImage builds, resized to [width] ×
+  /// device pixel ratio — so that image paints on its first frame instead of
+  /// fading in from an empty box. Failures are silent: the widget retries.
+  static Future<void> precache(
+    BuildContext context,
+    String? url,
+    double width,
+  ) {
+    if (url == null || url.isEmpty) return Future.value();
+    final memWidth = (width * MediaQuery.devicePixelRatioOf(context)).round();
+    return precacheImage(
+      ResizeImage.resizeIfNeeded(
+        memWidth,
+        null,
+        CachedNetworkImageProvider(url),
+      ),
+      context,
+      onError: (_, _) {},
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;

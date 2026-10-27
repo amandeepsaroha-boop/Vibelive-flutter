@@ -63,6 +63,7 @@ class HostCard implements HostTraits {
     required this.images,
     required this.imageThumbs,
     required this.cardImage,
+    required this.cardPlaceholder,
     required this.isApprovedHost,
   });
 
@@ -119,6 +120,9 @@ class HostCard implements HostTraits {
     final cardImage = gallery.isNotEmpty
         ? (gallery.first.thumb ?? gallery.first.url)
         : picThumb;
+    final cardPlaceholder = gallery.isNotEmpty
+        ? gallery.first.tiny
+        : (picWithheld ? null : Strapi.mediaTinyFromAsset(u['profilePic']));
 
     // Voice intro only once moderated: the server resets the status to
     // pending whenever the recording changes.
@@ -227,6 +231,7 @@ class HostCard implements HostTraits {
       images: images,
       imageThumbs: imageThumbs,
       cardImage: cardImage,
+      cardPlaceholder: cardPlaceholder,
       isApprovedHost: _isApproved(e),
     );
   }
@@ -307,6 +312,9 @@ class HostCard implements HostTraits {
   /// Card-sized rendition of the first image.
   final String? cardImage;
 
+  /// [cardImage]'s few-KB `thumbnail`, shown until [cardImage] arrives.
+  final String? cardPlaceholder;
+
   /// Approved host: the `isApproved` flag or an approved row in
   /// `expert_profile_approvals`. Availability and listing are deliberately
   /// not part of it: an offline host still owns a shareable profile.
@@ -376,6 +384,7 @@ class HostCard implements HostTraits {
         _GalleryImage(
           url: url,
           thumb: Strapi.mediaThumbFromAsset(row['image']),
+          tiny: Strapi.mediaTinyFromAsset(row['image']),
           priority: priority != null && priority.isFinite && priority > 0
               ? priority
               : (i + 1).toDouble(),
@@ -403,6 +412,7 @@ class _GalleryImage {
   const _GalleryImage({
     required this.url,
     required this.thumb,
+    required this.tiny,
     required this.priority,
     required this.isPrimary,
     required this.order,
@@ -410,6 +420,7 @@ class _GalleryImage {
 
   final String url;
   final String? thumb;
+  final String? tiny;
   final double priority;
   final bool isPrimary;
   final int order;

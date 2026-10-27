@@ -29,6 +29,7 @@ class InfiniteScroll extends StatefulWidget {
     this.padding = EdgeInsets.zero,
     this.onScroll,
     this.threshold = 220,
+    this.loadAhead,
     this.loadingBuilder,
   });
 
@@ -51,6 +52,13 @@ class InfiniteScroll extends StatefulWidget {
 
   /// Unscaled distance from the end that triggers the next page.
   final double threshold;
+
+  /// Instead of [threshold]: ask for the next page while fewer than this
+  /// many viewports of content are left below, and again as soon as a page
+  /// lands if that is still the case (needs [controller]). For feeds whose
+  /// next page should be on screen before the user gets there; at 220 px it
+  /// was requested only once they had reached the last row.
+  final double? loadAhead;
 
   /// Footer while the next page loads: one or two skeleton rows shaped like
   /// the list's own (bring their `Shimmer`). They get the list's horizontal
@@ -97,6 +105,30 @@ class _InfiniteScrollState extends State<InfiniteScroll> {
   void didUpdateWidget(InfiniteScroll old) {
     super.didUpdateWidget(old);
     if (widget.loadMoreFailed && !old.loadMoreFailed) _failedAt = clock.now();
+    // A page just landed: if the list is still short of the look-ahead (a
+    // fast fling), no scroll event may come to ask for the next one.
+    if (widget.loadAhead != null && old.loadingMore && !widget.loadingMore) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => _loadIfNear());
+    }
+  }
+
+  double _limit(ScrollMetrics m) {
+    final ahead = widget.loadAhead;
+    return ahead != null
+        ? m.viewportDimension * ahead
+        : moderateScale(widget.threshold);
+  }
+
+  void _loadIfNear() {
+    final c = widget.controller;
+    if (!mounted || c == null || !c.hasClients) return;
+    final m = c.position;
+    if (widget.hasMore &&
+        !widget.loadingMore &&
+        !_blocked &&
+        m.extentAfter < _limit(m)) {
+      widget.onLoadMore();
+    }
   }
 
   bool get _blocked {
@@ -111,7 +143,7 @@ class _InfiniteScrollState extends State<InfiniteScroll> {
     if (widget.hasMore &&
         !widget.loadingMore &&
         !_blocked &&
-        n.metrics.extentAfter < moderateScale(widget.threshold)) {
+        n.metrics.extentAfter < _limit(n.metrics)) {
       _failedAt = null;
       if (_asked) return false;
       _asked = true;

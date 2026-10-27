@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 import '../config/env.dart';
+import '../storage/app_prefs.dart';
 import '../storage/token_storage.dart';
 import '../utils/log.dart';
 import 'api_exception.dart';
@@ -191,22 +192,43 @@ abstract final class ApiClient {
     if (refreshToken == null || refreshToken.isEmpty) {
       throw const ApiException(ApiErrorType.unauthorized);
     }
-    // Bare Dio: the refresh call must not go through the 401 interceptor.
-    final res =
-        await Dio(
-          BaseOptions(
-            baseUrl: Env.apiBaseUrl,
-            connectTimeout: const Duration(seconds: 10),
-            receiveTimeout: const Duration(seconds: 10),
-            headers: _baseHeaders,
-          ),
-        ).post<dynamic>(
-          '/api/session-auth/refresh',
-          data: {
-            'refreshToken': refreshToken,
-            'deviceInfo': await DeviceInfo.get(),
-          },
-        );
+    final Response<dynamic> res;
+    try {
+      // Bare Dio: the refresh call must not go through the 401 interceptor.
+      res =
+          await Dio(
+            BaseOptions(
+              baseUrl: Env.apiBaseUrl,
+              connectTimeout: const Duration(seconds: 10),
+              receiveTimeout: const Duration(seconds: 10),
+              headers: _baseHeaders,
+            ),
+          ).post<dynamic>(
+            '/api/session-auth/refresh',
+            data: {
+              'refreshToken': refreshToken,
+              // The rotated session takes its push tokens from here, else
+              // from older rows of this device id, which can be dead or
+              // empty — and a call rings only the session's token. Keys as
+              // in PushTokens (api/authscreen/push_api.dart).
+              'deviceInfo': {
+                ...await DeviceInfo.get(),
+                'fcmToken': ?_nonEmpty(AppPrefs.getString('fcm_token')),
+                'voipToken': ?_nonEmpty(AppPrefs.getString('voip_token')),
+              },
+            },
+          );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        final access = await _rotatedElsewhere(refreshToken);
+        if (access != null) {
+          _loggingOut = false;
+          _tokenRefreshed.add(access);
+          return access;
+        }
+      }
+      rethrow;
+    }
 
     final body = res.data;
     final d = body is Map ? (body['data'] is Map ? body['data'] : body) : null;
@@ -235,6 +257,24 @@ abstract final class ApiClient {
     return access;
   }
 
+  /// The refresh token was refused because another isolate (the FCM or
+  /// CallKit background handler, refreshing at the same moment) already
+  /// used it: the backend accepts each one once. That isolate saves the new
+  /// pair to the shared store a moment later — use it. Logging out instead
+  /// wiped the session for every isolate, and each ring after that was
+  /// dropped as signed out until the next login.
+  static Future<String?> _rotatedElsewhere(String sent) async {
+    for (var i = 0; i < 6; i++) {
+      final current = await TokenStorage.instance.readRefreshToken();
+      if (current != null && current.isNotEmpty && current != sent) {
+        final access = await TokenStorage.instance.readAccessToken();
+        if (access != null && access.isNotEmpty) return access;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+    return null;
+  }
+
   static void _forceLogout(Object cause) {
     if (_loggingOut) return;
     _loggingOut = true;
@@ -244,6 +284,8 @@ abstract final class ApiClient {
     );
   }
 }
+
+String? _nonEmpty(String? s) => s == null || s.isEmpty ? null : s;
 
 const _kSkipAuth = 'skipAuth';
 const _kRetry = 'retry';
