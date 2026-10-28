@@ -17,6 +17,7 @@ import 'package:vibelive/app/api/listingflow/search_models.dart';
 import 'package:vibelive/core/config/env.dart';
 import 'package:vibelive/core/network/api_client.dart';
 import 'package:vibelive/core/query/query_hooks.dart';
+import 'package:vibelive/app/api/homescreen/feed_shuffle.dart';
 
 String abs(String path) => '${Env.apiBaseUrl}$path';
 
@@ -100,6 +101,8 @@ Map<String, dynamic> expertRow() => {
 };
 
 void main() {
+  // These check paging and rendering in the server's order.
+  FeedShuffle.enabled = false;
   group('HostCard.fromJson', () {
     test('expert-profile payload (Strapi v5)', () {
       final h = HostCard.fromJson(expertRow());

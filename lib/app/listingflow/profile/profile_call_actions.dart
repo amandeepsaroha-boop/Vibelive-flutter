@@ -12,7 +12,8 @@ import 'helper/host_profile_rules.dart';
 import 'profile_header.dart';
 
 /// Audio / video call buttons with their rates (RN `CallActionsContent`).
-/// A call type without a rate is hidden; company accounts call for free.
+/// A call type without a rate is hidden; company accounts call for free (the
+/// rate still shows, above the label).
 /// Only this block rebuilds while a call is being prepared.
 class ProfileCallActions extends StatelessWidget {
   const ProfileCallActions({
@@ -182,14 +183,32 @@ class _CallButton extends StatelessWidget {
                 ),
               SizedBox(width: 8.ms),
               Flexible(
-                child: CText(
-                  busy ? 'host:call.connecting' : (label ?? 'host:call.rate'),
-                  variables: {'price': HostProfileRules.price(price)},
-                  size: 13,
-                  weight: FontWeight.w900,
-                  letterSpacing: 0.5,
-                  color: fg,
-                  maxLines: 1,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // A company calls for free, but still sees the host's
+                    // rate above "Audio / Video Call".
+                    if (label != null && price > 0 && !busy)
+                      CText(
+                        'host:call.rate',
+                        variables: {'price': HostProfileRules.price(price)},
+                        size: 10.5,
+                        weight: FontWeight.w700,
+                        color: fg.withValues(alpha: 0.8),
+                        maxLines: 1,
+                      ),
+                    CText(
+                      busy
+                          ? 'host:call.connecting'
+                          : (label ?? 'host:call.rate'),
+                      variables: {'price': HostProfileRules.price(price)},
+                      size: 13,
+                      weight: FontWeight.w900,
+                      letterSpacing: 0.5,
+                      color: fg,
+                      maxLines: 1,
+                    ),
+                  ],
                 ),
               ),
             ],

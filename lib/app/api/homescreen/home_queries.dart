@@ -9,6 +9,7 @@ import '../../../core/query/query_persist.dart';
 import '../listingflow/filter_models.dart';
 import '../listingflow/host_index.dart';
 import '../listingflow/listing_models.dart';
+import 'feed_shuffle.dart';
 import 'home_api.dart';
 import 'home_keys.dart';
 import 'home_models.dart';
@@ -99,6 +100,7 @@ DiscoverFeed useDiscoverFeed(BuildContext context) {
   }
 
   Future<void> refresh() {
+    FeedShuffle.reseed(); // a new order within each page
     final done = pendingRefresh.value ??= Completer<void>();
     final data = queryCache.getQueryData<FeedData, ApiException>(HomeKeys.feed);
     if (!query.isFetching && data != null && data.pages.length > 1) {
@@ -174,10 +176,10 @@ Future<void> prefetchDiscover() {
   return firstPage;
 }
 
-/// Every feed page fills [HostIndex] (profiles open from it); page 1 is
-/// also kept on disk.
+/// Every feed page, its hosts shuffled within it ([FeedShuffle]), fills
+/// [HostIndex] (profiles open from it); page 1 is also kept on disk.
 Future<HostPage> _fetchFeedPage(int page) async {
-  final result = await HomeApi.fetchFeedPage(page);
+  final result = _shuffled(await HomeApi.fetchFeedPage(page));
   HostIndex.seed(result.hosts);
   if (page == 1) QueryPersist.write(HomeKeys.feed, result.toJson());
   return result;
@@ -195,14 +197,23 @@ bool _hydrateFeed() {
   if (queryCache.getQueryData<FeedData, ApiException>(HomeKeys.feed) != null) {
     return false;
   }
-  final page = QueryPersist.read<HostPage>(HomeKeys.feed, HostPage.fromJson);
-  if (page == null) return false;
+  final saved = QueryPersist.read<HostPage>(HomeKeys.feed, HostPage.fromJson);
+  if (saved == null) return false;
+  // In this launch's order, which the refetch keeps: no jump when it lands.
+  final page = _shuffled(saved);
   queryCache.setQueryData<FeedData, ApiException>(
     HomeKeys.feed,
     (_) => FeedData(pages: [page], pageParams: [1]),
   );
   return true;
 }
+
+HostPage _shuffled(HostPage p) => HostPage(
+  page: p.page,
+  hosts: FeedShuffle.within(p.hosts),
+  hasMore: p.hasMore,
+  total: p.total,
+);
 
 /// What the grid shows for [tab] + [filter]. Filtering is client-side over
 /// a paginated feed, so while fewer than [minFilteredResults] loaded hosts

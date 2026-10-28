@@ -25,6 +25,7 @@ import 'package:vibelive/core/theme/app_theme.dart';
 import 'package:vibelive/core/theme/theme_controller.dart';
 import 'package:vibelive/core/utils/scale.dart';
 import 'package:vibelive/main.dart';
+import 'package:vibelive/app/api/homescreen/feed_shuffle.dart';
 
 /// Feed of 2 pages x 6 hosts, a support-topic form and a wallet. [rich]:
 /// hosts with a long rate and a rating, no district, and a huge balance.
@@ -125,6 +126,8 @@ Future<void> _pump(WidgetTester tester, int ms) async {
 }
 
 void main() {
+  // These check paging and rendering in the server's order.
+  FeedShuffle.enabled = false;
   late _Backend backend;
 
   setUpAll(() async {

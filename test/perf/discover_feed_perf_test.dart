@@ -20,6 +20,7 @@ import 'package:vibelive/core/storage/app_prefs.dart';
 import 'package:vibelive/core/theme/theme_controller.dart';
 import 'package:vibelive/core/utils/scale.dart';
 import 'package:vibelive/main.dart';
+import 'package:vibelive/app/api/homescreen/feed_shuffle.dart';
 
 import 'perf_harness.dart';
 
@@ -100,6 +101,8 @@ Future<Set<String>> rebuiltCards(
 }
 
 void main() {
+  // These check paging and rendering in the server's order.
+  FeedShuffle.enabled = false;
   late _Backend backend;
 
   setUpAll(() async {

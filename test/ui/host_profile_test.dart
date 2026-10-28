@@ -332,11 +332,7 @@ void main() {
     expect(find.text('Listener and coach.'), findsOneWidget);
     // Demographic answers are dropped; the host's own languages win over a
     // language-looking answer (no extra "English" from the tag).
-    await tester.scrollUntilVisible(
-      find.text('HINDI'),
-      200,
-      scrollable: list,
-    );
+    await tester.scrollUntilVisible(find.text('HINDI'), 200, scrollable: list);
     expect(find.text('Breakup'), findsOneWidget);
     expect(find.text('ENGLISH'), findsNothing);
     expect(find.text('Female'), findsNothing);
@@ -466,6 +462,24 @@ void main() {
     await _pump(tester, 400);
     expect(find.text('🪞 This is Your Profile'), findsOneWidget);
     expect(backend.requests, isNot(contains('GET /api/wallets')));
+    await finish(tester);
+  });
+
+  testWidgets('a company sees the rate above Audio / Video Call', (
+    tester,
+  ) async {
+    await SessionStore.instance.signIn(
+      user: {..._me('u1'), 'is_company_account': true},
+      accessToken: 'access',
+    );
+    await open(tester);
+
+    expect(find.text('Company Account • Free Calling'), findsOneWidget);
+    expect(find.text('Audio Call'), findsOneWidget);
+    expect(find.text('Video Call'), findsOneWidget);
+    expect(find.text('₹20/min'), findsOneWidget);
+    expect(find.text('₹30/min'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await finish(tester);
   });
 
