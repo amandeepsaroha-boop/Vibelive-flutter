@@ -769,6 +769,42 @@ void main() {
       expect(mine?.handler, 'h');
     });
 
+    test('a lookup answered with another host is not taken as ours', () async {
+      // Signed in, the list returned the viewer's personalized feed with the
+      // filter ignored: its first host, not the one asked for (prod bug).
+      backend.handler = (_) => _json({
+        'data': [
+          {
+            'id': 9,
+            'documentId': 'nisha',
+            'handler': 'i_am_nisha',
+            'user': {'documentId': 'u-nisha'},
+          },
+        ],
+      });
+      expect(
+        await HostProfileApi.fetchById('mine', ownerUserDocumentId: 'u1'),
+        isNull,
+      );
+      expect(await HostProfileApi.fetchByUser('u1'), isNull);
+      expect(
+        backend.requests.last.queryParameters,
+        containsPair('populate[user][fields][0]', 'documentId'),
+      );
+
+      backend.handler = (_) => _json({
+        'data': [
+          {
+            'id': 3,
+            'documentId': 'mine',
+            'handler': 'dc_vibe',
+            'user': {'documentId': 'u1'},
+          },
+        ],
+      });
+      expect((await HostProfileApi.fetchByUser('u1'))?.handler, 'dc_vibe');
+    });
+
     test('stats: no row is the empty record', () async {
       backend.handler = (_) => _json({'data': <Object>[]});
       final none = await HostStatsApi.fetch('u1');

@@ -158,6 +158,12 @@ class _Item extends StatelessWidget {
   /// Drawn instead of [icon]: a photo, or the name's letter without one.
   final ({String? url, String? name})? avatar;
 
+  /// The active avatar's ring: about 1 pt, in whole device pixels.
+  static double _ring(BuildContext context) {
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return math.max(1, dpr.round()) / dpr;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -170,18 +176,21 @@ class _Item extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (avatar case final a?)
-              Container(
-                padding: EdgeInsets.all(1.5.ms),
+              // The ring lies on the photo's own edge (no gap, so one clean
+              // outline) and is a whole number of device pixels thick: 1 pt
+              // is 1.75 px on a 1.75x phone, and that stroke aliased into a
+              // ring that looked broken.
+              DecoratedBox(
+                position: DecorationPosition.foreground,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    width: 1.5,
-                    color: active ? c.accent : AppColors.transparent,
-                  ),
+                  border: active
+                      ? Border.all(width: _ring(context), color: c.accent)
+                      : null,
                 ),
                 // The tab is named "Profile", not the avatar's letter.
                 child: ExcludeSemantics(
-                  child: CAvatar(url: a.url, name: a.name, size: 24.ms),
+                  child: CAvatar(url: a.url, name: a.name, size: 27.ms),
                 ),
               )
             else

@@ -30,6 +30,15 @@ abstract final class HostStatusColors {
   };
 }
 
+/// Each mode's (Lucide) icon, the same in the dock's pill and this sheet.
+abstract final class HostStatusIcons {
+  static IconData of(HostAvailability mode) => switch (mode) {
+    HostAvailability.available => LucideIcons.phoneCall,
+    HostAvailability.custom => LucideIcons.calendarClock,
+    HostAvailability.vacation => LucideIcons.power,
+  };
+}
+
 /// "Host Availability": online / my working hours / offline (for good or for
 /// a while), as a light bottom sheet for the signed-in host. Any choice
 /// closes it at once; [HostAvailabilityController] saves behind it and the
@@ -111,7 +120,7 @@ class _HostAvailabilitySheet extends StatelessWidget {
             SizedBox(height: 12.ms),
             _Option(
               tone: HostStatusColors.online,
-              icon: LucideIcons.phoneCall,
+              icon: HostStatusIcons.of(HostAvailability.available),
               title: 'client:me.availability.sheet.online_title',
               subtitle: const _Muted(
                 'client:me.availability.sheet.online_desc',
@@ -125,7 +134,7 @@ class _HostAvailabilitySheet extends StatelessWidget {
             SizedBox(height: 8.ms),
             _Option(
               tone: HostStatusColors.scheduled,
-              icon: LucideIcons.calendarClock,
+              icon: HostStatusIcons.of(HostAvailability.custom),
               title: 'client:me.availability.sheet.schedule_title',
               subtitle: summary == null
                   ? const _Muted('client:me.availability.sheet.schedule_unset')
@@ -151,7 +160,7 @@ class _HostAvailabilitySheet extends StatelessWidget {
             SizedBox(height: 8.ms),
             _Option(
               tone: HostStatusColors.offline,
-              icon: LucideIcons.power,
+              icon: HostStatusIcons.of(HostAvailability.vacation),
               title: 'client:me.availability.sheet.offline_title',
               subtitle: const _OfflineStatus(),
               active: mode == HostAvailability.vacation,

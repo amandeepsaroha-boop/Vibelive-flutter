@@ -40,17 +40,22 @@ abstract final class HostProfileApi {
       StrapiLookup.ownIdFilters(expertId),
       query: populate,
     );
-    return HostProfile.from(row);
+    final found = HostProfile.from(row);
+    // Signed in, the list can answer with the viewer's personalized feed,
+    // filter ignored (its first host): never take that for this record.
+    return found != null && found.isSameRecord(expertId) ? found : null;
   }
 
-  /// The host profile owned by a user (null for a non-host).
+  /// The host profile owned by a user (null for a non-host, or when the
+  /// answer is someone else's: see [fetchById]).
   static Future<HostProfile?> fetchByUser(String userDocumentId) async {
     final row = await StrapiLookup.fetchLatest(
       '/expert-profiles',
       StrapiLookup.relationFilters('user', userDocumentId),
-      query: populate,
+      query: {...populate, 'populate[user][fields][0]': 'documentId'},
     );
-    return HostProfile.from(row);
+    final owner = J.str(Strapi.map(Strapi.map(row)?['user'])?['documentId']);
+    return owner == userDocumentId ? HostProfile.from(row) : null;
   }
 
   /// The created record; throws when the response carries none.

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vibelive/app/api/hosthub/profile_models.dart';
@@ -10,6 +12,7 @@ import 'package:vibelive/core/i18n/i18n.dart';
 import 'package:vibelive/core/network/strapi.dart';
 import 'package:vibelive/core/router/app_router.dart';
 import 'package:vibelive/core/session/session_store.dart';
+import 'package:vibelive/core/storage/app_prefs.dart';
 import 'package:vibelive/core/theme/theme_controller.dart';
 import 'package:vibelive/main.dart';
 
@@ -133,6 +136,54 @@ void main() {
         'rates': {'voiceCallRate': 25.0, 'videoCallRate': 40.0},
       },
     });
+    await finishHost(tester);
+  });
+
+  testWidgets('a host back in the flow: Back returns where it was opened', (
+    tester,
+  ) async {
+    Future<void> openFrom(Widget flow) async {
+      await pumpRoutes(
+        tester,
+        Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute<void>(builder: (_) => flow)),
+              child: const Text('ORIGIN'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('ORIGIN'));
+      await pumpFor(tester, 900);
+    }
+
+    // Editing one section (step 5): Back leaves, it doesn't step to 4.
+    backend = await resetHost(expert: _host(active: true));
+    phone(tester);
+    await openFrom(const HostOnboardingScreen(editStep: HostStep.tagline));
+    expect(find.text('5 of 11'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Back'));
+    await pumpFor(tester, 600);
+    expect(find.byType(HostOnboardingScreen), findsNothing);
+    expect(find.text('ORIGIN'), findsOneWidget);
+    await finishHost(tester);
+
+    // An approved host resuming the whole flow on step 5: same.
+    backend = await resetHost(expert: _host(active: true));
+    await AppPrefs.setString(
+      'hostflow_draft_v1:u1',
+      jsonEncode({'step': 'tagline', 'started': true, 'seeded': true}),
+    );
+    phone(tester);
+    await openFrom(const HostOnboardingScreen());
+    expect(find.text('5 of 11'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Back'));
+    await pumpFor(tester, 600);
+    expect(find.byType(HostOnboardingScreen), findsNothing);
+    expect(find.text('ORIGIN'), findsOneWidget);
     await finishHost(tester);
   });
 

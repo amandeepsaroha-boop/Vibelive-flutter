@@ -20,7 +20,6 @@ class MeData {
     required this.profile,
     required this.host,
     required this.status,
-    required this.hasScheduleSlots,
     required this.badgeStep,
     required this.missingPersonalInfo,
   });
@@ -32,7 +31,6 @@ class MeData {
       profile: profile,
       host: host,
       status: _statusOf(host),
-      hasScheduleSlots: host != null && hasSlots(host),
       badgeStep: HostEligibility.badgeStep(host?.raw),
       missingPersonalInfo: HostEligibility.missingPersonalInfo(profile.user),
     );
@@ -43,10 +41,6 @@ class MeData {
   /// The host profile; null for a client account.
   final HostProfile? host;
   final MeStatus status;
-
-  /// At least one saved time slot (custom mode without one sends the host to
-  /// the schedule screen).
-  final bool hasScheduleSlots;
 
   /// Verification Badge progress; null before approval / for a client.
   final VerificationStep? badgeStep;
@@ -113,9 +107,6 @@ class MeData {
     final slug = handler ?? userDocumentId;
     return slug == null ? null : LinkParser.shareLink(slug);
   }
-
-  static bool hasSlots(HostProfile p) =>
-      p.scheduleRows.any((row) => Strapi.list(row['timeSlots']).isNotEmpty);
 
   /// RN MeCard: a host switched off (`isActive: false`) is offline whatever
   /// the socket says; unknown counts as offline too.

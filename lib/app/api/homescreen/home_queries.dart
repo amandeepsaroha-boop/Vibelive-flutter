@@ -140,7 +140,8 @@ QueryResult<List<HostCard>, ApiException> usePopularHosts(
 );
 
 /// Startup prefetch: Discover's page 1 and Popular, so Home opens on them.
-void prefetchDiscover() {
+/// Completes once feed page 1 is in (or failed); at once when it is fresh.
+Future<void> prefetchDiscover() {
   final feed = queryCache.entry<FeedData>(HomeKeys.feed);
   final updatedAt = feed?.dataUpdatedAt;
   final feedFresh =
@@ -148,26 +149,29 @@ void prefetchDiscover() {
       updatedAt != null &&
       !feed!.isInvalidated &&
       DateTime.now().difference(updatedAt) < StaleTime.short;
+  var firstPage = Future<void>.value();
   if (!feedFresh) {
     // Same in-flight id as the hook's first page: a mounting grid joins it.
-    QueryInflight.run<HostPage>([
-      ...HomeKeys.feed,
-      '#page',
-    ], () => _fetchFeedPage(1)).then((page) {
-      // A grid that joined stores its own page 1 (seeding too doubles it).
-      if (queryCache.canSeed<FeedData>(HomeKeys.feed)) {
-        queryCache.setQueryData<FeedData, ApiException>(
-          HomeKeys.feed,
-          (_) => FeedData(pages: [page], pageParams: [1]),
-        );
-      }
-    }, onError: (Object _) {});
+    firstPage =
+        QueryInflight.run<HostPage>([
+          ...HomeKeys.feed,
+          '#page',
+        ], () => _fetchFeedPage(1)).then((page) {
+          // A grid that joined stores its own page 1 (seeding too doubles it).
+          if (queryCache.canSeed<FeedData>(HomeKeys.feed)) {
+            queryCache.setQueryData<FeedData, ApiException>(
+              HomeKeys.feed,
+              (_) => FeedData(pages: [page], pageParams: [1]),
+            );
+          }
+        }, onError: (Object _) {});
   }
   queryCache.prefetchQuery<List<HostCard>>(HomeKeys.popular, () async {
     final hosts = await _fetchPopular();
     QueryPersist.write(HomeKeys.popular, [for (final h in hosts) h.toJson()]);
     return hosts;
   });
+  return firstPage;
 }
 
 /// Every feed page fills [HostIndex] (profiles open from it); page 1 is

@@ -10,9 +10,9 @@ import '../../../api/hosthub/profile_models.dart';
 import '../../../component/c_alert.dart';
 import 'me_data.dart';
 
-/// The signed-in host's availability, from anywhere (sheet, dock, Profile
-/// card) and with no widget alive: the sheet closes on the tap and the save
-/// carries on here.
+/// The signed-in host's availability, from anywhere (the dock's sheet,
+/// Discover's banner) and with no widget alive: the sheet closes on the tap
+/// and the save carries on here.
 ///
 /// - [pending]: the mode being saved, shown at once (optimistic) until the
 ///   re-read session carries it; a failure alerts and falls back.
@@ -30,16 +30,26 @@ abstract final class HostAvailabilityController {
   /// Time left on the offline timer, ticking once a second while it runs.
   static final remaining = ValueNotifier<Duration?>(null);
 
+  /// Tests move time forward with this.
+  @visibleForTesting
+  static DateTime Function() clock = DateTime.now;
+
   static Timer? _ticker;
   static bool _attached = false;
   static bool _saving = false;
 
-  /// Once, from the host dock: resumes the countdown and catches a timer
-  /// that ended while the app was closed or in the background.
+  /// The user whose timer [offlineUntil] is. Stored with it: on a phone
+  /// shared by several accounts, a timer must never put the next one online.
+  static String? _owner;
+
+  /// From the host dock, whenever it mounts (so after an account switch
+  /// too): resumes the countdown and catches a timer that ended while the
+  /// app was closed or in the background; on resume as well.
   static void attach() {
-    if (_attached) return;
-    _attached = true;
-    AppLifecycleListener(onResume: _check);
+    if (!_attached) {
+      _attached = true;
+      AppLifecycleListener(onResume: _check);
+    }
     _check();
   }
 
@@ -57,9 +67,10 @@ abstract final class HostAvailabilityController {
   static Future<void> goOffline(Duration? duration) async {
     await _clearTimer();
     if (duration != null) {
-      final until = DateTime.now().add(duration);
+      final until = clock().add(duration);
+      _owner = SessionStore.instance.value.userDocumentId;
       offlineUntil.value = until;
-      await AppPrefs.setString(_untilKey, until.toIso8601String());
+      await AppPrefs.setString(_untilKey, '$_owner|${until.toIso8601String()}');
       _startTicker();
     }
     await _save(HostAvailability.vacation);
@@ -67,7 +78,7 @@ abstract final class HostAvailabilityController {
 
   /// Until the next 9 AM (today's when it is still early, else tomorrow's).
   static Duration untilMorning([DateTime? now]) {
-    final t = now ?? DateTime.now();
+    final t = now ?? clock();
     final today = DateTime(t.year, t.month, t.day, 9);
     final next = t.isBefore(today)
         ? today
@@ -112,10 +123,17 @@ abstract final class HostAvailabilityController {
     }
   }
 
+  static bool get _mine =>
+      _owner != null && _owner == SessionStore.instance.value.userDocumentId;
+
   static void _check() {
     final until = offlineUntil.value;
     if (until == null) return;
-    if (DateTime.now().isBefore(until)) {
+    if (!_mine) {
+      unawaited(_clearTimer()); // another account's: drop it, change nothing
+      return;
+    }
+    if (clock().isBefore(until)) {
       _startTicker();
       return;
     }
@@ -124,7 +142,9 @@ abstract final class HostAvailabilityController {
 
   /// The timer ran out: back online, unless the host moved off offline.
   static Future<void> _expire() async {
+    final mine = _mine;
     await _clearTimer();
+    if (!mine) return;
     final data = MeData.of(SessionStore.instance.value);
     if (data.isExpert && data.availability == HostAvailability.vacation) {
       await _save(HostAvailability.available);
@@ -136,7 +156,7 @@ abstract final class HostAvailabilityController {
     void tick() {
       final until = offlineUntil.value;
       if (until == null) return;
-      final left = until.difference(DateTime.now());
+      final left = until.difference(clock());
       if (left <= Duration.zero) {
         unawaited(_expire());
       } else {
@@ -152,6 +172,7 @@ abstract final class HostAvailabilityController {
     _ticker?.cancel();
     _ticker = null;
     remaining.value = null;
+    _owner = null;
     if (offlineUntil.value == null) return;
     offlineUntil.value = null;
     await AppPrefs.remove(_untilKey);
@@ -160,14 +181,19 @@ abstract final class HostAvailabilityController {
   /// Tests: no timer, nothing saving.
   @visibleForTesting
   static Future<void> reset() async {
+    clock = DateTime.now;
     pending.value = null;
     _saving = false;
     await _clearTimer();
   }
 
+  /// `userDocumentId|ISO time`; anything else (no owner) is dropped.
   static DateTime? _readUntil() {
     final raw = AppPrefs.getString(_untilKey);
-    return raw == null ? null : DateTime.tryParse(raw);
+    final at = raw?.indexOf('|') ?? -1;
+    if (raw == null || at <= 0) return null;
+    _owner = raw.substring(0, at);
+    return DateTime.tryParse(raw.substring(at + 1));
   }
 }
 

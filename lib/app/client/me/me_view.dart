@@ -22,7 +22,6 @@ import '../../hosthub/approved/host_status_section.dart';
 import '../../navbar/bottombar/navbar_collapse.dart';
 import 'helper/me_actions.dart';
 import 'helper/me_data.dart';
-import 'widgets/availability_card.dart';
 import 'widgets/host_dashboard.dart';
 import 'widgets/me_segmented.dart';
 import 'widgets/me_skeleton.dart';
@@ -85,7 +84,6 @@ class MeView extends HookWidget {
               open: (route) => MeActions.open(context, route),
             ),
           ),
-          SliverToBoxAdapter(child: MeAvailabilityCard(data: data)),
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.only(top: 16.ms),

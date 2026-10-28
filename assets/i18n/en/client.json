@@ -104,16 +104,6 @@
         "for_2h": "2 hours",
         "till_morning": "Till 9 AM"
       },
-      "title": "AVAILABILITY MODES",
-      "manage": "Manage Schedule",
-      "available": "Available",
-      "vacation": "Vacation",
-      "custom": "Custom",
-      "updating": "Updating...",
-      "hint_vacation": "Calls are paused while you're away.",
-      "hint_available": "Clients can start calls instantly.",
-      "hint_custom": "Calls follow your saved schedule.",
-      "hint_custom_unset": "Set your schedule to receive calls.",
       "error_title": "Availability",
       "no_profile": "Professional profile is not available yet."
     },

@@ -275,7 +275,7 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('host: availability, dashboard figures and settings', (
+  testWidgets('host: profile card, dashboard figures and settings', (
     tester,
   ) async {
     await openMe(tester, user: backend.hostUser(), expert: backend.expert());
@@ -284,7 +284,8 @@ void main() {
     expect(find.text('Riya'), findsOneWidget);
     expect(find.text('@riya'), findsOneWidget);
     expect(find.text('Available for calls'), findsOneWidget);
-    expect(find.text('AVAILABILITY MODES'), findsOneWidget);
+    // Availability lives in the dock's sheet, not on this screen.
+    expect(find.text('AVAILABILITY MODES'), findsNothing);
     expect(find.text('₹1,500'), findsOneWidget); // lifetime earnings
     expect(find.text('VIBE42'), findsOneWidget); // invite card code
 
@@ -314,21 +315,12 @@ void main() {
       );
     }
     expect(find.text('AVG DURATION (IN)'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Vacation'),
-      -300,
-      scrollable: _meScrollable,
-    );
-    await _pump(tester, 100);
 
-    // Vacation: saved, re-read into the session, shown on the card.
-    await tester.tap(find.text('Vacation'));
-    await tester.pump();
-    expect(find.text('Updating...'), findsOneWidget);
+    // Offline from the dock: saved, re-read into the session, on the card.
+    HostAvailabilityController.goOffline(null).ignore();
     await _pump(tester, 800);
     expect(backend.requests, contains('PUT /api/expert-profiles/exp1'));
     expect(backend.vacation, isTrue);
-    expect(find.text("Calls are paused while you're away."), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('On vacation'), // the profile card's pill
       -300,
@@ -612,6 +604,42 @@ void main() {
       backend.requests.skip(puts).where((r) => r.startsWith('PUT')),
       isEmpty,
     );
+    await finish(tester);
+  });
+
+  testWidgets('an offline timer never acts for another account', (
+    tester,
+  ) async {
+    await openMe(tester, user: backend.hostUser(), expert: backend.expert());
+    await _pump(tester, 600);
+    // Host A: offline for 30 min.
+    HostAvailabilityController.goOffline(const Duration(minutes: 30)).ignore();
+    await _pump(tester, 600);
+    expect(HostAvailabilityController.offlineUntil.value, isNotNull);
+
+    // Host B (on a break) signs in on the same phone after A's timer ended.
+    await SessionStore.instance.signIn(
+      user: {...backend.hostUser(), 'id': 7, 'documentId': 'u-other'}
+        ..remove('expert'),
+      expert: {
+        ...backend.expert(),
+        'id': 9,
+        'documentId': 'exp2',
+        'vocationMode': true,
+        'callAnyTime': false,
+      },
+      accessToken: 'access',
+    );
+    HostAvailabilityController.clock = () =>
+        DateTime.now().add(const Duration(hours: 1));
+    HostAvailabilityController.attach();
+    await _pump(tester, 1500);
+    // B stays offline: nothing is saved for B, and A's timer is dropped.
+    expect(
+      backend.requests.where((r) => r.contains('/expert-profiles/exp2')),
+      isEmpty,
+    );
+    expect(HostAvailabilityController.offlineUntil.value, isNull);
     await finish(tester);
   });
 

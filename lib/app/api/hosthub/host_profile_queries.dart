@@ -13,10 +13,7 @@ QueryResult<HostProfile?, ApiException> useHostProfile(
   final id = expertId ?? _ownExpertId(session);
   return useApiQuery<HostProfile?>(
     HostHubKeys.profile(id ?? ''),
-    () => HostProfileApi.fetchById(
-      id!,
-      ownerUserDocumentId: session.userDocumentId,
-    ),
+    () => _fetchOrSessionCopy(id!),
     context: context,
     enabled: enabled && id != null,
     staleDuration: StaleTime.short,
@@ -44,11 +41,23 @@ QueryResult<HostProfile?, ApiException> useHostProfileByUser(
 Future<HostProfile?> ensureHostProfile(String expertId) =>
     queryCache.fetchQuery<HostProfile?>(
       HostHubKeys.profile(expertId),
-      () => HostProfileApi.fetchById(
-        expertId,
-        ownerUserDocumentId: SessionStore.instance.value.userDocumentId,
-      ),
+      () => _fetchOrSessionCopy(expertId),
     );
+
+/// [HostProfileApi.fetchById]; for the signed-in host's own record, the
+/// session's copy (read through `/public-users`, which is never personalized)
+/// when the list would not return it.
+Future<HostProfile?> _fetchOrSessionCopy(String expertId) async {
+  final session = SessionStore.instance.value;
+  final found = await HostProfileApi.fetchById(
+    expertId,
+    ownerUserDocumentId: session.userDocumentId,
+  );
+  if (found != null || !HostProfile.sameRecord(session.expert, expertId)) {
+    return found;
+  }
+  return HostProfile.from(session.expert);
+}
 
 /// Completion including the expertise check (RN `getExpertProfileCompletion`).
 Future<HostProfileCompletion> checkHostProfileCompletion(

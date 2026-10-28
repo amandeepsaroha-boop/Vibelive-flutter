@@ -63,7 +63,6 @@ void main() {
       'MeView',
       '_FirstLoadGate',
       'MeProfileCard',
-      'MeAvailabilityCard',
       'HostStatusSection',
       'MeSegmented<MeSection>',
       'MeHostDashboard',

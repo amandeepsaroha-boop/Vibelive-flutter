@@ -12,12 +12,12 @@ import '../../client/me/widgets/host_availability_sheet.dart';
 import '../../component/c_text.dart';
 import '../../component/pressable.dart';
 
-/// The host's availability at a glance (Online / Scheduled / Offline, with
-/// the time left on an offline timer) beside the navbar; a tap opens
-/// [showHostAvailabilitySheet]. A mode being saved shows at once. Fixed
-/// [width] so the dock can size the island beside it; long labels (Hindi)
-/// scale down. The dock decides who sees it (hosts only). Static (no pulse):
-/// it sits over a scrolling feed.
+/// The host's availability at a glance (the mode's icon and Online /
+/// Scheduled / Offline, with the time left on an offline timer) beside the
+/// navbar; a tap opens [showHostAvailabilitySheet]. A mode being saved shows
+/// at once. Fixed [width] so the dock can size the island beside it; long
+/// labels (Hindi) scale down. The dock decides who sees it (hosts only).
+/// Static (no pulse or glow): it sits over a scrolling feed.
 class HostStatusPill extends StatefulWidget {
   const HostStatusPill({super.key, required this.mode, required this.height});
   final HostAvailability mode;
@@ -75,18 +75,7 @@ class _Pill extends StatelessWidget {
         'home:status.offline',
       ),
     };
-    final Widget lead = switch (mode) {
-      HostAvailability.available => const _Dot(
-        color: HostStatusColors.online,
-        glow: true,
-      ),
-      HostAvailability.custom => Icon(
-        LucideIcons.clock,
-        size: 15.ms,
-        color: fg,
-      ),
-      HostAvailability.vacation => const _Dot(color: Color(0xFF94A3B8)),
-    };
+    final lead = Icon(HostStatusIcons.of(mode), size: 15.ms, color: fg);
     final text = CText(
       label,
       size: 13.5,
@@ -152,23 +141,4 @@ class _Pill extends StatelessWidget {
       ),
     );
   }
-}
-
-class _Dot extends StatelessWidget {
-  const _Dot({required this.color, this.glow = false});
-  final Color color;
-  final bool glow;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 11.ms,
-    height: 11.ms,
-    decoration: BoxDecoration(
-      color: color,
-      shape: BoxShape.circle,
-      boxShadow: glow
-          ? [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 8)]
-          : null,
-    ),
-  );
 }

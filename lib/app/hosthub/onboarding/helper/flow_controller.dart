@@ -37,8 +37,7 @@ class HostFlowController {
   /// Pricing floors for the rates check: `(voice, video)`.
   final (double, double) Function() rateFloors;
 
-  /// A host editing from the Host Hub: Back before the first form step
-  /// leaves instead of showing the intro.
+  /// A host editing one section (opened on its step from the Host Hub).
   final bool editing;
 
   /// An existing host (approved, live or pending review): the last step
@@ -48,6 +47,11 @@ class HostFlowController {
   final bool Function()? existingHost;
 
   bool get savesInstead => saveAll != null && (existingHost?.call() ?? false);
+
+  /// Back returns to wherever the flow was opened from instead of walking
+  /// the steps: editing a section, or an existing host (applied or approved)
+  /// going through it again. Only a first application steps back.
+  bool get _backLeaves => editing || (existingHost?.call() ?? false);
 
   /// Continue shows a spinner and ignores taps while true.
   final busy = ValueNotifier(false);
@@ -94,7 +98,7 @@ class HostFlowController {
     final step = draft.step.value;
     if (step == HostStep.intro ||
         step == HostStep.submitted ||
-        (editing && step == HostStep.basic && returnTo == null)) {
+        (_backLeaves && returnTo == null)) {
       exit();
       return;
     }
