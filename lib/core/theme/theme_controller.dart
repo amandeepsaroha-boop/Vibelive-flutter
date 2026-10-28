@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../storage/app_prefs.dart';
@@ -9,8 +11,21 @@ class ThemeController extends ValueNotifier<ThemeMode> {
 
   static const _prefsKey = 'vibe_theme_preference';
 
+  /// Set once the old choice has been cleared (see [load]).
+  static const _deviceDefaultKey = 'vibe_theme_device_default_v1';
+
   /// Synchronous: [AppPrefs] is already loaded.
+  ///
+  /// Once per install: a light / dark saved by the old on/off switch (or
+  /// kept from RN) is dropped, so the app starts on Device, the default.
+  /// That switch had no way back to it; choices made in the new
+  /// Device / Light / Dark control are kept as usual.
   factory ThemeController.load() {
+    if (AppPrefs.getString(_deviceDefaultKey) == null) {
+      unawaited(AppPrefs.remove(_prefsKey));
+      unawaited(AppPrefs.setString(_deviceDefaultKey, '1'));
+      return ThemeController(ThemeMode.system);
+    }
     return ThemeController(switch (AppPrefs.getString(_prefsKey)) {
       'dark' => ThemeMode.dark,
       'light' => ThemeMode.light,
@@ -27,11 +42,4 @@ class ThemeController extends ValueNotifier<ThemeMode> {
       ThemeMode.system => 'system',
     });
   }
-
-  /// RN `toggleDark`: flips relative to what is currently on screen.
-  Future<void> toggle(BuildContext context) => setMode(
-    Theme.of(context).brightness == Brightness.dark
-        ? ThemeMode.light
-        : ThemeMode.dark,
-  );
 }

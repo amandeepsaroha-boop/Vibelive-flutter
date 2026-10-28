@@ -110,6 +110,9 @@ abstract final class TextColors {
 
 /// RN `COLORS.danger / warning / info`.
 abstract final class StatusColors {
+  /// A payment or action that went through (the payment success burst).
+  static const success = Color(0xFF16A34A);
+  static const successSoft = Color(0xFFE6F8EE);
   static const danger = Color(0xFFFF5D7D);
   static const dangerRed = Color(0xFFEF4444);
   static const warning = Color(0xFFFFB020);

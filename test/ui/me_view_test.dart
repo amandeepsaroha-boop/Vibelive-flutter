@@ -17,6 +17,7 @@ import 'package:vibelive/app/client/me/widgets/me_skeleton.dart';
 import 'package:vibelive/app/component/infinite_scroll.dart';
 import 'package:vibelive/app/navbar/bottombar/bottom_navbar.dart';
 import 'package:vibelive/app/authscreen/helper/link_parser.dart';
+import 'package:vibelive/core/app_scope.dart';
 import 'package:vibelive/core/i18n/i18n.dart';
 import 'package:vibelive/core/network/api_client.dart';
 import 'package:vibelive/core/query/query_client.dart';
@@ -499,26 +500,40 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('Dark mode row: the switch flips the app theme', (tester) async {
-    await openMe(tester, user: _Backend.client);
+  testWidgets('Theme: Device follows the phone; Light / Dark stick', (
+    tester,
+  ) async {
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    await openMe(tester, user: _Backend.client, theme: ThemeMode.system);
     await _pump(tester, 600);
-    final row = find.text('Dark mode');
+    final title = find.text('Theme');
     await tester.dragUntilVisible(
-      row,
+      title,
       find.byType(CustomScrollView).last,
       const Offset(0, -200),
     );
     await _pump(tester, 200);
-    expect(row, findsOneWidget);
-    expect(find.text('On'), findsOneWidget);
+    final theme = AppScope.of(tester.element(title)).theme;
+    Brightness shown() => Theme.of(tester.element(title)).brightness;
 
-    await tester.tap(find.byType(Switch).last);
+    // Device (the default): the phone is dark, so is the app, and it follows
+    // the phone when that changes.
+    expect(theme.value, ThemeMode.system);
+    expect(shown(), Brightness.dark);
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
     await _pump(tester, 400);
-    expect(find.text('Off'), findsOneWidget);
+    expect(shown(), Brightness.light);
 
-    await tester.tap(row); // the whole row toggles too
+    await tester.tap(find.text('Dark'));
     await _pump(tester, 400);
-    expect(find.text('On'), findsOneWidget);
+    expect(theme.value, ThemeMode.dark);
+    expect(shown(), Brightness.dark); // the phone is light: Dark sticks
+
+    await tester.tap(find.text('Device'));
+    await _pump(tester, 400);
+    expect(theme.value, ThemeMode.system);
+    expect(shown(), Brightness.light);
     await finish(tester);
   });
 

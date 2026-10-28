@@ -8,15 +8,18 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/vibe_colors.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../component/c_alert.dart';
+import '../../../component/c_text.dart';
 import '../../../component/c_toast.dart';
 import '../../../hosthub/hub/host_hub_menu.dart';
 import '../../../hosthub/hub/hub_list.dart';
+import '../../../hosthub/onboarding/helper/host_palette.dart';
 import '../../../hosthub/onboarding/helper/intro_image.dart';
 import '../helper/host_unlock_promo.dart';
 import '../helper/me_actions.dart';
 import '../helper/me_data.dart';
 import '../helper/me_menu.dart';
 import 'host_unlock_row.dart';
+import 'me_segmented.dart';
 import 'me_rows.dart';
 
 /// The settings list (RN MeCard, Settings section), as a sliver: wallet,
@@ -185,29 +188,85 @@ class MeSettingsList extends HookWidget {
   }
 }
 
-/// Light / dark (it was a button on the Discover header). Switching it sets
-/// an explicit mode; the app follows the system until it is first used.
+/// Theme: Device (the default: the app follows the phone's light / dark
+/// setting, live), Light or Dark.
 class _ThemeCard extends StatelessWidget {
   const _ThemeCard();
 
+  static const _modes = [
+    MeSegment(
+      ThemeMode.system,
+      LucideIcons.smartphone,
+      'client:me.theme.system',
+    ),
+    MeSegment(ThemeMode.light, LucideIcons.sun, 'client:me.theme.light'),
+    MeSegment(ThemeMode.dark, LucideIcons.moon, 'client:me.theme.dark'),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
+    final p = HostPalette.of(context);
     final theme = AppScope.of(context).theme;
-    void set(bool dark) =>
-        theme.setMode(dark ? ThemeMode.dark : ThemeMode.light).ignore();
     return HubListCard(
       rows: [
-        HubListRow(
-          icon: c.isDark ? LucideIcons.moon : LucideIcons.sun,
-          label: 'client:me.theme.title',
-          subtitle: c.isDark ? 'client:me.theme.on' : 'client:me.theme.off',
-          chevron: false,
-          onTap: () => set(!c.isDark),
-          trailing: Switch.adaptive(
-            value: c.isDark,
-            activeTrackColor: c.accent,
-            onChanged: set,
+        Padding(
+          padding: EdgeInsets.all(14.ms),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 32.ms,
+                    height: 32.ms,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: p.tint,
+                      borderRadius: BorderRadius.circular(10.ms),
+                    ),
+                    child: Icon(
+                      context.colors.isDark
+                          ? LucideIcons.moon
+                          : LucideIcons.sun,
+                      size: 17.ms,
+                      color: p.accent,
+                    ),
+                  ),
+                  SizedBox(width: 12.ms),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CText(
+                          'client:me.theme.title',
+                          size: 15,
+                          weight: FontWeight.w600,
+                          color: p.text,
+                          maxLines: 1,
+                        ),
+                        SizedBox(height: 2.ms),
+                        CText(
+                          'client:me.theme.hint',
+                          size: 12.5,
+                          weight: FontWeight.w500,
+                          color: p.muted,
+                          maxLines: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12.ms),
+              ValueListenableBuilder<ThemeMode>(
+                valueListenable: theme,
+                builder: (_, mode, _) => MeSegmented<ThemeMode>(
+                  segments: _modes,
+                  selected: mode,
+                  onSelect: (next) => theme.setMode(next).ignore(),
+                ),
+              ),
+            ],
           ),
         ),
       ],

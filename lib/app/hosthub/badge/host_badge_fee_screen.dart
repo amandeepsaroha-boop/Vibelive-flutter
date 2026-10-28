@@ -18,6 +18,8 @@ import '../../component/c_state_view.dart';
 import '../../component/c_text.dart';
 import '../../component/pressable.dart';
 import '../../paymentscreen/wallet/helper/razorpay_gateway.dart';
+import '../../paymentscreen/wallet/helper/topup_checkout.dart';
+import '../../paymentscreen/wallet/widgets/payment_status.dart';
 import '../common/host_page.dart';
 import '../onboarding/helper/host_palette.dart';
 import '../onboarding/widgets/continue_bar.dart';
@@ -124,12 +126,13 @@ class HostBadgeFeeScreen extends HookWidget {
           case CheckoutCancelled():
             return;
           case CheckoutFailed(:final description):
-            await CAlert.show(
-              title: 'hostflow:badge.pay_failed',
-              message: description,
-              translate: description == null,
-              variant: CAlertVariant.error,
-            );
+            if (context.mounted) {
+              await showPaymentStatus(
+                context,
+                TopUpStatus(TopUpResult.failure, message: description),
+                titleKey: 'hostflow:badge.pay_failed',
+              );
+            }
             return;
           case CheckoutPaid(:final paymentId, :final orderId, :final signature):
             final paid = await confirm.mutateAsync((
@@ -142,20 +145,25 @@ class HostBadgeFeeScreen extends HookWidget {
                 payer: payer,
               ),
             ));
+            if (!context.mounted) return;
+            // The wallet's payment card: the success burst with the coin
+            // sound, or the confirming ring while it is still pending.
             if (paid == true) {
-              await CAlert.show(
-                title: 'hostflow:badge.pay_success',
-                message: 'hostflow:badge.pay_success_body',
-                variant: CAlertVariant.success,
+              await showPaymentStatus(
+                context,
+                const TopUpStatus(TopUpResult.success),
+                titleKey: 'hostflow:badge.pay_success',
+                messageKey: 'hostflow:badge.pay_success_body',
               );
               if (context.mounted) {
                 context.pushReplacement(AppRoutes.verificationBadgeForm);
               }
             } else {
-              await CAlert.show(
-                title: 'hostflow:badge.pay_pending',
-                message: 'hostflow:badge.pay_pending_body',
-                variant: CAlertVariant.warning,
+              await showPaymentStatus(
+                context,
+                const TopUpStatus(TopUpResult.pending),
+                titleKey: 'hostflow:badge.pay_pending',
+                messageKey: 'hostflow:badge.pay_pending_body',
               );
             }
         }

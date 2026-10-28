@@ -12,25 +12,47 @@ import '../helper/topup_checkout.dart';
 import '../helper/wallet_palette.dart';
 import 'payment_status_motion.dart';
 
-/// RN "Payment Successful / Received / Failed" modal (fade, black 60%).
-/// A success celebrates in the app instead of a push: the painted burst,
-/// and the coin sound + haptic the moment its check lands. The text follows
-/// it in; failure and pending show theirs at once.
-Future<void> showPaymentStatus(BuildContext context, TopUpStatus status) =>
-    showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'payment-status',
-      barrierColor: AppColors.blackA(0.6),
-      transitionDuration: const Duration(milliseconds: 200),
-      transitionBuilder: (_, anim, _, child) =>
-          FadeTransition(opacity: anim, child: child),
-      pageBuilder: (_, _, _) => _StatusCard(status: status),
+/// RN "Payment Successful / Received / Failed" modal (black 60%): the card
+/// fades in with a slight lift. A success celebrates in the app instead of a
+/// push: the painted burst, and the coin sound + haptic the moment its check
+/// lands. The text follows it in; failure and pending show theirs at once.
+///
+/// [titleKey] / [messageKey] replace the wallet wording, for any payment
+/// (e.g. the Verification Badge fee); a failure's gateway reason still shows.
+Future<void> showPaymentStatus(
+  BuildContext context,
+  TopUpStatus status, {
+  String? titleKey,
+  String? messageKey,
+}) => showGeneralDialog<void>(
+  context: context,
+  barrierDismissible: true,
+  barrierLabel: 'payment-status',
+  barrierColor: AppColors.blackA(0.6),
+  transitionDuration: const Duration(milliseconds: 260),
+  transitionBuilder: (_, anim, _, child) {
+    final eased = CurvedAnimation(
+      parent: anim,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
     );
+    return FadeTransition(
+      opacity: eased,
+      child: ScaleTransition(
+        scale: Tween(begin: 0.94, end: 1.0).animate(eased),
+        child: child,
+      ),
+    );
+  },
+  pageBuilder: (_, _, _) =>
+      _StatusCard(status: status, titleKey: titleKey, messageKey: messageKey),
+);
 
 class _StatusCard extends StatefulWidget {
-  const _StatusCard({required this.status});
+  const _StatusCard({required this.status, this.titleKey, this.messageKey});
   final TopUpStatus status;
+  final String? titleKey;
+  final String? messageKey;
 
   @override
   State<_StatusCard> createState() => _StatusCardState();
@@ -60,11 +82,13 @@ class _StatusCardState extends State<_StatusCard> {
   Widget build(BuildContext context) {
     final p = WalletPalette.of(context);
     final status = widget.status;
-    final title = switch (status.result) {
-      TopUpResult.success => 'payment:status.success_title',
-      TopUpResult.pending => 'payment:verification.pending_title',
-      TopUpResult.failure => 'payment:status.failure_title',
-    };
+    final title =
+        widget.titleKey ??
+        switch (status.result) {
+          TopUpResult.success => 'payment:status.success_title',
+          TopUpResult.pending => 'payment:verification.pending_title',
+          TopUpResult.failure => 'payment:status.failure_title',
+        };
     final art = switch (status.result) {
       TopUpResult.success => PaymentSuccessBurst(onLanded: _landed),
       TopUpResult.pending => const PaymentConfirmingRing(),
@@ -76,10 +100,12 @@ class _StatusCardState extends State<_StatusCard> {
     final rawReason = raw != null && raw.isNotEmpty && raw != _genericReason
         ? raw
         : null;
-    final messageKey = switch (status.result) {
-      TopUpResult.success => 'payment:status.success',
-      _ => status.messageKey ?? 'payment:status.failure',
-    };
+    final messageKey =
+        widget.messageKey ??
+        switch (status.result) {
+          TopUpResult.success => 'payment:status.success',
+          _ => status.messageKey ?? 'payment:status.failure',
+        };
 
     return SafeArea(
       child: Center(

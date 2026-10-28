@@ -30,6 +30,8 @@ import 'package:vibelive/core/storage/app_prefs.dart';
 import 'package:vibelive/core/theme/app_colors.dart';
 import 'package:vibelive/core/theme/app_theme.dart';
 import 'package:vibelive/core/utils/scale.dart';
+import 'package:vibelive/app/paymentscreen/wallet/helper/topup_celebration.dart';
+import 'package:vibelive/app/paymentscreen/wallet/widgets/payment_status_motion.dart';
 
 Map<String, Object?> _me({String? mobile = '9999999999'}) => {
   'id': 1,
@@ -174,6 +176,9 @@ class _FakeCheckout implements RazorpayGateway {
     return next;
   }
 }
+
+/// The real coin sound, restored after a test swaps it out.
+final _realCoinSound = TopupCelebration.play;
 
 Future<void> _pump(WidgetTester tester, int ms) async {
   for (var t = 0; t < ms; t += 50) {
@@ -371,6 +376,9 @@ void main() {
   testWidgets('top-up success: backend order, checkout, verify', (
     tester,
   ) async {
+    var coins = 0;
+    TopupCelebration.play = () async => coins++;
+    addTearDown(() => TopupCelebration.play = _realCoinSound);
     await open(tester);
     await startTopUp(tester);
 
@@ -389,6 +397,8 @@ void main() {
     });
     expect(find.text('Payment Successful'), findsOneWidget);
     expect(find.text('Your wallet has been updated.'), findsOneWidget);
+    await _pump(tester, PaymentSuccessBurst.duration.inMilliseconds);
+    expect(coins, 1); // the coin sound, once, when the check lands
     expect(backend.requests, contains('POST /api/razorpay/success'));
 
     final walletReads = backend.requests
@@ -396,7 +406,7 @@ void main() {
         .length;
     expect(walletReads, greaterThanOrEqualTo(2)); // refreshed after paying
     await tester.tap(find.text('CONTINUE'));
-    await _pump(tester, 300);
+    await _pump(tester, 400); // the card's 260 ms close
     expect(find.text('Payment Successful'), findsNothing);
     await finish(tester);
   });
@@ -405,11 +415,16 @@ void main() {
     tester,
   ) async {
     checkout.next = const CheckoutFailed(code: 0, description: 'Card declined');
+    var coins = 0;
+    TopupCelebration.play = () async => coins++;
+    addTearDown(() => TopupCelebration.play = _realCoinSound);
     await open(tester);
     await startTopUp(tester);
 
     expect(find.text('Payment Failed'), findsOneWidget);
     expect(find.text('Card declined'), findsOneWidget);
+    await _pump(tester, 1000);
+    expect(coins, 0); // no coin sound for a failure
     expect(backend.requests, contains('POST /api/razorpay/failure'));
     expect(
       backend.requests,
@@ -512,7 +527,9 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    await tester.tap(find.bySemanticsLabel('Transfer earnings to call balance'));
+    await tester.tap(
+      find.bySemanticsLabel('Transfer earnings to call balance'),
+    );
     await _pump(tester, 500);
     expect(find.text('Earnings → Call Balance'), findsOneWidget);
     // 118 earnings at 18% GST: at most 100 can move.
@@ -526,7 +543,10 @@ void main() {
     expect(find.text('₹9.0'), findsOneWidget);
     expect(find.text('- ₹59.0'), findsOneWidget);
     // Cash is call credit only: said in the sheet, and again on Transfer.
-    expect(find.textContaining('Call Balance cannot be withdrawn'), findsOneWidget);
+    expect(
+      find.textContaining('Call Balance cannot be withdrawn'),
+      findsOneWidget,
+    );
 
     await _tap(tester, find.text('CONFIRM TRANSFER'));
     await _pump(tester, 400);
@@ -554,7 +574,9 @@ void main() {
   });
 
   Future<void> openTransfer(WidgetTester tester) async {
-    await tester.tap(find.bySemanticsLabel('Transfer earnings to call balance'));
+    await tester.tap(
+      find.bySemanticsLabel('Transfer earnings to call balance'),
+    );
     await _pump(tester, 500);
     expect(find.text('Earnings → Call Balance'), findsOneWidget);
   }
@@ -622,7 +644,9 @@ void main() {
   testWidgets('transfer below the minimum cannot be confirmed', (tester) async {
     backend.earnings = 10; // max 8.47 once GST is added
     await open(tester);
-    await tester.tap(find.bySemanticsLabel('Transfer earnings to call balance'));
+    await tester.tap(
+      find.bySemanticsLabel('Transfer earnings to call balance'),
+    );
     await _pump(tester, 500);
     await tester.tap(find.text('MAX'));
     await _pump(tester, 100);
@@ -642,7 +666,10 @@ void main() {
       await open(tester);
       expect(find.text('₹1,118.0'), findsOneWidget);
       expect(find.text('Call Balance'), findsNothing); // no split on iOS
-      expect(find.bySemanticsLabel('Transfer earnings to call balance'), findsNothing);
+      expect(
+        find.bySemanticsLabel('Transfer earnings to call balance'),
+        findsNothing,
+      );
       await finish(tester);
     } finally {
       debugDefaultTargetPlatformOverride = null;
@@ -683,7 +710,9 @@ void main() {
     await open(tester, size: const Size(320, 568));
     expect(find.text('₹12,34,567.9'), findsOneWidget);
 
-    await tester.tap(find.bySemanticsLabel('Transfer earnings to call balance'));
+    await tester.tap(
+      find.bySemanticsLabel('Transfer earnings to call balance'),
+    );
     await _pump(tester, 500);
     await tester.tap(find.text('75%'));
     await _pump(tester, 100);
@@ -718,7 +747,9 @@ void main() {
         await tester.tap(find.bySemanticsLabel('Close'));
         await _pump(tester, 500);
 
-        await tester.tap(find.bySemanticsLabel('Transfer earnings to call balance'));
+        await tester.tap(
+          find.bySemanticsLabel('Transfer earnings to call balance'),
+        );
         await _pump(tester, 600);
         await tester.tap(find.text('50%'));
         await _pump(tester, 200);

@@ -158,9 +158,11 @@
       "subtitle": "VIEW BALANCE & TRANSACTIONS"
     },
     "theme": {
-      "title": "Dark mode",
-      "on": "On",
-      "off": "Off"
+      "title": "Theme",
+      "hint": "Device follows your phone's light or dark setting.",
+      "system": "Device",
+      "light": "Light",
+      "dark": "Dark"
     },
     "categories": {
       "identity": "IDENTITY",

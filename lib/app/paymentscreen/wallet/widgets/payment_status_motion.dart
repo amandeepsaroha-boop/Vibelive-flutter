@@ -9,55 +9,46 @@ import '../helper/wallet_palette.dart';
 /// Payment status illustrations, all custom-painted: one controller each,
 /// isolated in a RepaintBoundary, so every frame is one cheap repaint of one
 /// layer (no rebuilds, no saveLayer, no image assets) → smooth at 120 Hz. With
-/// "reduce motion" on they jump straight to the final frame. Colours follow
-/// the wallet palette (purple in light, lime in dark).
+/// "reduce motion" on they jump straight to the final frame. Success is green
+/// with gold coins; the confirming ring follows the wallet palette (purple in
+/// light, lime in dark).
 
-/// The colours the painters use, resolved once per build.
+const _gold = Color(0xFFFFC94D);
+const _goldDeep = Color(0xFFF2A93B);
+
+/// The confirming ring's colours, resolved once per build.
 @immutable
 class _Inks {
-  const _Inks({
-    required this.accent,
-    required this.onAccent,
-    required this.ring,
-    required this.halo,
-  });
+  const _Inks({required this.accent, required this.halo});
 
   factory _Inks.of(BuildContext context) {
     final p = WalletPalette.of(context);
     return _Inks(
       accent: p.accent,
-      onAccent: p.onAccent,
-      ring: p.dark ? BrandColors.limeLight : BrandColors.purpleLight,
       halo: p.accent.withValues(alpha: p.dark ? 0.16 : 0.12),
     );
   }
 
   final Color accent;
-  final Color onAccent;
-  final Color ring;
   final Color halo;
 
   @override
   bool operator ==(Object other) =>
-      other is _Inks &&
-      other.accent == accent &&
-      other.onAccent == onAccent &&
-      other.ring == ring &&
-      other.halo == halo;
+      other is _Inks && other.accent == accent && other.halo == halo;
 
   @override
-  int get hashCode => Object.hash(accent, onAccent, ring, halo);
+  int get hashCode => Object.hash(accent, halo);
 }
 
 double _iv(double v, double a, double b, [Curve c = Curves.linear]) =>
     c.transform(((v - a) / (b - a)).clamp(0.0, 1.0));
 
 // ── Success ────────────────────────────────────────────────────────────────
-// Disc pops in, ring draws, checkmark strokes, soft ripple, then a burst of
-// hearts / sparkles / dots that drift and fade.
+// The green disc pops in, a ring sweeps round, the check draws, a ripple
+// spreads, then hearts, sparkles, gold coins and dots burst out and drift.
 
 class PaymentSuccessBurst extends StatefulWidget {
-  const PaymentSuccessBurst({super.key, this.size = 170, this.onLanded});
+  const PaymentSuccessBurst({super.key, this.size = 220, this.onLanded});
 
   final double size;
 
@@ -77,7 +68,7 @@ class _PaymentSuccessBurstState extends State<PaymentSuccessBurst>
     vsync: this,
     duration: PaymentSuccessBurst.duration,
   );
-  final List<_Particle> _particles = _Particle.burst(seed: 7, count: 22);
+  final List<_Particle> _particles = _Particle.burst(seed: 7, count: 24);
   bool _landed = false;
 
   @override
@@ -115,7 +106,11 @@ class _PaymentSuccessBurstState extends State<PaymentSuccessBurst>
       child: SizedBox.square(
         dimension: widget.size.ms,
         child: CustomPaint(
-          painter: _SuccessPainter(_c, _particles, _Inks.of(context)),
+          painter: _SuccessPainter(
+            _c,
+            _particles,
+            dark: WalletPalette.of(context).dark,
+          ),
         ),
       ),
     );
@@ -123,11 +118,14 @@ class _PaymentSuccessBurstState extends State<PaymentSuccessBurst>
 }
 
 class _SuccessPainter extends CustomPainter {
-  _SuccessPainter(this.t, this.particles, this.inks) : super(repaint: t);
+  _SuccessPainter(this.t, this.particles, {required this.dark})
+    : super(repaint: t);
 
   final Animation<double> t;
   final List<_Particle> particles;
-  final _Inks inks;
+  final bool dark;
+
+  static const _green = StatusColors.success;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -135,7 +133,7 @@ class _SuccessPainter extends CustomPainter {
     final c = size.center(Offset.zero);
     final r = size.width * 0.27;
 
-    // Soft halo + ripple.
+    // Ripple, then the soft halo fading in.
     final ripple = _iv(v, 0.2, 0.8, Curves.easeOutCubic);
     if (ripple > 0 && ripple < 1) {
       canvas.drawCircle(
@@ -144,15 +142,22 @@ class _SuccessPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = size.width * 0.012
-          ..color = inks.ring.withValues(alpha: 0.4 * (1 - ripple)),
+          ..color = _green.withValues(alpha: 0.35 * (1 - ripple)),
       );
     }
     final halo = _iv(v, 0.0, 0.4, Curves.easeOut);
-    canvas.drawCircle(c, r * 1.32 * halo, Paint()..color = inks.halo);
+    final soft = dark
+        ? _green.withValues(alpha: 0.22)
+        : StatusColors.successSoft;
+    canvas.drawCircle(
+      c,
+      r * 1.32 * halo,
+      Paint()..color = soft.withValues(alpha: soft.a * halo),
+    );
 
     // Disc pops in with a little overshoot.
     final pop = _iv(v, 0.04, 0.36, Curves.easeOutBack);
-    if (pop > 0) canvas.drawCircle(c, r * pop, Paint()..color = inks.accent);
+    if (pop > 0) canvas.drawCircle(c, r * pop, Paint()..color = _green);
 
     // Ring sweeps around the disc.
     final sweep = _iv(v, 0.08, 0.42, Curves.easeInOutCubic);
@@ -166,7 +171,7 @@ class _SuccessPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round
           ..strokeWidth = size.width * 0.018
-          ..color = inks.ring,
+          ..color = _green.withValues(alpha: 0.55),
       );
     }
 
@@ -185,7 +190,7 @@ class _SuccessPainter extends CustomPainter {
           ..strokeCap = StrokeCap.round
           ..strokeJoin = StrokeJoin.round
           ..strokeWidth = size.width * 0.05
-          ..color = inks.onAccent,
+          ..color = AppColors.white,
       );
     }
 
@@ -199,10 +204,10 @@ class _SuccessPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SuccessPainter old) => old.inks != inks;
+  bool shouldRepaint(covariant _SuccessPainter old) => old.dark != dark;
 }
 
-enum _Shape { heart, sparkle, dot }
+enum _Shape { heart, sparkle, coin, dot }
 
 class _Particle {
   _Particle(
@@ -223,12 +228,12 @@ class _Particle {
   final double delay; // 0..0.25 of the burst window
   final double spin;
 
-  // App colours: brand purple and lime, the app's pink and gold.
+  // Brand purple and lavender, a soft pink, brand lime (coins are gold).
   static const _colors = [
     BrandColors.purple,
+    BrandColors.purpleLight,
+    Color(0xFFFF8FAB),
     BrandColors.lime,
-    StatusColors.danger,
-    StatusColors.warning,
   ];
 
   static List<_Particle> burst({required int seed, required int count}) {
@@ -239,7 +244,7 @@ class _Particle {
           (i / count) * 2 * math.pi + rnd.nextDouble() * 0.35,
           1.45 + rnd.nextDouble() * 0.85,
           0.028 + rnd.nextDouble() * 0.03,
-          _Shape.values[i % 3],
+          _Shape.values[i % _Shape.values.length],
           _colors[rnd.nextInt(_colors.length)],
           rnd.nextDouble() * 0.25,
           (rnd.nextDouble() - 0.5) * 2.4,
@@ -272,6 +277,18 @@ class _Particle {
     switch (shape) {
       case _Shape.dot:
         canvas.drawCircle(Offset.zero, s * 0.38, paint);
+      case _Shape.coin:
+        canvas
+          ..drawCircle(
+            Offset.zero,
+            s * 0.62,
+            Paint()..color = _goldDeep.withValues(alpha: opacity),
+          )
+          ..drawCircle(
+            Offset.zero,
+            s * 0.44,
+            Paint()..color = _gold.withValues(alpha: opacity),
+          );
       case _Shape.sparkle:
         final p = Path()
           ..moveTo(0, -s)
@@ -300,7 +317,7 @@ class _Particle {
 enum PaymentMarkKind { failed, cancelled }
 
 class PaymentStatusMark extends StatefulWidget {
-  const PaymentStatusMark({super.key, required this.kind, this.size = 120});
+  const PaymentStatusMark({super.key, required this.kind, this.size = 170});
 
   final PaymentMarkKind kind;
   final double size;
@@ -410,10 +427,10 @@ class _MarkPainter extends CustomPainter {
 }
 
 // ── Confirming ─────────────────────────────────────────────────────────────
-// A calm rotating arc around a breathing coin.
+// A calm arc turns around a breathing gold coin.
 
 class PaymentConfirmingRing extends StatefulWidget {
-  const PaymentConfirmingRing({super.key, this.size = 110});
+  const PaymentConfirmingRing({super.key, this.size = 170});
   final double size;
 
   @override
@@ -479,14 +496,11 @@ class _ConfirmingPainter extends CustomPainter {
     canvas
       ..drawCircle(
         c,
-        r * (0.42 + 0.06 * breathe),
-        Paint()..color = inks.accent.withValues(alpha: 0.12),
+        r * (0.44 + 0.06 * breathe),
+        Paint()..color = _gold.withValues(alpha: 0.25),
       )
-      ..drawCircle(
-        c,
-        r * 0.26,
-        Paint()..color = inks.accent.withValues(alpha: 0.85),
-      );
+      ..drawCircle(c, r * 0.3, Paint()..color = _goldDeep)
+      ..drawCircle(c, r * 0.22, Paint()..color = _gold);
     final start = v * 2 * math.pi - math.pi / 2;
     final sweep = math.pi * (0.45 + 0.35 * breathe);
     canvas.drawArc(
