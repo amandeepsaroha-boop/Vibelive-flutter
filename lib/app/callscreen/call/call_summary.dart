@@ -24,10 +24,11 @@ class CallSummary extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (name, url, video, phase, instant) = useCallSelect(
+    final (name, url, remoteId, video, phase, instant) = useCallSelect(
       (s) => (
         nonEmpty(s.remote.name),
         s.remote.avatarUrl,
+        s.remote.id,
         s.isVideo,
         s.phase,
         s.isInstantCall,
@@ -41,7 +42,9 @@ class CallSummary extends HookWidget {
     final nameKey = instant && name == null
         ? 'call:name.finding'
         : 'call:name.host';
-    return Column(
+
+    final avatarAndName = Column(
+      key: ValueKey(remoteId ?? url ?? name ?? 'empty'),
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox.square(
@@ -55,7 +58,6 @@ class CallSummary extends HookWidget {
           ),
         ),
         SizedBox(height: 24.vs),
-        // RN wraps without a limit; two lines keep the layout on screen.
         name == null
             ? CText(
                 nameKey,
@@ -75,6 +77,33 @@ class CallSummary extends HookWidget {
                 align: TextAlign.center,
                 maxLines: 2,
               ),
+      ],
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (instant && !ended)
+          AnimatedSwitcher(
+            duration: CallMotion.timing,
+            switchInCurve: CallMotion.ease,
+            switchOutCurve: CallMotion.ease,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: animation.drive(
+                  Tween(
+                    begin: const Offset(0, 0.05),
+                    end: Offset.zero,
+                  ),
+                ),
+                child: child,
+              ),
+            ),
+            child: avatarAndName,
+          )
+        else
+          avatarAndName,
         Padding(
           padding: EdgeInsets.only(top: 8.vs),
           child: _Status(labelKey: statusKey, color: accent),
