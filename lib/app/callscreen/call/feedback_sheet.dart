@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/call_ui_events.dart';
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/vibe_colors.dart';
@@ -15,6 +17,7 @@ import '../helper/call_actions.dart';
 import 'feedback_parts.dart';
 import 'helper/call_guard.dart';
 import 'helper/call_motion.dart';
+import 'helper/call_track.dart';
 
 /// How the rating sheet closed. Every way out leaves the call screen.
 enum FeedbackExit { submitted, skipped, blocked }
@@ -34,6 +37,7 @@ Future<FeedbackExit?> showFeedbackSheet(
   barrierDismissible: false,
   barrierColor: AppColors.transparent,
   transitionDuration: CallMotion.sheetTime,
+  routeSettings: ScreenTracker.sheet('call_feedback_sheet'),
   pageBuilder: (_, anim, _) =>
       _FeedbackRoute(animation: anim, name: name, canBlock: canBlock),
 );
@@ -66,7 +70,9 @@ class _FeedbackRoute extends HookWidget {
     }
 
     void skip() {
-      if (busy.value == null) close(FeedbackExit.skipped);
+      if (busy.value != null) return;
+      CallUiEvents.feedbackSkipped(currentCallInfo(), rating: 0);
+      close(FeedbackExit.skipped);
     }
 
     final fade = animation.drive(
@@ -169,6 +175,7 @@ class _FeedbackSheet extends HookWidget {
     });
 
     Future<void> block() => inFlight.run(() async {
+      final call = currentCallInfo();
       final ok = await CAlert.show(
         context: context,
         title: 'call:feedback.block_title',
@@ -178,9 +185,21 @@ class _FeedbackSheet extends HookWidget {
         secondaryLabel: 'actions.cancel',
         variant: CAlertVariant.error,
       );
+      CallUiEvents.safetyConfirm(
+        action: 'block',
+        source: 'after_call',
+        confirmed: ok == true,
+        call: call,
+      );
       if (ok != true || !context.mounted) return;
       setBusy(FeedbackExit.blocked);
       final blocked = await CallActions.blockAfterCall();
+      CallUiEvents.safetyAction(
+        action: 'block',
+        source: 'after_call',
+        outcome: blocked ? 'done' : 'failed',
+        call: call,
+      );
       if (!context.mounted) return;
       if (!blocked) {
         await CAlert.show(
@@ -235,7 +254,13 @@ class _FeedbackSheet extends HookWidget {
                       padding: EdgeInsets.symmetric(vertical: 28.vs),
                       child: FeedbackStars(
                         value: rating.value,
-                        onChanged: (v) => rating.value = v,
+                        onChanged: (v) {
+                          rating.value = v;
+                          CallUiEvents.feedbackRatingSelected(
+                            currentCallInfo(),
+                            rating: v,
+                          );
+                        },
                       ),
                     ),
                     FeedbackComment(
@@ -261,7 +286,13 @@ class _FeedbackSheet extends HookWidget {
                   SizedBox(height: 12.vs),
                   Pressable(
                     onPressed: working == null
-                        ? () => onClose(FeedbackExit.skipped)
+                        ? () {
+                            CallUiEvents.feedbackSkipped(
+                              currentCallInfo(),
+                              rating: rating.value,
+                            );
+                            onClose(FeedbackExit.skipped);
+                          }
                         : null,
                     activeOpacity: 0.7,
                     child: SizedBox(

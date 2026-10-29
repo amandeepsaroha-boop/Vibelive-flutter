@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/session/session_store.dart';
 import '../../../../core/storage/app_prefs.dart';
 import '../../../api/hosthub/hosthub_queries.dart';
 import '../../../api/hosthub/profile_models.dart';
 import '../../../component/c_alert.dart';
+import '../../../hosthub/onboarding/helper/host_funnel.dart';
 import 'me_data.dart';
 
 /// The signed-in host's availability, from anywhere (the dock's sheet,
@@ -58,13 +61,34 @@ abstract final class HostAvailabilityController {
       pending.value ?? data.availability;
 
   /// Saves [next]. Any explicit choice ends a running offline timer.
-  static Future<void> set(HostAvailability next) async {
+  /// [source]: where it was picked (analytics).
+  static Future<void> set(
+    HostAvailability next, {
+    String source = 'unknown',
+  }) async {
+    HostEvents.statusChanged(
+      status: hostStatusName(next),
+      duration: 'indefinite',
+      source: source,
+    );
     await _clearTimer();
     await _save(next);
   }
 
   /// Offline for [duration] (null: until switched back by hand).
-  static Future<void> goOffline(Duration? duration) async {
+  /// [durationLabel]: its analytics name (`30m`, `till_9am`…).
+  static Future<void> goOffline(
+    Duration? duration, {
+    String? durationLabel,
+    String source = 'unknown',
+  }) async {
+    HostEvents.statusChanged(
+      status: 'offline',
+      duration: duration == null
+          ? 'indefinite'
+          : durationLabel ?? '${duration.inMinutes}m',
+      source: source,
+    );
     await _clearTimer();
     if (duration != null) {
       final until = clock().add(duration);
@@ -108,7 +132,12 @@ abstract final class HostAvailabilityController {
       while (true) {
         try {
           await updateHostAvailability(expertId, want);
+          HostEvents.statusSaved(status: hostStatusName(want));
         } on ApiException catch (e) {
+          HostEvents.statusSaveFailed(
+            status: hostStatusName(want),
+            error: Analytics.errorCode(e),
+          );
           unawaited(
             CAlert.error(e, title: 'client:me.availability.error_title'),
           );
@@ -147,6 +176,7 @@ abstract final class HostAvailabilityController {
     if (!mine) return;
     final data = MeData.of(SessionStore.instance.value);
     if (data.isExpert && data.availability == HostAvailability.vacation) {
+      HostEvents.autoBackOnline();
       await _save(HostAvailability.available);
     }
   }

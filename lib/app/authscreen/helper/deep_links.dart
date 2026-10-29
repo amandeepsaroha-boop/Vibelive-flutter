@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:play_install_referrer/play_install_referrer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/analytics/events/app_events.dart';
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/router/app_router.dart';
 import '../../api/authscreen/push_api.dart';
 import '../../api/authscreen/push_queries.dart';
@@ -55,25 +57,45 @@ class DeepLinks {
     });
   }
 
-  Future<void> handle(String url) async {
+  /// [fromPush]: a notification's link (its tap is logged as `push_opened`
+  /// already; analytics only).
+  Future<void> handle(String url, {bool fromPush = false}) async {
     // Call links belong to the call layer.
     if (url.startsWith('${AuthCredentials.shareScheme}://call/')) return;
+    final signedIn = SessionStore.instance.value.isAuthenticated;
+    void received(String source, {bool referral = false}) {
+      if (fromPush) return;
+      AppEvents.deeplinkReceived(
+        source: source,
+        signedIn: signedIn,
+        parked: !signedIn || !_ready,
+        hasReferral: referral,
+      );
+    }
+
     if (url.toLowerCase().startsWith('${AuthCredentials.campaignScheme}://')) {
+      received('scheme');
       return queueCampaign(url);
     }
     // https://<site>/app/<screen>: the same screens as the campaign links.
-    if (CampaignLinks.fromWeb(url) case final app?) return queueCampaign(app);
+    if (CampaignLinks.fromWeb(url) case final app?) {
+      received('web');
+      return queueCampaign(app);
+    }
     final link = LinkParser.parse(url);
     if (link == null) return;
-    if (!SessionStore.instance.value.isAuthenticated) {
+    if (!signedIn) {
       final referral = LinkParser.referral(url);
+      received('share', referral: referral != null);
       if (referral != null) {
         await AppPrefs.setString(_referralKey, referral.withSuffix);
       }
       await AppPrefs.setString(_linkKey, url);
     } else if (!_ready) {
+      received('share');
       await AppPrefs.setString(_linkKey, url);
     } else {
+      received('share');
       _openShare(link);
     }
   }
@@ -159,6 +181,11 @@ class DeepLinks {
   void _openShare(ShareLink link) {
     final open = link.openUserId;
     if (open != null) {
+      AppEvents.deeplinkOpened(
+        screen: 'host_profile',
+        source: 'share',
+        linkType: link.path,
+      );
       setOpenUser(open);
       return _go(AppRoutes.home);
     }
@@ -170,17 +197,28 @@ class DeepLinks {
       'login' => null, // already signed in
       _ => AppRoutes.home,
     };
-    if (route != null) _go(route, push: route != AppRoutes.home);
+    if (route != null) {
+      AppEvents.deeplinkOpened(
+        screen: ScreenTracker.nameFor(Uri.parse(route)),
+        source: 'share',
+        linkType: link.path.isEmpty ? 'home' : link.path,
+      );
+      _go(route, push: route != AppRoutes.home);
+    }
   }
 
   void _openCampaign(String url, bool fromPush, [Map<String, dynamic>? data]) {
     var target = CampaignLinks.resolve(url);
     final route = target.route;
     final isHost = SessionStore.instance.value.isExpert;
+    final source = fromPush ? 'push' : 'campaign';
+    final linkType = route?.path;
+    var fallback = false;
     if (route == null ||
         target.missing.isNotEmpty ||
         (route.hostOnly && !isHost) ||
         route.public) {
+      fallback = true;
       Log.w('DeepLinks', 'campaign link opens Home instead: $url');
       target = const CampaignTarget(CampaignLinks.home, {
         'tab': 'DISCOVER',
@@ -190,9 +228,16 @@ class DeepLinks {
     if (target.route!.isWebview) {
       final web = CampaignLinks.webUrl(params['url'] ?? _pushWebUrl(data));
       if (web == null) {
+        fallback = true;
         params = const {'tab': 'DISCOVER'};
         target = CampaignTarget(CampaignLinks.home, params, const []);
       } else if (!fromPush && !CampaignLinks.isTrustedHost(web)) {
+        AppEvents.deeplinkOpened(
+          screen: 'external_browser',
+          source: source,
+          linkType: linkType,
+          external: true,
+        );
         // A link from outside may only frame our own hosts.
         unawaited(
           launchUrl(Uri.parse(web), mode: LaunchMode.externalApplication),
@@ -209,6 +254,12 @@ class DeepLinks {
     final open = params['openUserId'];
     if (open != null) setOpenUser(open);
     final path = target.route!.routeFor(isHost: isHost);
+    AppEvents.deeplinkOpened(
+      screen: ScreenTracker.nameFor(Uri(path: path, queryParameters: params)),
+      source: source,
+      linkType: linkType,
+      fallbackHome: fallback,
+    );
     _go(
       Uri(
         path: path,

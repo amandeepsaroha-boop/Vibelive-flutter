@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/analytics/events/auth_events.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/vibe_colors.dart';
 import '../../core/utils/scale.dart';
@@ -112,8 +113,15 @@ class OnboardingPage extends StatelessWidget {
 
 /// "Not you? Sign out" (the router guard then shows login).
 class SignOutLink extends StatefulWidget {
-  const SignOutLink({super.key, this.enabled = true});
+  const SignOutLink({
+    super.key,
+    this.enabled = true,
+    this.screen = 'onboarding',
+  });
   final bool enabled;
+
+  /// Analytics: the step it sits on (`age_gate`, `language`).
+  final String screen;
 
   @override
   State<SignOutLink> createState() => _SignOutLinkState();
@@ -132,6 +140,7 @@ class _SignOutLinkState extends State<SignOutLink> {
             ? null
             : () {
                 setState(() => _busy = true);
+                AuthEvents.onboardingSignOut(screen: widget.screen);
                 OnboardingActions.signOut();
               },
         child: Padding(

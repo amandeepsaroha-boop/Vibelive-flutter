@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/analytics/events/auth_events.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/utils/scale.dart';
@@ -305,10 +306,16 @@ class _Legal extends StatelessWidget {
                 TextPart(context.t('auth:login.legal.and')),
                 TextPart(
                   context.t('auth:login.legal.privacy'),
-                  onTap: () => launchUrl(
-                    Uri.parse(AuthCredentials.privacyUrl),
-                    mode: LaunchMode.externalApplication,
-                  ),
+                  onTap: () {
+                    AuthEvents.legalOpened(
+                      doc: 'privacy',
+                      source: 'login_options',
+                    );
+                    launchUrl(
+                      Uri.parse(AuthCredentials.privacyUrl),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  },
                 ),
                 if (suffix.isNotEmpty) TextPart(suffix),
               ],

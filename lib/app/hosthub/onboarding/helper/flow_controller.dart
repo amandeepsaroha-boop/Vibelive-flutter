@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../../api/hosthub/hosthub_queries.dart';
 import '../../../component/c_toast.dart';
 import 'draft_controller.dart';
+import 'host_funnel.dart';
 import 'host_steps.dart';
 import 'validation.dart';
 
@@ -19,6 +20,7 @@ class HostFlowController {
     this.editing = false,
     this.saveAll,
     this.existingHost,
+    this.funnel,
   });
 
   final HostDraftController draft;
@@ -45,6 +47,9 @@ class HostFlowController {
   /// go back to) and returns to the Host Hub instead of submitting.
   final Future<HostStep?> Function()? saveAll;
   final bool Function()? existingHost;
+
+  /// Analytics: step completions, back, refusals (null in tests).
+  final HostFunnel? funnel;
 
   bool get savesInstead => saveAll != null && (existingHost?.call() ?? false);
 
@@ -82,6 +87,7 @@ class HostFlowController {
 
   /// Preview "Edit": open [step], come back to the preview after it.
   Future<void> editFrom(HostStep step) {
+    funnel?.previewEdit(step);
     returnTo = draft.step.value;
     return goTo(step);
   }
@@ -102,6 +108,7 @@ class HostFlowController {
       exit();
       return;
     }
+    funnel?.back(step);
     goTo(_takeReturn() ?? step.previous!);
   }
 
@@ -109,6 +116,7 @@ class HostFlowController {
     if (busy.value) return;
     final step = draft.step.value;
     if (step == HostStep.submitted) {
+      funnel?.completed(step);
       explore();
       return;
     }
@@ -121,6 +129,7 @@ class HostFlowController {
     );
     if (issue != null) {
       draft.notice.value = issue;
+      funnel?.invalid(step, issue.key);
       return;
     }
     if (step == HostStep.basic && !await _handleIsFree()) return;
@@ -136,11 +145,14 @@ class HostFlowController {
       }
       if (saving) {
         // Saved: no approval request, no "Submitted" step.
+        funnel?.completed(step);
+        funnel?.saved('all');
         await draft.clear();
         exit();
         return;
       }
     }
+    funnel?.completed(step);
     await goTo(_takeReturn() ?? step.next!);
   }
 
@@ -156,6 +168,7 @@ class HostFlowController {
           key: 'hostflow:errors.handle_taken',
           variables: null,
         );
+        funnel?.handleTaken();
       }
       return free;
     } catch (e) {

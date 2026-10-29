@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/call_ui_events.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/session/session_store.dart';
 import '../../api/listingflow/listing_models.dart';
@@ -54,7 +56,7 @@ class HistoryActions {
             userDocumentId: party.documentId,
             userId: party.id?.toString(),
           );
-    if (known != null) return showHostProfile(context, known);
+    if (known != null) return showHostProfile(context, known, source: 'history');
     _opening = true;
     final HostCard host;
     try {
@@ -69,6 +71,7 @@ class HistoryActions {
       final missing =
           e.type == ApiErrorType.rejected || e.type == ApiErrorType.notFound;
       if (e.type != ApiErrorType.loggingOut && !(client && missing)) {
+        CallUiEvents.historyProfileFailed(error: Analytics.errorCode(e));
         unawaited(
           CAlert.error(
             HistoryErrors.relabel(e, 'call:history.profile_failed'),
@@ -80,11 +83,20 @@ class HistoryActions {
     } finally {
       _opening = false;
     }
-    if (context.mounted) await showHostProfile(context, host);
+    if (context.mounted) await showHostProfile(context, host, source: 'history');
   }
 
   Future<void> openMenu(BuildContext context, HistoryEntry entry) async {
+    CallUiEvents.historyMenuOpened(
+      canRate: entry.canRate,
+      isHost: entry.isHostRole,
+      peerId: entry.counterpartId,
+    );
     final choice = await showHistoryMenu(context, entry);
+    CallUiEvents.historyMenuAction(
+      action: choice?.name ?? 'dismissed',
+      peerId: entry.counterpartId,
+    );
     if (choice == null || !context.mounted) return;
     switch (choice) {
       case HistoryMenuChoice.rate:

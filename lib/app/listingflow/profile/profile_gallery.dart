@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/discover_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
@@ -72,16 +74,23 @@ class ProfileGallery extends HookWidget {
         ? context.t(HostCard.unknownNameKey)
         : host.name;
 
+    final hostId = HostProfileRules.expertKey(host);
     void openPreview() {
       final image = images.isEmpty
           ? null
           : images[controller.activeImage.value % count];
+      DiscoverEvents.photoPreviewOpened(
+        hostId: hostId,
+        index: controller.activeImage.value % count,
+        count: images.length,
+      );
       // The row to delete when un-favouriting; follows the toggles made
       // inside the preview.
       FavoriteExpert? row = favorites.data
           ?.where((f) => f.expertId == expertId)
           .firstOrNull;
       Future<void> toggle() async {
+        final adding = row == null;
         try {
           final current = row;
           if (current != null) {
@@ -90,7 +99,17 @@ class ProfileGallery extends HookWidget {
           } else {
             row = await add.mutateAsync(expertId!);
           }
+          DiscoverEvents.favouriteToggled(
+            hostId: expertId ?? hostId,
+            added: adding,
+            source: 'photo_preview',
+          );
         } on ApiException catch (e) {
+          DiscoverEvents.favouriteFailed(
+            hostId: expertId ?? hostId,
+            adding: adding,
+            error: Analytics.errorCode(e),
+          );
           CToast.error(e);
         }
       }
@@ -104,12 +123,15 @@ class ProfileGallery extends HookWidget {
         onToggleFavorite: favoritable ? () => unawaited(toggle()) : null,
         onShare: () => controller.share(context, host),
         onCopyLink: () => controller.copyLink(host),
-        onShowQR: () => showQrCodeSheet(
-          context,
-          url: HostProfileRules.shareUrl(host),
-          name: name,
-          handle: host.handler,
-        ),
+        onShowQR: () {
+          DiscoverEvents.profileShared(hostId: hostId, method: 'qr');
+          showQrCodeSheet(
+            context,
+            url: HostProfileRules.shareUrl(host),
+            name: name,
+            handle: host.handler,
+          );
+        },
       );
     }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/analytics/events/me_events.dart';
 import '../../../../core/theme/vibe_colors.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../component/c_text.dart';
@@ -33,7 +34,10 @@ class GenderChips extends StatelessWidget {
                 selected: value == g,
                 child: Pressable(
                   key: ValueKey('personal_info.gender.$g'),
-                  onPressed: () => gender.value = g,
+                  onPressed: () {
+                    if (gender.value != g) PersonalInfoEvents.genderSelected(g);
+                    gender.value = g;
+                  },
                   child: Container(
                     height: 48.ms,
                     alignment: Alignment.center,

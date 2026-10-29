@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
 
+import '../../../../core/analytics/events/call_ui_events.dart';
 import '../../../../core/storage/app_prefs.dart';
 import '../push/push_session.dart';
 
@@ -80,11 +81,18 @@ abstract final class DevicePermissionGate {
           ]);
         }
     }
-    return missing.isEmpty ? null : DevicePermissionCheck(brand, missing);
+    if (missing.isEmpty) return null;
+    CallUiEvents.devicePermissionNeeded(
+      brand: brand.name,
+      missing: missing.map((m) => m.name).join(','),
+      count: missing.length,
+    );
+    return DevicePermissionCheck(brand, missing);
   }
 
   /// "Enable permissions": the brand's own settings page.
   static Future<void> openSettings(CallBrand brand) async {
+    CallUiEvents.devicePermissionOpened(brand: brand.name);
     switch (brand) {
       case CallBrand.xiaomi:
         await _invoke('openXiaomiPermissions');
@@ -98,10 +106,13 @@ abstract final class DevicePermissionGate {
   }
 
   /// "Don't show again" (24 h).
-  static Future<void> snooze() => AppPrefs.setString(
-    snoozeKey,
-    '${DateTime.now().add(snoozeFor).millisecondsSinceEpoch}',
-  );
+  static Future<void> snooze() {
+    CallUiEvents.devicePermissionSnoozed();
+    return AppPrefs.setString(
+      snoozeKey,
+      '${DateTime.now().add(snoozeFor).millisecondsSinceEpoch}',
+    );
+  }
 
   static Future<CallBrand?> _brand() async {
     final info = await _invoke('manufacturer');

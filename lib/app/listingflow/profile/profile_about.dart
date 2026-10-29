@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/discover_events.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
@@ -30,15 +32,19 @@ class ProfileSocialLinks extends StatelessWidget {
       child: Wrap(
         spacing: 8.ms,
         runSpacing: 8.ms,
-        children: [for (final l in links) _SocialChip(l)],
+        children: [
+          for (final l in links)
+            _SocialChip(l, hostId: HostProfileRules.expertKey(host)),
+        ],
       ),
     );
   }
 }
 
 class _SocialChip extends StatelessWidget {
-  const _SocialChip(this.link);
+  const _SocialChip(this.link, {this.hostId});
   final SocialLink link;
+  final String? hostId;
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +74,12 @@ class _SocialChip extends StatelessWidget {
     final verified = link.verified;
     final fg = verified ? brand : (dark ? AppColors.white : AppColors.black);
     return Pressable(
-      onPressed: () => openExternalLink(link.url),
+      onPressed: () => openExternalLink(
+        link.url,
+        kind: link.kind.name,
+        hostId: hostId,
+        source: 'profile_social',
+      ),
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 10.ms, vertical: 6.ms),
         decoration: BoxDecoration(
@@ -171,7 +182,8 @@ class ProfileVibeCard extends StatelessWidget {
                   padding: EdgeInsets.only(top: 8.ms),
                   child: _Description(host.description),
                 ),
-              if (host.audioIntro case final url?) VoiceIntro(url: url),
+              if (host.audioIntro case final url?)
+                VoiceIntro(url: url, hostId: HostProfileRules.expertKey(host)),
             ],
           ),
         ],
@@ -223,7 +235,10 @@ class _Description extends HookWidget {
             ),
             if (long)
               Pressable(
-                onPressed: () => expanded.value = !expanded.value,
+                onPressed: () {
+                  expanded.value = !expanded.value;
+                  DiscoverEvents.bioToggled(expanded: expanded.value);
+                },
                 hitPadding: EdgeInsets.symmetric(vertical: 4.ms),
                 child: CText(
                   expanded.value

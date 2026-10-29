@@ -33,6 +33,7 @@ class PhotosStep extends HookWidget {
       final origin = await showHostSheet<HostPhotoOrigin>(
         context,
         title: 'hostflow:photos.sheet_title',
+        name: 'host_photo_source_sheet',
         child: const _OriginOptions(),
       );
       if (origin != null) await uploads.add(origin);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/analytics/events/me_events.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -73,6 +74,7 @@ class MeProfileCard extends StatelessWidget {
   }
 
   void _preview(BuildContext context, String name) {
+    MeEvents.avatarTapped(isExpert: data.isExpert);
     final link = data.previewLink;
     // Built now: the actions run after the preview has closed.
     final message = link == null
@@ -83,10 +85,20 @@ class MeProfileCard extends StatelessWidget {
       imageUrl: data.avatarUrl,
       title: name,
       handle: data.handler ?? '',
-      onShare: message == null ? null : () => MeActions.share(message),
+      analyticsName: 'own_profile_preview',
+      onShare: message == null
+          ? null
+          : () {
+              MeEvents.profileShared(
+                source: 'profile_preview',
+                hostId: data.expertId,
+              );
+              MeActions.share(message, contentType: 'own_profile');
+            },
       onCopyLink: link == null
           ? null
           : () async {
+              MeEvents.profileLinkCopied(source: 'profile_preview');
               await MeActions.copy(link);
               CToast.show(
                 'client:me.share.link_copied',
@@ -94,6 +106,7 @@ class MeProfileCard extends StatelessWidget {
               );
             },
       onShowQR: () {
+        MeEvents.itemTapped(item: 'profile_qr', section: 'profile_preview');
         if (context.mounted) MeActions.open(context, AppRoutes.profileQr);
       },
     );

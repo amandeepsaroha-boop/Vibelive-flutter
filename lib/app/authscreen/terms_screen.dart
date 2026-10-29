@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/analytics/events/auth_events.dart';
+import '../../core/analytics/screen_tracker.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/vibe_colors.dart';
@@ -24,14 +26,37 @@ class TermsScreen extends StatefulWidget {
   /// Null = read-only.
   final String? provider;
 
-  static Future<void> show(BuildContext context) =>
-      _open(context, const TermsScreen._());
+  /// Read-only. [source] / [returnView]: analytics (where it was opened
+  /// from, and the screen name to log again once it closes).
+  static Future<void> show(
+    BuildContext context, {
+    String source = 'login_options',
+    String returnView = 'login',
+  }) {
+    AuthEvents.legalOpened(doc: 'terms', source: source);
+    return _open(context, const TermsScreen._(), returnView: returnView);
+  }
 
   /// True when the user agreed.
   static Future<bool> askConsent(BuildContext context, String provider) async =>
-      await _open(context, TermsScreen._(provider: provider)) == true;
+      await _open(
+        context,
+        TermsScreen._(provider: provider),
+        returnView: 'login',
+      ) ==
+      true;
 
   static Future<bool?> _open(
+    BuildContext context,
+    TermsScreen page, {
+    required String returnView,
+  }) async {
+    final result = await _push(context, page);
+    ScreenTracker.view(returnView);
+    return result;
+  }
+
+  static Future<bool?> _push(
     BuildContext context,
     TermsScreen page,
   ) => Navigator.of(context, rootNavigator: true).push<bool>(
@@ -65,8 +90,26 @@ class _TermsScreenState extends State<TermsScreen> {
 
   bool get _readOnly => widget.provider == null;
 
-  static void _open(String url) =>
-      launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  @override
+  void initState() {
+    super.initState();
+    // A pushed page outside the router: logged here.
+    ScreenTracker.view(_readOnly ? 'terms' : 'terms_consent', {
+      'provider': widget.provider?.toLowerCase(),
+    });
+  }
+
+  static void _open(String url) {
+    AuthEvents.legalOpened(
+      doc: switch (url) {
+        AuthCredentials.privacyUrl => 'privacy',
+        AuthCredentials.guidelinesUrl => 'guidelines',
+        _ => 'terms',
+      },
+      source: 'terms_page',
+    );
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
 
   @override
   void dispose() {

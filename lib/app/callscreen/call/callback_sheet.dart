@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/call_ui_events.dart';
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
@@ -32,23 +34,49 @@ import 'helper/callback_data.dart';
 Future<void> showCallbackSheet(
   BuildContext context,
   ValueListenable<CallbackData> data,
-) => showGeneralDialog<void>(
-  context: context,
-  useRootNavigator: true,
-  barrierDismissible: false,
-  barrierColor: AppColors.transparent,
-  transitionDuration: const Duration(milliseconds: 300),
-  transitionBuilder: (_, anim, _, page) => SlideTransition(
-    position: anim.drive(
-      Tween(
-        begin: const Offset(0, 1),
-        end: Offset.zero,
-      ).chain(CurveTween(curve: Curves.easeOut)),
+) {
+  _CallbackTrack.shown(data.value);
+  return showGeneralDialog<void>(
+    context: context,
+    useRootNavigator: true,
+    barrierDismissible: false,
+    barrierColor: AppColors.transparent,
+    transitionDuration: const Duration(milliseconds: 300),
+    routeSettings: ScreenTracker.sheet('callback_sheet'),
+    transitionBuilder: (_, anim, _, page) => SlideTransition(
+      position: anim.drive(
+        Tween(
+          begin: const Offset(0, 1),
+          end: Offset.zero,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+      ),
+      child: page,
     ),
-    child: page,
-  ),
-  pageBuilder: (_, _, _) => _CallbackPage(data: data),
-);
+    pageBuilder: (_, _, _) => _CallbackPage(data: data),
+  );
+}
+
+/// Callback sheet analytics: the host's ids from [CallbackData].
+abstract final class _CallbackTrack {
+  static String? _host(CallbackData d) =>
+      d.expertUserDocId ?? d.expertDocId ?? d.expertId;
+
+  static void shown(CallbackData d) =>
+      CallUiEvents.callbackShown(hostId: _host(d), category: d.category);
+
+  static void dismissed(CallbackData d, String method) =>
+      CallUiEvents.callbackDismissed(method: method, hostId: _host(d));
+
+  static void call(CallbackData d, {required bool video}) =>
+      CallUiEvents.callbackCallTapped(
+        video: video,
+        hostId: _host(d),
+        ratePerMin: video ? d.videoPrice : d.voicePrice,
+      );
+
+  static void profile(CallbackData d) =>
+      CallUiEvents.callbackProfileTapped(hostId: _host(d));
+}
 
 /// Profile opens this long after the sheet went (RN iOS: modals can't stack).
 const _profileDelay = Duration(milliseconds: 350);
@@ -70,7 +98,10 @@ class _CallbackPage extends StatelessWidget {
     children: [
       Positioned.fill(
         child: GestureDetector(
-          onTap: () => _close(context),
+          onTap: () {
+            _CallbackTrack.dismissed(data.value, 'backdrop');
+            _close(context);
+          },
           child: ColoredBox(color: AppColors.blackA(0.55)),
         ),
       ),
@@ -101,6 +132,7 @@ class _CallbackSheet extends HookWidget {
 
     Future<void> call({required bool video}) async {
       if (initiating.value) return;
+      _CallbackTrack.call(data, video: video);
       final target = data.targetFor(video: video);
       if (target == null) {
         // RN "Unable to start call / Missing caller or expert details."
@@ -123,6 +155,7 @@ class _CallbackSheet extends HookWidget {
     }
 
     Future<void> openProfile() async {
+      _CallbackTrack.profile(data);
       _close(context);
       try {
         // The full profile (callback lookup's populate is prices only):
@@ -146,7 +179,7 @@ class _CallbackSheet extends HookWidget {
         }
         await Future<void>.delayed(_profileDelay);
         final root = rootNavigatorKey.currentContext;
-        if (root != null && root.mounted) await showHostProfile(root, host);
+        if (root != null && root.mounted) await showHostProfile(root, host, source: 'callback');
       } catch (e) {
         Log.w('Callback', 'profile lookup failed: $e'); // RN only logged
       }
@@ -173,7 +206,12 @@ class _CallbackSheet extends HookWidget {
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
-            _Header(text: text, subtle: subtle, cardBg: cardBg),
+            _Header(
+              text: text,
+              subtle: subtle,
+              cardBg: cardBg,
+              onClose: () => _CallbackTrack.dismissed(data, 'close'),
+            ),
             Pressable(
               onPressed: openProfile,
               activeOpacity: 0.8,
@@ -238,11 +276,13 @@ class _Header extends StatelessWidget {
     required this.text,
     required this.subtle,
     required this.cardBg,
+    required this.onClose,
   });
 
   final Color text;
   final Color subtle;
   final Color cardBg;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -275,7 +315,10 @@ class _Header extends StatelessWidget {
           ),
         ),
         Pressable(
-          onPressed: () => _close(context),
+          onPressed: () {
+            onClose();
+            _close(context);
+          },
           semanticLabel: context.t('actions.close'),
           child: Container(
             width: 34.ms,

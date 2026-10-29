@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/analytics/events/me_events.dart';
 import '../../../core/utils/log.dart';
 import '../../component/c_alert.dart';
 
@@ -50,10 +51,18 @@ abstract final class ResourceLinks {
   }
 
   /// A link inside a page or a support contact (RN `Linking.openURL`, with
-  /// the "Unable to open link" alert on failure).
-  static Future<bool> open(String raw) async {
+  /// the "Unable to open link" alert on failure). [source]: where the link
+  /// was, for analytics (`cms_page`, `support`).
+  static Future<bool> open(String raw, {String source = 'cms_page'}) async {
     final uri = parse(raw);
     final ok = uri != null && await tryOpen(uri);
+    final web = uri != null && (uri.scheme == 'http' || uri.scheme == 'https');
+    ResourceEvents.linkOpened(
+      source: source,
+      scheme: uri?.scheme,
+      domain: web ? uri.host : null,
+      opened: ok,
+    );
     if (!ok) {
       await CAlert.show(
         title: 'resources:links.error_title',

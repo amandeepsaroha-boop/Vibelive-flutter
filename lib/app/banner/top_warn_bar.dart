@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/analytics/events/discover_events.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/session/session_store.dart';
 import '../../core/theme/app_colors.dart';
@@ -38,8 +39,42 @@ class TopWarnBar extends StatelessWidget {
   }
 }
 
-class _Bar extends StatelessWidget {
+class _Bar extends StatefulWidget {
   const _Bar({required this.warning, required this.onTap});
+
+  final ProfileWarning warning;
+  final void Function(ProfileWarning warning)? onTap;
+
+  @override
+  State<_Bar> createState() => _BarState();
+}
+
+/// Logs the warning once it shows (once per type a session).
+class _BarState extends State<_Bar> {
+  void _shown() => DiscoverEvents.topWarnShown(
+    type: widget.warning.type.name,
+    missing: widget.warning.missing.length,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _shown();
+  }
+
+  @override
+  void didUpdateWidget(_Bar old) {
+    super.didUpdateWidget(old);
+    if (old.warning.type != widget.warning.type) _shown();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      _BarView(warning: widget.warning, onTap: widget.onTap);
+}
+
+class _BarView extends StatelessWidget {
+  const _BarView({required this.warning, required this.onTap});
 
   final ProfileWarning warning;
   final void Function(ProfileWarning warning)? onTap;
@@ -80,9 +115,15 @@ class _Bar extends StatelessWidget {
 
     return Pressable(
       activeOpacity: 0.9,
-      onPressed: () => onTap != null
-          ? onTap!(warning)
-          : GoRouter.of(context).push(warning.route),
+      onPressed: () {
+        DiscoverEvents.topWarnTapped(
+          type: warning.type.name,
+          route: warning.route,
+        );
+        onTap != null
+            ? onTap!(warning)
+            : GoRouter.of(context).push(warning.route);
+      },
       child: Container(
         margin: EdgeInsets.fromLTRB(16.ms, 8.ms, 16.ms, 4.ms),
         clipBehavior: Clip.antiAlias,

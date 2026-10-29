@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/utils/scale.dart';
@@ -95,7 +97,9 @@ class HostEnhanceField extends HookWidget {
           kind: kind,
           maxLength: maxLength,
         ));
+        if (next == null) HostEvents.aiEnhanceUsed(kind, result: 'empty');
         if (!context.mounted || next == null) return;
+        HostEvents.aiEnhanceUsed(kind, result: 'success');
         timer.value?.cancel();
         undo.value = null;
         enhanced.value = next;
@@ -108,8 +112,18 @@ class HostEnhanceField extends HookWidget {
           if (context.mounted) undo.value = null;
         });
       } on ApiException catch (e) {
+        HostEvents.aiEnhanceUsed(
+          kind,
+          result: 'failed',
+          error: Analytics.errorCode(e),
+        );
         CToast.error(e);
       } catch (e) {
+        HostEvents.aiEnhanceUsed(
+          kind,
+          result: 'failed',
+          error: Analytics.errorCode(e),
+        );
         CToast.error(e);
       } finally {
         if (context.mounted) busy.value = false;
@@ -119,6 +133,7 @@ class HostEnhanceField extends HookWidget {
     void restore() {
       final old = undo.value;
       if (old == null) return;
+      HostEvents.aiEnhanceUndone(kind);
       timer.value?.cancel();
       undo.value = null;
       controller.value = TextEditingValue(

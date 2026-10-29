@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/payment_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/network/strapi.dart';
 import '../../../core/query/query_hooks.dart';
@@ -68,10 +69,10 @@ class WalletScreen extends HookWidget {
     // with the first wallet row's balance.
     Future<void> loadBalance({Duration stale = StaleTime.none}) =>
         ensureWalletBalance(staleDuration: stale).then(
-          (b) => Analytics.log('wallet_opened', {
-            'user_id': SessionStore.instance.value.userDocumentId,
-            'balance': b.primary?.balance ?? 0,
-          }),
+          (b) => PaymentEvents.walletOpened(
+            userId: SessionStore.instance.value.userDocumentId,
+            balance: b.primary?.balance ?? 0,
+          ),
           onError: (Object e) => Log.w(_tag, 'balance refresh failed: $e'),
         );
 
@@ -105,12 +106,17 @@ class WalletScreen extends HookWidget {
     }
 
     Future<void> profileIncomplete(String message) async {
+      final step = message == 'payment:wallet.incomplete_add' ? 'add' : 'pay';
       final update = await CAlert.show(
         title: 'payment:wallet.incomplete_title',
         message: message,
         primaryLabel: 'payment:wallet.update_profile',
         secondaryLabel: 'actions.cancel',
         variant: CAlertVariant.warning,
+      );
+      PaymentEvents.profileIncomplete(
+        step: step,
+        updateProfile: update == true,
       );
       if (update == true && context.mounted) {
         unawaited(context.push(AppRoutes.personalInfo));
@@ -128,9 +134,11 @@ class WalletScreen extends HookWidget {
       return usable ? st.rows : null;
     }
 
+    /// [source]: what opened Add Money (analytics).
     Future<void> addMoney({
       double? initialAmount,
       bool comeback = false,
+      String source = 'wallet',
     }) async {
       final u = userRef.value;
       bool has(String key) => (J.str(u?[key]) ?? '').isNotEmpty;
@@ -143,6 +151,7 @@ class WalletScreen extends HookWidget {
         flow: flow,
         payer: payer,
         initialAmount: initialAmount,
+        source: source,
         bonus: TopUpBonus.resolve(
           config: configRef.value,
           history: paidHistory(),
@@ -171,7 +180,11 @@ class WalletScreen extends HookWidget {
           order: order,
         );
         if (again != null && context.mounted) {
-          await addMoney(initialAmount: again, comeback: true);
+          await addMoney(
+            initialAmount: again,
+            comeback: true,
+            source: 'abandon_offer',
+          );
         }
         return;
       }
@@ -184,7 +197,14 @@ class WalletScreen extends HookWidget {
       } else {
         unawaited(afterPayment());
       }
+      final shown = status.result.name;
+      PaymentEvents.paymentStatusShown(
+        status: shown,
+        source: 'wallet',
+        amount: order.baseAmount,
+      );
       await showPaymentStatus(context, status);
+      PaymentEvents.paymentStatusClosed(status: shown, source: 'wallet');
     }
 
     Future<void> transfer(WalletBalance? balance) async {
@@ -192,17 +212,23 @@ class WalletScreen extends HookWidget {
         context,
         cash: balance?.cashBalance ?? 0,
         earnings: balance?.earningsBalance ?? 0,
+        source: 'wallet',
       );
       if (done) await refresh();
     }
 
     final invoice = useInvoicePdf();
     Future<void> openInvoice(TransactionRow row) async {
+      final type = row.kind.name;
       try {
         final lookup = await invoice.mutateAsync(row.transaction);
         if (lookup == null) return;
         final url = lookup.url;
         if (url == null) {
+          PaymentEvents.invoiceTapped(
+            type: type,
+            result: 'not_ready_${lookup.status.name}',
+          );
           await CAlert.show(
             title: lookup.status.titleKey,
             message: lookup.status.messageKey,
@@ -213,6 +239,10 @@ class WalletScreen extends HookWidget {
         final opened =
             uri != null &&
             await launchUrl(uri, mode: LaunchMode.externalApplication);
+        PaymentEvents.invoiceTapped(
+          type: type,
+          result: opened ? 'opened' : 'shown_url',
+        );
         if (!opened && context.mounted) {
           await CAlert.show(
             title: context.t('payment:tx.invoice_url_title'),
@@ -221,6 +251,11 @@ class WalletScreen extends HookWidget {
           );
         }
       } on ApiException catch (e) {
+        PaymentEvents.invoiceTapped(
+          type: type,
+          result: 'failed',
+          error: Analytics.errorCode(e),
+        );
         await CAlert.error(e, title: 'payment:tx.download_error_title');
       }
     }
@@ -233,7 +268,9 @@ class WalletScreen extends HookWidget {
       if (prefill == null || !(prefill > 0)) return null;
       offered.value = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) unawaited(addMoney(initialAmount: prefill));
+        if (context.mounted) {
+          unawaited(addMoney(initialAmount: prefill, source: 'prefill'));
+        }
       });
       return null;
     }, const []);
@@ -263,7 +300,10 @@ class WalletScreen extends HookWidget {
             history: s.rows,
           );
           if (amount != null && context.mounted) {
-            await addMoney(initialAmount: amount.toDouble());
+            await addMoney(
+              initialAmount: amount.toDouble(),
+              source: 'first_topup_offer',
+            );
           }
         });
       }
@@ -272,6 +312,46 @@ class WalletScreen extends HookWidget {
       pager.addListener(check);
       return () => pager.removeListener(check);
     }, [pager, firstTopupOn]);
+
+    // Transaction list analytics: load more, empty tabs, failed pages.
+    useEffect(() {
+      var prev = pager.value;
+      final emptyLogged = <TransactionFilter>{};
+      void watch() {
+        final s = pager.value;
+        final was = prev;
+        prev = s;
+        final tabName = s.filter.name;
+        if (!was.loadingMore && s.loadingMore) {
+          PaymentEvents.transactionsLoadMore(tab: tabName, page: s.page + 1);
+        }
+        if (s.loadMoreFailed && !was.loadMoreFailed) {
+          PaymentEvents.transactionsLoadFailed(
+            tab: tabName,
+            page: s.page + 1,
+            error: 'load_more',
+          );
+        }
+        final error = s.error;
+        if (error != null && !identical(error, was.error)) {
+          PaymentEvents.transactionsLoadFailed(
+            tab: tabName,
+            page: 1,
+            error: Analytics.errorCode(error),
+          );
+        }
+        if (!s.loading &&
+            error == null &&
+            s.page >= 1 &&
+            s.rows.isEmpty &&
+            emptyLogged.add(s.filter)) {
+          PaymentEvents.transactionsEmpty(tabName);
+        }
+      }
+
+      pager.addListener(watch);
+      return () => pager.removeListener(watch);
+    }, [pager]);
 
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
     return ThemedStatusBar(
@@ -287,12 +367,25 @@ class WalletScreen extends HookWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const WalletHeader(),
-                  _BalanceSection(onAdd: addMoney, onTransfer: transfer),
+                  _BalanceSection(
+                    onAdd: () {
+                      PaymentEvents.walletAction('add_money');
+                      unawaited(addMoney());
+                    },
+                    onTransfer: (balance) {
+                      PaymentEvents.walletAction(
+                        'transfer',
+                        balance: balance?.cashBalance,
+                      );
+                      unawaited(transfer(balance));
+                    },
+                  ),
                   TransactionTabs(
                     selected: tab,
                     onSelect: (filter) {
                       if (filter == tab.value) return;
                       tab.value = filter;
+                      PaymentEvents.transactionsTab(filter.name);
                       unawaited(pager.select(filter));
                     },
                   ),
@@ -310,7 +403,10 @@ class WalletScreen extends HookWidget {
                     child: TransactionList(
                       pager: pager,
                       myName: myName,
-                      onRefresh: refresh,
+                      onRefresh: () {
+                        PaymentEvents.walletRefreshed(tab: tab.value.name);
+                        return refresh();
+                      },
                       onInvoice: openInvoice,
                       bottomPadding: bottomInset,
                     ),

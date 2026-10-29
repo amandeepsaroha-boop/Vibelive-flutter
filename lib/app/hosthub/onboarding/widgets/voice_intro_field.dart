@@ -9,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/utils/log.dart';
 import '../../../../core/utils/scale.dart';
@@ -85,6 +87,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
     try {
       await _stopPlayback();
       if (!await _recorder.hasPermission()) {
+        HostEvents.voicePermissionDenied();
         if (mounted) {
           await CAlert.show(
             title: 'hostflow:voice.title',
@@ -101,6 +104,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
         ..start();
       _elapsed.value = Duration.zero;
       _recording.value = true;
+      HostEvents.voiceRecordStarted();
       _breathe(true);
       _ticker = Timer.periodic(const Duration(milliseconds: 100), (_) {
         final now = _clock.elapsed;
@@ -109,6 +113,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
       });
     } catch (e) {
       Log.w('VoiceIntro', 'record failed: $e');
+      HostEvents.voiceRecordFailed(stage: 'start');
       _recording.value = false;
       _breathe(false);
       CToast.show('hostflow:voice.failed', variant: CToastVariant.error);
@@ -132,10 +137,12 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
     }
     unawaited(HapticFeedback.selectionClick().catchError((Object _) {}));
     if (path == null) {
+      HostEvents.voiceRecordFailed(stage: 'stop');
       CToast.show('hostflow:voice.failed', variant: CToastVariant.error);
       return;
     }
     if (took < _minimum) {
+      HostEvents.voiceTooShort(seconds: took.inSeconds);
       _deleteQuietly(path);
       CToast.show('hostflow:voice.too_short');
       return;
@@ -148,6 +155,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
       seconds.ceil().clamp(1, HostVoiceIntro.maxSeconds),
     );
     _listened.value = false;
+    HostEvents.voiceRecorded(seconds: seconds.ceil());
     unawaited(_uploadEarly(widget.draft, path));
   }
 
@@ -163,8 +171,10 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
       final now = draft.voiceIntro.value;
       if (id == null || draft.isDisposed || now?.path != path) return;
       draft.voiceIntro.value = now!.withUploaded(id);
+      HostEvents.voiceUploaded(seconds: now.seconds);
     } catch (e) {
       Log.w('VoiceIntro', 'background upload failed: $e');
+      HostEvents.voiceUploadFailed(error: Analytics.errorCode(e));
     }
   }
 
@@ -189,9 +199,11 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
       _playing.value = true;
       _listened.value = true;
       _breathe(true);
+      HostEvents.voicePlayed(recording: intro.path != null ? 'new' : 'saved');
       unawaited(player.play());
     } catch (e) {
       Log.w('VoiceIntro', 'playback failed: $e');
+      HostEvents.voicePlayFailed();
       await _stopPlayback();
       CToast.show('hostflow:voice.play_failed', variant: CToastVariant.error);
     }
@@ -205,6 +217,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
 
   /// Drops the new recording: back to the saved intro, or none.
   Future<void> _discard() async {
+    HostEvents.voiceDiscarded();
     await _stopPlayback();
     final intro = _intro.value;
     if (intro?.path case final path?) _deleteQuietly(path);
@@ -421,23 +434,23 @@ class _Guide extends StatelessWidget {
       );
     }
 
-    Widget line(int i) => Expanded(
-      child: Container(
-        height: 2,
-        margin: EdgeInsets.symmetric(horizontal: 8.ms),
-        decoration: BoxDecoration(
-          color: i < stage ? p.accent : p.track,
-          borderRadius: BorderRadius.circular(1),
-        ),
+    Widget line(int i) => Container(
+      width: 28.ms,
+      height: 2,
+      margin: EdgeInsets.symmetric(horizontal: 8.ms),
+      decoration: BoxDecoration(
+        color: i < stage ? p.accent : p.track,
+        borderRadius: BorderRadius.circular(1),
       ),
     );
 
-    // Scales down rather than overflow on a narrow phone in Hindi.
+    // As wide as it needs; scaled down rather than overflow on a narrow
+    // phone in Hindi.
     return FittedBox(
       fit: BoxFit.scaleDown,
-      child: SizedBox(
-        width: 300.ms,
-        child: Row(children: [dot(0), line(0), dot(1), line(1), dot(2)]),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [dot(0), line(0), dot(1), line(1), dot(2)],
       ),
     );
   }

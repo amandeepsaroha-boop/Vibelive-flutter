@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/payment_events.dart';
+import '../../../../core/analytics/screen_tracker.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -20,29 +23,38 @@ import 'transfer_parts.dart';
 import 'wallet_header.dart';
 
 /// "Earnings → Cash" sheet (RN TransferModal). True when a transfer went
-/// through.
+/// through. [source]: where it was opened (analytics: `wallet`,
+/// `balance_gate`).
 Future<bool> showTransferSheet(
   BuildContext context, {
   required double cash,
   required double earnings,
+  String? source,
 }) async =>
     await showModalBottomSheet<bool>(
       context: context,
+      routeSettings: ScreenTracker.sheet('transfer_sheet'),
       isScrollControlled: true,
       useSafeArea: true,
       // RN Modal: no drag to dismiss; the backdrop or X closes it.
       enableDrag: false,
       backgroundColor: AppColors.transparent,
       barrierColor: AppColors.blackA(0.7),
-      builder: (_) => _TransferSheet(cash: cash, earnings: earnings),
+      builder: (_) =>
+          _TransferSheet(cash: cash, earnings: earnings, source: source),
     ) ??
     false;
 
 class _TransferSheet extends HookWidget {
-  const _TransferSheet({required this.cash, required this.earnings});
+  const _TransferSheet({
+    required this.cash,
+    required this.earnings,
+    this.source,
+  });
 
   final double cash;
   final double earnings;
+  final String? source;
 
   @override
   Widget build(BuildContext context) {
@@ -59,8 +71,18 @@ class _TransferSheet extends HookWidget {
       earnings: earnings,
       gstPercent: gstPercent,
     );
+    final transferred = useRef(false);
+    useEffect(() {
+      PaymentEvents.transferOpened(
+        source: source,
+        earnings: earnings,
+        cash: cash,
+      );
+      return () => PaymentEvents.transferClosed(done: transferred.value);
+    }, const []);
 
     void pickPreset(int percent) {
+      PaymentEvents.transferPreset(percent);
       if (percent == 100) {
         preset.value = null;
         amountText.value = quote.maxText;
@@ -71,6 +93,7 @@ class _TransferSheet extends HookWidget {
     }
 
     void pickMax() {
+      PaymentEvents.transferPreset(100);
       preset.value = null;
       amountText.value = quote.maxText;
     }
@@ -78,6 +101,10 @@ class _TransferSheet extends HookWidget {
     Future<void> confirm() async {
       if (busy.value || transfer.isPending) return;
       if (quote.belowMinimum) {
+        PaymentEvents.transferInvalid(
+          reason: 'below_min',
+          amount: quote.amount,
+        );
         unawaited(
           CAlert.show(
             title: 'payment:transfer.invalid_title',
@@ -89,6 +116,10 @@ class _TransferSheet extends HookWidget {
         return;
       }
       if (quote.exceedsEarnings) {
+        PaymentEvents.transferInvalid(
+          reason: 'exceeds_earnings',
+          amount: quote.amount,
+        );
         unawaited(
           CAlert.show(
             title: 'payment:transfer.insufficient_title',
@@ -107,20 +138,31 @@ class _TransferSheet extends HookWidget {
         variables: {'amount': WalletFormat.js(quote.amount)},
         confirmLabel: 'payment:transfer.warn_confirm',
       );
+      PaymentEvents.transferWarning(accepted: accepted, amount: quote.amount);
       if (!accepted) {
         busy.value = false;
         return;
       }
+      PaymentEvents.transferSubmitted(
+        amount: quote.amount,
+        gstPercent: gstPercent,
+      );
       try {
         // Null means another transfer is still running: not a success.
         final result = await transfer.mutateAsync(quote.amount);
         if (result == null) return;
       } on ApiException catch (e) {
+        PaymentEvents.transferFailed(
+          amount: quote.amount,
+          error: Analytics.errorCode(e),
+        );
         unawaited(CAlert.error(e, title: 'payment:transfer.failed_title'));
         return;
       } finally {
         busy.value = false;
       }
+      transferred.value = true;
+      PaymentEvents.transferSuccess(amount: quote.amount);
       if (context.mounted) Navigator.of(context).pop(true);
       unawaited(
         CAlert.show(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/analytics/screen_tracker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../component/c_text.dart';
@@ -7,13 +8,16 @@ import '../../../component/keyboard_inset.dart';
 import '../helper/host_palette.dart';
 
 /// Opens a bottom sheet of the flow (keyboard-safe, max 80% tall).
+/// [name]: the sheet's analytics screen name.
 Future<T?> showHostSheet<T>(
   BuildContext context, {
   required String title,
   required Widget child,
+  required String name,
   Map<String, dynamic>? titleVariables,
 }) => showModalBottomSheet<T>(
   context: context,
+  routeSettings: ScreenTracker.sheet(name),
   useRootNavigator: true,
   useSafeArea: true,
   isScrollControlled: true,

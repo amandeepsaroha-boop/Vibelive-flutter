@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/call_ui_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/scale.dart';
@@ -23,6 +24,10 @@ class CallPermissionBar extends StatefulWidget {
   });
 
   final bool needsCamera;
+
+  /// Analytics: `call` (floating, on the call screen) or `incoming`.
+  String get _screen => floating ? 'call' : 'incoming';
+  String get _permission => needsCamera ? 'mic_camera' : 'mic';
 
   /// Absolutely positioned by the screen (no side margins).
   final bool floating;
@@ -86,15 +91,36 @@ class _CallPermissionBarState extends State<CallPermissionBar> {
   }
 
   void _set(CallPermissionState s) {
-    if (mounted && s != _state) setState(() => _state = s);
+    if (!mounted || s == _state) return;
+    setState(() => _state = s);
+    if (s == CallPermissionState.denied || s == CallPermissionState.blocked) {
+      CallUiEvents.permissionBarShown(
+        permission: widget._permission,
+        state: s.name,
+        screen: widget._screen,
+      );
+    }
   }
 
   Future<void> _onTap() async {
-    if (_state == CallPermissionState.blocked) {
+    final before = _state;
+    if (before == CallPermissionState.blocked) {
+      CallUiEvents.permissionBarTapped(
+        permission: widget._permission,
+        state: CallPermissionState.blocked.name,
+        result: 'opened_settings',
+        screen: widget._screen,
+      );
       await openCallSettings();
       return;
     }
     final read = await requestCallPermissions(needsCamera: widget.needsCamera);
+    CallUiEvents.permissionBarTapped(
+      permission: widget._permission,
+      state: before?.name ?? 'unknown',
+      result: read.state.name,
+      screen: widget._screen,
+    );
     _set(read.state);
     // A prompt that came back blocked would leave a dead bar: Settings now.
     if (read.state == CallPermissionState.blocked) await openCallSettings();

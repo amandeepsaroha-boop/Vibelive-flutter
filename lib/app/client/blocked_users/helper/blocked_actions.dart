@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../../core/analytics/events/me_events.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../api/client/client_models.dart';
@@ -15,6 +16,7 @@ abstract final class BlockedActions {
   ) async {
     final target = user.targetUserId;
     if (target == null) return false;
+    AccountListEvents.unblockTapped(userId: target);
     final name = user.name ?? context.t('resources:blocked.user');
     final ok = await CAlert.confirm(
       title: 'resources:blocked.confirm_title',
@@ -23,13 +25,18 @@ abstract final class BlockedActions {
       confirmLabel: 'resources:blocked.unblock',
       variant: CAlertVariant.warning,
     );
-    if (!ok) return false;
+    if (!ok) {
+      AccountListEvents.unblockCancelled(userId: target);
+      return false;
+    }
     try {
       await unblock(target);
     } on ApiException catch (e) {
+      AccountListEvents.unblockFailed(userId: target, error: e);
       await CAlert.error(e);
       return false;
     }
+    AccountListEvents.unblocked(userId: target);
     await CAlert.show(
       title: 'resources:blocked.done_title',
       message: 'resources:blocked.done_message',

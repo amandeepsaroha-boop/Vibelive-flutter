@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/me_events.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
@@ -40,21 +41,34 @@ class FavouritesScreen extends HookWidget {
 
     String keyOf(FavoriteExpert f) => f.documentId ?? f.id ?? '';
 
+    // Once per visit, when the list first loads.
+    final loaded = favourites.data;
+    final viewed = useRef(false);
+    useEffect(() {
+      if (loaded == null || viewed.value) return null;
+      viewed.value = true;
+      AccountListEvents.favouritesViewed(loaded.length);
+      return null;
+    }, [loaded]);
+
     Future<void> onRemove(FavoriteExpert f) async {
       if (removingId.value != null) return;
       removingId.value = keyOf(f);
       try {
         await remove.mutateAsync(f);
+        AccountListEvents.favouriteRemoved(hostId: f.expertId);
         removed.value = {...removed.value, keyOf(f)};
       } on ApiException catch (e) {
+        AccountListEvents.favouriteRemoveFailed(e);
         await CAlert.error(e);
       } finally {
         if (context.mounted) removingId.value = null;
       }
     }
 
-    Future<void> onOpen(FavoriteExpert f) async {
+    Future<void> onOpen(FavoriteExpert f, int position) async {
       if (openingId.value != null) return;
+      AccountListEvents.favouriteOpened(hostId: f.expertId, position: position);
       openingId.value = f.expertId;
       try {
         await FavouritesActions.openProfile(context, f);
@@ -96,7 +110,7 @@ class FavouritesScreen extends HookWidget {
               favourite: f,
               removing: removingId.value == keyOf(f),
               opening: openingId.value != null && openingId.value == f.expertId,
-              onOpen: () => onOpen(f),
+              onOpen: () => onOpen(f, i),
               onRemove: () => onRemove(f),
             );
           },
@@ -121,7 +135,10 @@ class FavouritesScreen extends HookWidget {
                       label: 'resources:favourites.refresh',
                       color: context.colors.accent,
                       busy: favourites.isFetching,
-                      onPressed: () => favourites.refetch(),
+                      onPressed: () {
+                        AccountListEvents.favouritesRefreshed();
+                        favourites.refetch();
+                      },
                     ),
                   ),
                   Expanded(child: body),

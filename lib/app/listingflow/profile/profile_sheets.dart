@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/vibe_colors.dart';
@@ -18,23 +19,32 @@ import 'helper/host_profile_rules.dart';
 /// Slides up from the bottom; tap outside or drag down to close. Never
 /// taller than the space under the status bar (`useSafeArea`, which also
 /// keeps the page from rebuilding while the keyboard moves).
-Future<T?> showProfileSheet<T>(BuildContext context, WidgetBuilder builder) =>
-    showModalBottomSheet<T>(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: AppColors.transparent,
-      elevation: 0,
-      barrierColor: AppColors.blackA(0.55),
-      builder: builder,
-    );
+/// [name]: the analytics screen name of the sheet.
+Future<T?> showProfileSheet<T>(
+  BuildContext context,
+  WidgetBuilder builder, {
+  required String name,
+}) => showModalBottomSheet<T>(
+  context: context,
+  routeSettings: ScreenTracker.sheet(name),
+  useRootNavigator: true,
+  isScrollControlled: true,
+  useSafeArea: true,
+  backgroundColor: AppColors.transparent,
+  elevation: 0,
+  barrierColor: AppColors.blackA(0.55),
+  builder: builder,
+);
 
 enum ProfileMenuAction { report, block }
 
 /// The ⋮ menu: report or block this host.
 Future<ProfileMenuAction?> showProfileMenu(BuildContext context) =>
-    showProfileSheet<ProfileMenuAction>(context, (_) => const _MenuSheet());
+    showProfileSheet<ProfileMenuAction>(
+      context,
+      (_) => const _MenuSheet(),
+      name: 'host_profile_menu_sheet',
+    );
 
 enum _ShareChoice { native, copy, qr }
 
@@ -50,6 +60,7 @@ Future<void> showShareSheet(
   final choice = await showProfileSheet<_ShareChoice>(
     context,
     (_) => _ShareSheet(url: url),
+    name: 'host_profile_share_sheet',
   );
   switch (choice) {
     case _ShareChoice.native:
@@ -64,7 +75,11 @@ Future<void> showShareSheet(
 
 /// Platforms the host is verified on, with links (RN social preview).
 Future<void> showInfluencerSheet(BuildContext context, HostCard host) =>
-    showProfileSheet<void>(context, (_) => _InfluencerSheet(host: host));
+    showProfileSheet<void>(
+      context,
+      (_) => _InfluencerSheet(host: host),
+      name: 'host_influencer_sheet',
+    );
 
 /// Rounded card at the bottom of a profile sheet.
 class SheetCard extends StatelessWidget {
@@ -356,7 +371,12 @@ class _InfluencerSheet extends StatelessWidget {
             Expanded(child: CText(label, size: 15, weight: FontWeight.w700)),
             if (url != null && !(ios && kind == SocialKind.instagram))
               Pressable(
-                onPressed: () => openExternalLink(url),
+                onPressed: () => openExternalLink(
+                  url,
+                  kind: kind.name,
+                  hostId: HostProfileRules.expertKey(host),
+                  source: 'influencer_sheet',
+                ),
                 child: Container(
                   padding: EdgeInsets.symmetric(
                     horizontal: 14.ms,

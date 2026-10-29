@@ -17,15 +17,15 @@ Future<T?> showOfferSheet<T>(
   WidgetBuilder builder, {
   String? name,
 }) => showModalBottomSheet<T>(
-      context: context,
-      routeSettings: name == null ? null : ScreenTracker.sheet(name),
-      isScrollControlled: true,
-      useSafeArea: true,
-      useRootNavigator: true,
-      backgroundColor: AppColors.transparent,
-      barrierColor: AppColors.blackA(0.5),
-      builder: builder,
-    );
+  context: context,
+  routeSettings: name == null ? null : ScreenTracker.sheet(name),
+  isScrollControlled: true,
+  useSafeArea: true,
+  useRootNavigator: true,
+  backgroundColor: AppColors.transparent,
+  barrierColor: AppColors.blackA(0.5),
+  builder: builder,
+);
 
 /// The sheet body: solid themed background, rounded top, no shadow.
 class OfferSheetFrame extends StatelessWidget {

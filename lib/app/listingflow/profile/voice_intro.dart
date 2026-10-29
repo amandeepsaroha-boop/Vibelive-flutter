@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/discover_events.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/log.dart';
@@ -14,8 +16,11 @@ import '../../component/pressable.dart';
 /// only while this row is mounted: closing the profile silences it, so it can
 /// never leak into a call. Only the time label and the bars repaint.
 class VoiceIntro extends StatefulWidget {
-  const VoiceIntro({super.key, required this.url});
+  const VoiceIntro({super.key, required this.url, this.hostId});
   final String url;
+
+  /// The host's key, for analytics.
+  final String? hostId;
 
   @override
   State<VoiceIntro> createState() => _VoiceIntroState();
@@ -57,19 +62,38 @@ class _VoiceIntroState extends State<VoiceIntro>
   );
 
   Future<void> _toggle() async {
-    if (_playing.value) return _stop();
+    if (_playing.value) {
+      DiscoverEvents.voiceIntroStopped(
+        hostId: widget.hostId,
+        seconds: _player?.position.inSeconds ?? 0,
+      );
+      return _stop();
+    }
     try {
       final player = _player ??= AudioPlayer();
       _state ??= player.playerStateStream.listen((s) {
-        if (s.processingState == ProcessingState.completed) _stop();
+        if (s.processingState == ProcessingState.completed) {
+          if (_playing.value) {
+            DiscoverEvents.voiceIntroCompleted(
+              hostId: widget.hostId,
+              seconds: player.duration?.inSeconds,
+            );
+          }
+          _stop();
+        }
       });
       if (player.audioSource == null) await player.setUrl(widget.url);
       await player.seek(Duration.zero);
       _playing.value = true;
+      DiscoverEvents.voiceIntroPlayed(hostId: widget.hostId);
       unawaited(_pulse.repeat());
       unawaited(player.play());
     } catch (e) {
       Log.w('VoiceIntro', 'playback failed: $e');
+      DiscoverEvents.voiceIntroFailed(
+        hostId: widget.hostId,
+        error: Analytics.errorCode(e),
+      );
       await _stop();
     }
   }

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/discover_events.dart';
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/vibe_colors.dart';
@@ -21,7 +23,12 @@ import 'helper/filter_options.dart';
 Future<HostFilter?> showFilterSheet(
   BuildContext context, {
   required HostFilter current,
-}) => showHostFilterSheet(context, current: current, hosts: cachedFeedHosts());
+}) => showHostFilterSheet(
+  context,
+  current: current,
+  hosts: cachedFeedHosts(),
+  source: 'discover',
+);
 
 /// [showFilterSheet] over any [hosts] (search passes its hits and
 /// [includeCategories], as RN search did).
@@ -33,11 +40,14 @@ Future<HostFilter?> showHostFilterSheet(
   required HostFilter current,
   List<HostTraits> hosts = const [],
   bool includeCategories = false,
+  String source = 'search',
 }) async {
   FocusManager.instance.primaryFocus?.unfocus();
   var cleared = false;
+  DiscoverEvents.filterOpened(source: source, activeCount: current.count);
   final applied = await showModalBottomSheet<HostFilter>(
     context: context,
+    routeSettings: ScreenTracker.sheet('filter_sheet'),
     isScrollControlled: true,
     backgroundColor: AppColors.transparent,
     barrierColor: AppColors.blackA(0.55),
@@ -49,6 +59,18 @@ Future<HostFilter?> showHostFilterSheet(
       onCleared: () => cleared = true,
     ),
   );
+  if (applied != null) {
+    DiscoverEvents.filterApplied(
+      source: source,
+      languagesCount: applied.languages.length,
+      languages: applied.languages,
+      topic: applied.hasTopic ? applied.topic : null,
+    );
+  } else if (cleared) {
+    DiscoverEvents.filterCleared(source: source);
+  } else {
+    DiscoverEvents.filterDismissed(source: source);
+  }
   return applied ?? (cleared ? HostFilter.none : null);
 }
 

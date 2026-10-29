@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../component/c_text.dart';
@@ -146,7 +147,10 @@ class _Agree extends StatelessWidget {
             label: context.t('hostflow:review.agree_label'),
             child: Pressable(
               key: const ValueKey('hostflow-agree'),
-              onPressed: () => agreed.value = !on,
+              onPressed: () {
+                agreed.value = !on;
+                HostEvents.guidelinesAgreed(agreed: !on);
+              },
               hitPadding: EdgeInsets.all(6.ms),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
@@ -170,7 +174,10 @@ class _Agree extends StatelessWidget {
           Expanded(
             child: Pressable(
               key: const ValueKey('hostflow-guidelines-link'),
-              onPressed: () => showHostGuidelinesSheet(context),
+              onPressed: () {
+                HostEvents.guidelinesOpened();
+                showHostGuidelinesSheet(context);
+              },
               child: Text.rich(
                 TextSpan(
                   children: [
@@ -207,6 +214,7 @@ Future<void> showHostGuidelinesSheet(BuildContext context) =>
     showHostSheet<void>(
       context,
       title: 'hostflow:review.agree_link',
+      name: 'host_guidelines_sheet',
       child: Builder(
         builder: (sheet) => SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(20.ms, 0, 20.ms, 8.ms),

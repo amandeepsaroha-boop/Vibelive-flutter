@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/analytics/events/payment_events.dart';
+import '../../../../core/analytics/screen_tracker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../component/c_button.dart';
@@ -26,6 +28,7 @@ Future<void> showPaymentStatus(
   String? messageKey,
 }) => showGeneralDialog<void>(
   context: context,
+  routeSettings: ScreenTracker.sheet('payment_status_dialog'),
   barrierDismissible: true,
   barrierLabel: 'payment-status',
   barrierColor: AppColors.blackA(0.6),
@@ -69,6 +72,7 @@ class _StatusCardState extends State<_StatusCard> {
   void _landed() {
     if (_revealed.value) return;
     _revealed.value = true;
+    PaymentEvents.celebrationShown();
     unawaited(TopupCelebration.celebrate());
   }
 

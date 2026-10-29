@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/analytics/events/app_events.dart';
 import '../../../core/utils/log.dart';
 import '../../api/splashscreen/splash_models.dart';
 import '../../api/splashscreen/splash_queries.dart';
@@ -45,6 +46,10 @@ abstract final class UpdateCheck {
   }
 
   static Future<void> openStore() async {
+    AppEvents.updateTapped(
+      version: _cached?.version,
+      forced: _cached?.isForceUpdate,
+    );
     final url = Uri.parse(Platform.isIOS ? appStoreUrl : playStoreUrl);
     try {
       await launchUrl(url, mode: LaunchMode.externalApplication);

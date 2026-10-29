@@ -143,11 +143,13 @@ class _Location extends HookWidget {
     final dist = useValueListenable(district);
     final locating = useValueNotifier(false);
 
+    // Tracked by LocationAutofill (`location_autofill`, this source).
     void locate({bool silent = false}) => LocationAutofill.run(
       locating: locating,
       alive: () => context.mounted,
       silent: silent,
       stillEmpty: () => state.value == null,
+      analyticsSource: 'host_onboarding',
       apply: (fill) {
         state.value = fill.state;
         district.value = fill.district;

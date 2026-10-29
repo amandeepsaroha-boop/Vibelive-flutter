@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/me_events.dart';
 import '../../../core/query/query_client.dart';
 import '../../../core/query/query_persist.dart';
 import '../../../core/network/api_exception.dart';
@@ -64,6 +65,25 @@ class MeView extends HookWidget {
       return null;
     }, const []);
 
+    // RN `profile_open`: every visit to the tab (built on the first one).
+    useEffect(() {
+      void opened() {
+        final s = SessionStore.instance.value;
+        MeEvents.profileOpen(
+          userId: s.userDocumentId ?? s.userId?.toString(),
+          isExpert: s.isExpert,
+        );
+      }
+
+      void onTab() {
+        if (home.tab.value == HomeTab.me) opened();
+      }
+
+      if (home.tab.value == HomeTab.me) opened();
+      home.tab.addListener(onTab);
+      return () => home.tab.removeListener(onTab);
+    }, [home]);
+
     // RN: 120 under the list inside the bottom safe area, which clears the
     // floating navbar. View padding: fixed while a keyboard is up.
     final bottom = 120.ms + MediaQuery.viewPaddingOf(context).bottom;
@@ -81,7 +101,13 @@ class MeView extends HookWidget {
           SliverToBoxAdapter(
             child: HostStatusSection(
               host: data.host!,
-              open: (route) => MeActions.open(context, route),
+              open: (route) {
+                MeEvents.itemTapped(
+                  item: MeActions.itemName(route),
+                  section: 'host_status',
+                );
+                return MeActions.open(context, route);
+              },
             ),
           ),
           SliverToBoxAdapter(
@@ -92,7 +118,12 @@ class MeView extends HookWidget {
                 builder: (_, s, _) => MeSegmented<MeSection>(
                   segments: _sections,
                   selected: s,
-                  onSelect: (next) => section.value = next,
+                  onSelect: (next) {
+                    if (next != section.value) {
+                      MeEvents.sectionSwitched(next.name);
+                    }
+                    section.value = next;
+                  },
                 ),
               ),
             ),
@@ -121,6 +152,7 @@ class MeView extends HookWidget {
   static Future<void> _refresh() async {
     final id = SessionStore.instance.value.userDocumentId;
     if (id == null) return;
+    MeEvents.refreshed();
     queryCache.invalidateAll([HostHubKeys.stats(id)]);
     await Future.wait([
       ensureMyProfile(

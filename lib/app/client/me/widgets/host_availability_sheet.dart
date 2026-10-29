@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/events/host_events.dart';
+import '../../../../core/analytics/screen_tracker.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/session/session_store.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -13,6 +15,7 @@ import '../../../../core/utils/scale.dart';
 import '../../../api/hosthub/profile_models.dart';
 import '../../../component/c_text.dart';
 import '../../../component/pressable.dart';
+import '../../../hosthub/onboarding/helper/host_funnel.dart';
 import '../helper/host_availability_controller.dart';
 import '../helper/me_actions.dart';
 import '../helper/me_data.dart';
@@ -44,19 +47,34 @@ abstract final class HostStatusIcons {
 /// closes it at once; [HostAvailabilityController] saves behind it and the
 /// dock's pill shows the new mode straight away. Working hours open the
 /// schedule step, which sets the mode with the hours.
-Future<void> showHostAvailabilitySheet(BuildContext context) =>
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: AppColors.transparent,
-      barrierColor: AppColors.blackA(0.45),
-      sheetAnimationStyle: const AnimationStyle(
-        duration: Duration(milliseconds: 240),
-        reverseDuration: Duration(milliseconds: 160),
+///
+/// [source]: where it was opened from (analytics).
+Future<void> showHostAvailabilitySheet(
+  BuildContext context, {
+  String source = 'unknown',
+}) {
+  HostEvents.availabilitySheetOpened(
+    source: source,
+    current: hostStatusName(
+      HostAvailabilityController.current(
+        MeData.of(SessionStore.instance.value),
       ),
-      builder: (_) => const _HostAvailabilitySheet(),
-    );
+    ),
+  );
+  return showModalBottomSheet<void>(
+    context: context,
+    routeSettings: ScreenTracker.sheet('host_availability_sheet'),
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: AppColors.transparent,
+    barrierColor: AppColors.blackA(0.45),
+    sheetAnimationStyle: const AnimationStyle(
+      duration: Duration(milliseconds: 240),
+      reverseDuration: Duration(milliseconds: 160),
+    ),
+    builder: (_) => const _HostAvailabilitySheet(),
+  );
+}
 
 class _HostAvailabilitySheet extends StatelessWidget {
   const _HostAvailabilitySheet();
@@ -127,8 +145,10 @@ class _HostAvailabilitySheet extends StatelessWidget {
               ),
               active: mode == HostAvailability.available,
               onTap: () => choose(
-                () =>
-                    HostAvailabilityController.set(HostAvailability.available),
+                () => HostAvailabilityController.set(
+                  HostAvailability.available,
+                  source: 'availability_sheet',
+                ),
               ),
             ),
             SizedBox(height: 8.ms),
@@ -153,6 +173,7 @@ class _HostAvailabilitySheet extends StatelessWidget {
               active: mode == HostAvailability.custom,
               trailing: LucideIcons.chevronRight,
               onTap: () => choose(() async {
+                HostEvents.workingHoursTapped();
                 await router.push<void>(AppRoutes.hostSchedule);
                 MeActions.revalidate();
               }),
@@ -164,11 +185,20 @@ class _HostAvailabilitySheet extends StatelessWidget {
               title: 'client:me.availability.sheet.offline_title',
               subtitle: const _OfflineStatus(),
               active: mode == HostAvailability.vacation,
-              onTap: () =>
-                  choose(() => HostAvailabilityController.goOffline(null)),
+              onTap: () => choose(
+                () => HostAvailabilityController.goOffline(
+                  null,
+                  source: 'availability_sheet',
+                ),
+              ),
               footer: _Durations(
-                onPick: (d) =>
-                    choose(() => HostAvailabilityController.goOffline(d)),
+                onPick: (d, label) => choose(
+                  () => HostAvailabilityController.goOffline(
+                    d,
+                    durationLabel: label,
+                    source: 'availability_sheet',
+                  ),
+                ),
               ),
             ),
           ],
@@ -307,18 +337,25 @@ class _OfflineStatus extends StatelessWidget {
 /// Offline for a while: back online on its own after the picked time.
 class _Durations extends StatelessWidget {
   const _Durations({required this.onPick});
-  final ValueChanged<Duration> onPick;
+
+  /// The duration and its analytics name.
+  final void Function(Duration duration, String label) onPick;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final options = [
-      ('client:me.availability.sheet.for_30m', const Duration(minutes: 30)),
-      ('client:me.availability.sheet.for_1h', const Duration(hours: 1)),
-      ('client:me.availability.sheet.for_2h', const Duration(hours: 2)),
+      (
+        'client:me.availability.sheet.for_30m',
+        const Duration(minutes: 30),
+        '30m',
+      ),
+      ('client:me.availability.sheet.for_1h', const Duration(hours: 1), '1h'),
+      ('client:me.availability.sheet.for_2h', const Duration(hours: 2), '2h'),
       (
         'client:me.availability.sheet.till_morning',
         HostAvailabilityController.untilMorning(),
+        'till_9am',
       ),
     ];
     return Column(
@@ -335,10 +372,10 @@ class _Durations extends StatelessWidget {
           spacing: 6.ms,
           runSpacing: 6.ms,
           children: [
-            for (final (label, duration) in options)
+            for (final (label, duration, name) in options)
               Pressable(
                 activeOpacity: 0.6,
-                onPressed: () => onPick(duration),
+                onPressed: () => onPick(duration, name),
                 child: Container(
                   padding: EdgeInsets.symmetric(
                     horizontal: 11.ms,

@@ -23,6 +23,7 @@ Future<HostSlot?> showTimeRangeSheet(
 }) => showHostSheet<HostSlot>(
   context,
   title: 'hostflow:availability.edit_title',
+  name: 'host_time_range_sheet',
   titleVariables: {'day': context.t(dayLabel)},
   child: _TimeRange(day: day, slot: slot, replacing: replacing),
 );

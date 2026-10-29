@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/call_ui_events.dart';
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/network/strapi.dart';
 import '../../../core/query/query_hooks.dart';
@@ -33,6 +36,7 @@ Future<bool> showReportSheet(BuildContext context, HistoryEntry entry) async =>
       barrierLabel: context.t('actions.close'),
       barrierColor: AppColors.blackA(0.6),
       transitionDuration: const Duration(milliseconds: 180),
+      routeSettings: ScreenTracker.sheet('call_report_sheet'),
       transitionBuilder: (_, anim, _, child) =>
           FadeTransition(opacity: anim, child: child),
       pageBuilder: (_, _, _) =>
@@ -58,6 +62,13 @@ class _ReportDialog extends HookWidget {
       // RN checks the reporter and the category only; a row without the
       // other person still posts (without `reported_to_user`).
       if (me == null || category == null) {
+        CallUiEvents.reportSubmitted(
+          success: false,
+          categoryId: category?.toString(),
+          hasNote: note.text.trim().isNotEmpty,
+          peerId: entry.counterpartId,
+          error: category == null ? 'no_category' : 'no_user',
+        );
         unawaited(
           CAlert.show(
             title: 'call:history.report.missing_title',
@@ -76,8 +87,21 @@ class _ReportDialog extends HookWidget {
             note: note.text,
           ),
         );
+        CallUiEvents.reportSubmitted(
+          success: true,
+          categoryId: category.toString(),
+          hasNote: note.text.trim().isNotEmpty,
+          peerId: entry.counterpartId,
+        );
         if (context.mounted) Navigator.of(context).pop(true);
       } on ApiException catch (e) {
+        CallUiEvents.reportSubmitted(
+          success: false,
+          categoryId: category.toString(),
+          hasNote: note.text.trim().isNotEmpty,
+          peerId: entry.counterpartId,
+          error: Analytics.errorCode(e),
+        );
         unawaited(
           CAlert.error(
             HistoryErrors.relabel(e, 'call:history.report.failed'),
@@ -117,7 +141,12 @@ class _ReportDialog extends HookWidget {
                         ),
                       ),
                       Pressable(
-                        onPressed: () => Navigator.of(context).pop(false),
+                        onPressed: () {
+                          CallUiEvents.reportClosed(
+                            categoryId: selected.value?.toString(),
+                          );
+                          Navigator.of(context).pop(false);
+                        },
                         semanticLabel: context.t('actions.close'),
                         hitPadding: EdgeInsets.all(4.ms),
                         child: Icon(
@@ -139,7 +168,12 @@ class _ReportDialog extends HookWidget {
                           _Categories(
                             query: categories,
                             selected: selected.value,
-                            onSelect: (id) => selected.value = id,
+                            onSelect: (id) {
+                              selected.value = id;
+                              CallUiEvents.reportReasonSelected(
+                                categoryId: id.toString(),
+                              );
+                            },
                           ),
                           SizedBox(height: 12.ms),
                           HistoryNoteField(

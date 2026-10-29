@@ -108,6 +108,7 @@ class LoginFormStep extends StatelessWidget {
                       ? null
                       : () => c.openMethod(
                           email ? OtpChannel.sms : OtpChannel.email,
+                          source: 'switch',
                         ),
                 ),
             ],
@@ -178,7 +179,11 @@ class _TermsRow extends StatelessWidget {
                               TextPart(context.t('auth:login.agree.prefix')),
                               TextPart(
                                 context.t('auth:login.terms_link'),
-                                onTap: () => TermsScreen.show(context),
+                                onTap: () => TermsScreen.show(
+                                  context,
+                                  source: 'login_form',
+                                  returnView: c.screenName,
+                                ),
                               ),
                               if (suffix.isNotEmpty) TextPart(suffix),
                             ],

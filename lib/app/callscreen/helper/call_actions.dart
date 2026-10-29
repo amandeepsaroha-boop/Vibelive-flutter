@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../api/listingflow/listing_models.dart';
 import '../../../core/utils/log.dart';
+import 'call_analytics.dart';
 import 'call_controller.dart';
 import 'call_runtime.dart';
 import 'call_session.dart';
@@ -101,7 +102,9 @@ abstract final class CallActions {
       _guard<void>(() => InstantCallFlow.place(video: video));
 
   /// Call screen hang-up (idempotent; Callend in the background).
-  static Future<void> hangup() => _guard(EndFlow.hangup);
+  /// [reason]: why, for analytics ([CallEndReason]).
+  static Future<void> hangup({String reason = CallEndReason.userHangup}) =>
+      _guard(() => EndFlow.hangup(reason: reason));
 
   /// Sign-out while a call exists: decline a ring / hang up a call, leave
   /// Agora, release the wakelock, and wait (bounded) until the Callend

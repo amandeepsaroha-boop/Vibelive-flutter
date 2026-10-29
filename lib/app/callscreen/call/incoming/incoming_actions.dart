@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/events/call_ui_events.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/scale.dart';
@@ -15,6 +16,7 @@ import '../call_motion_widgets.dart';
 import '../helper/call_format.dart';
 import '../helper/call_guard.dart';
 import '../helper/call_select.dart';
+import '../helper/call_track.dart';
 import '../helper/call_ui_state.dart';
 import 'incoming_safety_card.dart';
 
@@ -40,6 +42,8 @@ class IncomingActions extends HookWidget {
       // The caller on screen, taken BEFORE the confirm: the ring may end
       // while it is up (U2).
       final call = drawn.value;
+      final info = callInfoOf(call);
+      CallUiEvents.incomingSafetyTapped(info, action: kind.name);
       final who = name ?? context.t('call:incoming.this_caller');
       final ok = await CAlert.show(
         context: context,
@@ -54,17 +58,29 @@ class IncomingActions extends HookWidget {
         secondaryLabel: 'actions.cancel',
         variant: CAlertVariant.error,
       );
+      CallUiEvents.safetyConfirm(
+        action: kind.name,
+        source: 'incoming',
+        confirmed: ok == true,
+        call: info,
+      );
       if (ok != true) return;
       // Confirmed: the block / report runs even when the ring ended during
       // the confirm and took this screen with it (U2). The logic declines
       // only a call still ringing and always files against the caller.
       if (context.mounted) busy.value = kind;
       // Declines first; RN only logged a failed block / report.
-      await inFlight.run(
-        () => block
-            ? CallActions.declineAndBlock(call: call)
-            : CallActions.declineAndReport(call: call),
-      );
+      await inFlight.run(() async {
+        final done = block
+            ? await CallActions.declineAndBlock(call: call)
+            : await CallActions.declineAndReport(call: call);
+        CallUiEvents.safetyAction(
+          action: kind.name,
+          source: 'incoming',
+          outcome: done ? 'done' : 'failed',
+          call: info,
+        );
+      });
       if (context.mounted) busy.value = null;
     }
 
@@ -83,7 +99,10 @@ class IncomingActions extends HookWidget {
                 fromDy: 20.vs,
                 child: _DeclineButton(
                   onPressed: declineArmed
-                      ? () => inFlight.run(CallActions.decline)
+                      ? () => inFlight.run(() {
+                          CallUiEvents.declineTapped(callInfoOf(drawn.value));
+                          return CallActions.decline();
+                        })
                       : null,
                 ),
               ),
@@ -91,7 +110,10 @@ class IncomingActions extends HookWidget {
                 delay: const Duration(milliseconds: 700),
                 fromDy: 20.vs,
                 child: _AcceptButton(
-                  onPressed: () => inFlight.run(CallActions.accept),
+                  onPressed: () => inFlight.run(() {
+                    CallUiEvents.acceptTapped(callInfoOf(drawn.value));
+                    return CallActions.accept();
+                  }),
                 ),
               ),
             ],

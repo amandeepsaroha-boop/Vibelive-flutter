@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/discover_events.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/session/session_store.dart';
 import '../../../core/utils/scale.dart';
@@ -106,6 +108,34 @@ class DiscoverView extends HookWidget {
       [rows],
     );
 
+    // Analytics for a card tap: the cached row widgets call one stable
+    // callback that reads the latest feed state.
+    final tapState = useRef((hosts: hosts, tab: tab.value, filter: filter))
+      ..value = (hosts: hosts, tab: tab.value, filter: filter);
+    final onCard = useMemoized(
+      () =>
+          (
+            BuildContext ctx,
+            HostCard h, {
+            required String action,
+            required bool featured,
+          }) {
+            final s = tapState.value;
+            DiscoverEvents.hostCardTapped(
+              hostId: h.expertProfileDocumentId ?? h.documentId ?? '${h.id}',
+              action: action,
+              position: s.hosts.indexOf(h),
+              tab: s.tab.kind.name,
+              topic: s.tab.isTopic ? s.tab.label : null,
+              isOnline: h.isAvailable,
+              featured: featured,
+              filtered: s.filter.isActive,
+              audioRate: h.aPrice > 0 ? h.aPrice : null,
+            );
+            showHostProfile(ctx, h, source: 'discover');
+          },
+    );
+
     // Each page's card photos load and decode the moment the page lands —
     // with loadAhead below, about two screens before its cards scroll in —
     // so they paint on their first frame instead of fading in from a box.
@@ -127,6 +157,10 @@ class DiscoverView extends HookWidget {
       void onReselect() {
         if (!scroll.hasClients) return;
         if (scroll.offset <= 10) {
+          DiscoverEvents.feedRefreshed(
+            trigger: 'tab_reselect',
+            tab: tab.value.kind.name,
+          );
           latestFeed.value.refresh();
         } else {
           scroll.animateTo(
@@ -178,13 +212,15 @@ class DiscoverView extends HookWidget {
               ? feed.query.error
               : null);
     // Pull-to-refresh also reloads the wallet balance in the header (RN).
-    Future<void> refresh() async {
+    Future<void> refresh({String trigger = 'pull'}) async {
+      DiscoverEvents.feedRefreshed(trigger: trigger, tab: tab.value.kind.name);
       invalidateWalletQueries();
       isPopular ? await popular.refetch() : await feed.refresh();
     }
 
     // Explore Now: past the hero, to the topics and the grid.
     void explore() {
+      DiscoverEvents.heroExploreTapped();
       if (!scroll.hasClients) return;
       final p = scroll.position;
       unawaited(
@@ -195,6 +231,28 @@ class DiscoverView extends HookWidget {
         ),
       );
     }
+
+    // Analytics: an empty tab / a load error, once per state change.
+    final emptyShown = !loading && error == null && rows.isEmpty;
+    useEffect(() {
+      if (emptyShown) {
+        DiscoverEvents.feedEmpty(
+          tab: tab.value.kind.name,
+          topic: tab.value.isTopic ? tab.value.label : null,
+          filtered: filter.isActive,
+        );
+      }
+      return null;
+    }, [emptyShown, tab.value.kind, tab.value.label, filter]);
+    useEffect(() {
+      if (error != null) {
+        DiscoverEvents.feedLoadError(
+          tab: tab.value.kind.name,
+          error: Analytics.errorCode(error),
+        );
+      }
+      return null;
+    }, [error != null, tab.value.kind]);
 
     // RN: 140 above the bottom safe area, clear of the floating navbar.
     final padding = EdgeInsets.fromLTRB(
@@ -216,11 +274,21 @@ class DiscoverView extends HookWidget {
           tabs: tabs,
           selected: tab.value,
           loading: form.isLoading && formTopics.isEmpty,
-          onSelect: selectTab,
+          onSelect: (next) {
+            if (!TopicTabs.same(next, tab.value)) {
+              DiscoverEvents.topicSelected(
+                kind: next.kind.name,
+                topic: next.isTopic ? next.label : null,
+                position: tabs.indexOf(next),
+              );
+            }
+            selectTab(next);
+          },
         ),
         if (filter.isActive)
           ActiveFilters(
             filter: filter,
+            source: 'discover',
             onChanged: (f) => home.filter.value = f,
           ),
       ],
@@ -239,11 +307,17 @@ class DiscoverView extends HookWidget {
                 hasMore: !loading && !isPopular && feed.hasMore,
                 loadingMore: feed.isLoadingMore,
                 loadMoreFailed: feed.query.isFetchNextPageError,
-                onLoadMore: feed.loadMore,
+                onLoadMore: () {
+                  DiscoverEvents.feedLoadMore(
+                    page: (feed.query.data?.pages.length ?? 0) + 1,
+                    loaded: feed.hosts.length,
+                  );
+                  feed.loadMore();
+                },
                 // A page is ~8 rows (~2.5 screens): ask while that much is
                 // still below, so it lands before the user gets there.
                 loadAhead: 2.5,
-                onRefresh: refresh,
+                onRefresh: () => refresh(),
                 endLabel: loading || rows.isEmpty ? null : 'home:feed.end',
                 onScroll: NavbarCollapse.instance.track,
                 // Filtered view: the count is unknown, so one plain pair
@@ -258,7 +332,10 @@ class DiscoverView extends HookWidget {
                   else if (error != null)
                     SliverFillRemaining(
                       hasScrollBody: false,
-                      child: _LoadError(error: error, onRetry: refresh),
+                      child: _LoadError(
+                        error: error,
+                        onRetry: () => refresh(trigger: 'retry'),
+                      ),
                     )
                   else if (rows.isEmpty)
                     SliverFillRemaining(
@@ -285,11 +362,13 @@ class DiscoverView extends HookWidget {
                             row,
                             key: ValueKey(row.key),
                             pendingSlot: true,
+                            onCard: onCard,
                           );
                         }
                         return rowWidgets[row] ??= _Row(
                           row,
                           key: ValueKey(row.key),
+                          onCard: onCard,
                         );
                       },
                     ),
@@ -336,18 +415,35 @@ class DiscoverView extends HookWidget {
   ];
 }
 
+/// A card tap: logs it, then opens the profile sheet.
+typedef _CardTap =
+    void Function(
+      BuildContext context,
+      HostCard host, {
+      required String action,
+      required bool featured,
+    });
+
 class _Row extends StatelessWidget {
-  const _Row(this.row, {super.key, this.pendingSlot = false});
+  const _Row(
+    this.row, {
+    super.key,
+    this.pendingSlot = false,
+    required this.onCard,
+  });
   final DiscoverRow row;
 
   /// A half row whose second card is loading: a skeleton in its place.
   final bool pendingSlot;
+  final _CardTap onCard;
 
   @override
   Widget build(BuildContext context) {
-    void open(HostCard h) => showHostProfile(context, h);
+    void open(HostCard h) =>
+        onCard(context, h, action: 'open', featured: row.featured);
     // Call Now: the same profile sheet as a tap, where the call starts.
-    void call(HostCard h) => open(h);
+    void call(HostCard h) =>
+        onCard(context, h, action: 'call', featured: row.featured);
     final gap = SizedBox(width: 12.ms);
     return Padding(
       padding: EdgeInsets.only(bottom: 12.ms),

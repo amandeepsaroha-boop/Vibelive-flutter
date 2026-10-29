@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/analytics/events/me_events.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/log.dart';
 import '../../api/hosthub/catalog_models.dart';
@@ -35,6 +36,9 @@ class CategoriesController extends ChangeNotifier {
   String get query => _query;
   int get selectedCount => _selected.length;
   bool isSelected(HostOption o) => _selected.containsKey(o.value);
+
+  /// The picks, in pick order.
+  List<HostOption> get selected => List.unmodifiable(_selected.values);
 
   /// First page + saved picks; later calls are ignored.
   void seed(HostCategoriesSetup setup, CategoryPage first) {
@@ -78,6 +82,10 @@ class CategoriesController extends ChangeNotifier {
 
   /// Search runs over every category, so the first search loads them all.
   void setQuery(String value) {
+    // One event per search started (not per keystroke).
+    if (_query.trim().isEmpty && value.trim().isNotEmpty) {
+      AccountListEvents.categorySearched(queryLength: value.trim().length);
+    }
     _query = value;
     notifyListeners();
     if (value.trim().isNotEmpty) _loadAll();
@@ -103,10 +111,19 @@ class CategoriesController extends ChangeNotifier {
   void toggle(HostOption o) {
     final v = o.value;
     if (v == null) return;
+    final bool added;
     if (_selected.remove(v) == null) {
       if (_selected.length >= maxSelected) return;
       _selected[v] = o;
+      added = true;
+    } else {
+      added = false;
     }
+    AccountListEvents.categoryToggled(
+      category: '${o.id ?? o.documentId ?? o.label}',
+      selected: added,
+      count: _selected.length,
+    );
     notifyListeners();
   }
 

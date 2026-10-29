@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/scale.dart';
@@ -12,6 +13,7 @@ import '../../../api/hosthub/profile_models.dart';
 import '../../../component/c_text.dart';
 import '../helper/draft_controller.dart';
 import '../helper/draft_models.dart';
+import '../helper/host_funnel.dart';
 import '../helper/host_palette.dart';
 import '../helper/schedule_format.dart';
 import '../widgets/day_schedule_row.dart';
@@ -65,6 +67,7 @@ class AvailabilityStep extends HookWidget {
           : (mode == HostAvailability.custom
                 ? HostAvailability.available
                 : HostAvailability.custom);
+      HostEvents.availabilityModeSelected(hostStatusName(next));
       if (on) {
         // The tapped switch slides on while the old one slides off.
         shown.value = next;
@@ -183,6 +186,7 @@ class AvailabilityStep extends HookWidget {
       // Re-checked against the day as it is now (RN `addSlot`).
       if (current.check(next, replacing: replacing) != null) return;
       draft.setDay(day, current.withSlot(next, replacing: replacing));
+      HostEvents.timeSlotSaved(day: day.name, edited: replacing != null);
     }
 
     return HostDayScheduleRow(

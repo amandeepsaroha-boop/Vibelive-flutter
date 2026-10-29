@@ -3,6 +3,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/host_events.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/session/session_store.dart';
@@ -42,6 +44,8 @@ class HostBadgeFeeScreen extends HookWidget {
     final start = useStartBadgePayment();
     final confirm = useConfirmVerificationPayment();
     final busy = useState(false);
+    // Analytics: the fee page was reported as viewed.
+    final viewed = useRef(false);
     final p = HostPalette.of(context);
 
     final rec = record.data;
@@ -54,7 +58,9 @@ class HostBadgeFeeScreen extends HookWidget {
         if (step == VerificationStep.fee && fee <= 0) {
           try {
             await update.mutateAsync(VerificationUpdate.markPaid(rec.key));
+            HostEvents.badgeFeeWaived();
           } on ApiException catch (e) {
+            HostEvents.badgeFeeError(error: Analytics.errorCode(e));
             await CAlert.error(e, title: 'hostflow:badge.fee_title');
             return;
           }
@@ -99,7 +105,15 @@ class HostBadgeFeeScreen extends HookWidget {
       );
     }
 
+    if (!viewed.value) {
+      viewed.value = true;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => HostEvents.badgeFeeViewed(amount: fee),
+      );
+    }
+
     Future<void> pay() async {
+      HostEvents.badgeFeePayTapped(amount: fee);
       busy.value = true;
       final payer = PayerInfo.fromUser(session.user);
       try {
@@ -112,6 +126,7 @@ class HostBadgeFeeScreen extends HookWidget {
         final RazorpayCheckout checkout;
         switch (begin) {
           case BadgeAlreadyPaid():
+            HostEvents.badgeFeeAlreadyPaid();
             if (context.mounted) {
               context.pushReplacement(AppRoutes.verificationBadgeForm);
             }
@@ -119,13 +134,25 @@ class HostBadgeFeeScreen extends HookWidget {
           case BadgeCheckout(checkout: final c):
             checkout = c;
         }
+        HostEvents.badgeFeeCheckoutOpened(
+          amount: fee,
+          orderId: checkout.orderId,
+        );
         final outcome = await RazorpayGateway.instance.open(
           checkout.toOptions(),
         );
         switch (outcome) {
-          case CheckoutCancelled():
+          case CheckoutCancelled(:final end):
+            HostEvents.badgeFeeCancelled(
+              amount: fee,
+              reason: end?.name ?? 'external_wallet',
+            );
             return;
-          case CheckoutFailed(:final description):
+          case CheckoutFailed(:final description, :final code):
+            HostEvents.badgeFeeFailed(
+              amount: fee,
+              error: code == null ? 'razorpay' : 'razorpay:$code',
+            );
             if (context.mounted) {
               await showPaymentStatus(
                 context,
@@ -145,6 +172,15 @@ class HostBadgeFeeScreen extends HookWidget {
                 payer: payer,
               ),
             ));
+            if (paid == true) {
+              HostEvents.badgeFeePaid(
+                amount: fee,
+                paymentId: paymentId ?? orderId ?? checkout.orderId,
+                orderId: orderId ?? checkout.orderId,
+              );
+            } else {
+              HostEvents.badgeFeePending(amount: fee);
+            }
             if (!context.mounted) return;
             // The wallet's payment card: the success burst with the coin
             // sound, or the confirming ring while it is still pending.
@@ -168,6 +204,7 @@ class HostBadgeFeeScreen extends HookWidget {
             }
         }
       } on ApiException catch (e) {
+        HostEvents.badgeFeeFailed(amount: fee, error: Analytics.errorCode(e));
         await CAlert.error(e, title: 'hostflow:badge.pay_failed');
       } finally {
         if (context.mounted) busy.value = false;

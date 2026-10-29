@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/scale.dart';
@@ -59,6 +60,7 @@ class _MeFloatingPillState extends State<MeFloatingPill>
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
+    HostEvents.unlockPromoShown();
     if (MediaQuery.disableAnimationsOf(context)) {
       _enter.value = 1;
     } else {
@@ -302,7 +304,10 @@ class _MeHostUnlockRowState extends State<MeHostUnlockRow>
                       ),
                       SizedBox(width: 6.ms),
                       Pressable(
-                        onPressed: widget.onDismiss,
+                        onPressed: () {
+                          HostEvents.unlockPromoDismissed();
+                          widget.onDismiss();
+                        },
                         semanticLabel: context.t('client:me.unlock.dismiss'),
                         hitPadding: const EdgeInsets.all(10),
                         child: Icon(

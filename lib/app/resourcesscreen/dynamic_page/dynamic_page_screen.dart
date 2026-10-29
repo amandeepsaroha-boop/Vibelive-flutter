@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../../core/analytics/events/me_events.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
@@ -68,8 +69,11 @@ class DynamicPageScreen extends HookWidget {
         : (hint.isNotEmpty ? hint : fallbackTitle);
     final translateTitle = serverTitle.isEmpty && hint.isEmpty;
 
+    // What the page ended up showing, for analytics (once per outcome).
+    final String outcome;
     final Widget content;
     if (pageSlug.isEmpty) {
+      outcome = 'missing_slug';
       content = CStateView.error(
         context,
         const ApiException(
@@ -78,23 +82,48 @@ class DynamicPageScreen extends HookWidget {
         ),
       );
     } else if (data == null && page.isError && page.error != null) {
+      outcome = 'failed';
       content = CStateView.error(
         context,
         page.error!,
         onRetry: () => page.refetch(),
       );
     } else if (data == null || blocks == null) {
+      outcome = 'loading';
       content = const PageSkeleton();
     } else if (blocks.isNotEmpty) {
+      outcome = 'content';
       content = RichContent(blocks: blocks);
     } else if (PageContent.showsSupportFallback(pageSlug, data) &&
         config.data != null) {
+      outcome = 'support_fallback';
       content = SupportContacts(
         contact: SupportContact.fromAppConfig(config.data!),
       );
     } else {
+      outcome = 'empty';
       content = const PageEmpty();
     }
+    final failure = page.error;
+    useEffect(() {
+      switch (outcome) {
+        case 'failed' || 'missing_slug':
+          ResourceEvents.pageLoadFailed(
+            slug: pageSlug,
+            error:
+                failure ??
+                const ApiException(
+                  ApiErrorType.rejected,
+                  messageKey: 'resources:errors.missing_page',
+                ),
+          );
+        case 'empty':
+          ResourceEvents.pageEmpty(pageSlug);
+        case 'support_fallback':
+          ResourceEvents.supportFallbackShown();
+      }
+      return null;
+    }, [outcome]);
 
     final bottom = MediaQuery.paddingOf(context).bottom;
     return ThemedStatusBar(
@@ -111,7 +140,10 @@ class DynamicPageScreen extends HookWidget {
                     title: shownTitle,
                     translate: translateTitle,
                     refreshing: page.isFetching,
-                    onRefresh: () => page.refetch(),
+                    onRefresh: () {
+                      ResourceEvents.pageRefreshed(pageSlug);
+                      page.refetch();
+                    },
                   ),
                 ),
                 Expanded(

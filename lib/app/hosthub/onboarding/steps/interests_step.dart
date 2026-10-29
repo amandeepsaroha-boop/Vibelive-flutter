@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../api/authscreen/interests_queries.dart';
 import '../../../component/c_state_view.dart';
@@ -168,8 +169,14 @@ class _TopicGrid extends StatelessWidget {
                         return;
                       }
                       final next = [...chosen];
-                      if (!next.remove(t)) next.add(t);
+                      final added = !next.remove(t);
+                      if (added) next.add(t);
                       selected.value = next;
+                      HostEvents.topicToggled(
+                        topic: t.value,
+                        selected: added,
+                        count: next.length,
+                      );
                     },
                   ),
                 ),
@@ -202,7 +209,10 @@ class _Footer extends StatelessWidget {
             ),
           ),
           Pressable(
-            onPressed: () => selected.value = const [],
+            onPressed: () {
+              HostEvents.topicsCleared(count: selected.value.length);
+              selected.value = const [];
+            },
             hitPadding: EdgeInsets.all(6.ms),
             child: CText(
               'hostflow:interests.clear',

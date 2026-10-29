@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/session/session_store.dart';
+import '../../../core/storage/app_prefs.dart';
 import '../../api/authscreen/interests_queries.dart';
 import '../../api/client/client_models.dart';
 import '../../api/client/client_queries.dart';
@@ -16,32 +17,33 @@ import '../../api/paymentscreen/payment_queries.dart';
 import '../../component/c_alert.dart';
 import '../../component/keyboard_inset.dart';
 import '../../component/status_bar_style.dart';
+import '../common/host_page.dart';
+import '../common/host_review.dart';
 import 'helper/draft_controller.dart';
 import 'helper/flow_controller.dart';
+import 'helper/host_funnel.dart';
 import 'helper/host_palette.dart';
 import 'helper/host_steps.dart';
 import 'helper/intro_image.dart';
 import 'helper/prefill.dart';
 import 'helper/section_save.dart';
+import 'helper/submit_errors.dart';
 import 'helper/submit_plan.dart';
 import 'helper/topic_catalog.dart';
-import '../common/host_page.dart';
-import '../common/host_review.dart';
 import 'steps/availability_step.dart';
 import 'steps/basic_profile_step.dart';
 import 'steps/bio_step.dart';
+import 'steps/guidelines_step.dart';
 import 'steps/interests_step.dart';
 import 'steps/intro_step.dart';
 import 'steps/photos_step.dart';
-import 'steps/rates_step.dart';
-import 'steps/guidelines_step.dart';
 import 'steps/preview_step.dart';
+import 'steps/rates_step.dart';
 import 'steps/submitted_step.dart';
 import 'steps/tagline_step.dart';
 import 'steps/voice_step.dart';
 import 'widgets/continue_bar.dart';
 import 'widgets/progress_header.dart';
-import 'helper/submit_errors.dart';
 
 /// "Become a Host": intro, eight form steps, success. The draft is saved
 /// per account as the user goes, so the flow resumes where it was left.
@@ -63,6 +65,12 @@ class HostOnboardingScreen extends HookWidget {
   Widget build(BuildContext context) {
     final session = useMemoized(() => SessionStore.instance.value);
     final userKey = session.userDocumentId ?? '${session.userId ?? ''}';
+    // Analytics: a draft saved before this open means "resume".
+    final hadDraft = useMemoized(
+      () =>
+          editStep == null &&
+          AppPrefs.getString(HostDraftController.storageKey(userKey)) != null,
+    );
     final draft = useMemoized(() {
       if (editStep case final step?) {
         return HostDraftController('edit', persist: false)
@@ -78,6 +86,23 @@ class HostOnboardingScreen extends HookWidget {
       return saved;
     });
     useEffect(() => draft.dispose, [draft]);
+    final funnel = useMemoized(() {
+      final route = _routeOf(context);
+      return HostFunnel(
+        draft: draft,
+        mode: editStep != null
+            ? 'edit'
+            : session.isExpert
+            ? 'existing_host'
+            : (hadDraft ? 'resume' : 'new'),
+        source: _sourceOf(route, editStep: editStep, startStep: startStep),
+        routePath: route?.path ?? AppRoutes.hostOnboarding,
+      );
+    }, [draft]);
+    useEffect(() {
+      funnel.start();
+      return funnel.dispose;
+    }, [funnel]);
     // Entry points precache it already; this covers deep links.
     useEffect(() {
       // After the first frame: precaching reads inherited widgets.
@@ -140,12 +165,14 @@ class HostOnboardingScreen extends HookWidget {
           },
         );
         await submit.mutateAsync(input);
+        funnel.submitted(user);
         await draft.clear();
         return null;
       } on ApiException catch (e) {
         // A field the server rejected: back to its step with the error
         // shown there (e.g. a handle another profile already owns).
         final target = HostSubmitErrors.stepFor(e);
+        funnel.submitFailed(e, target ?? HostStep.guidelines);
         if (target == null) {
           await CAlert.error(e);
           return HostStep.guidelines;
@@ -184,6 +211,7 @@ class HostOnboardingScreen extends HookWidget {
                     key: const ValueKey('intro'),
                     resuming: draft.started,
                     onStart: () {
+                      funnel.completed(HostStep.intro);
                       draft.started = true;
                       draft.step.value = HostStep.basic;
                     },
@@ -195,6 +223,7 @@ class HostOnboardingScreen extends HookWidget {
                     save: editStep == null ? null : save.section,
                     saveAll: save.all,
                     existingHost: existingHost,
+                    funnel: funnel,
                     exit: exit,
                     explore: () => context.go('${AppRoutes.home}?tab=discover'),
                     rateFloors: () =>
@@ -276,6 +305,7 @@ class _Flow extends HookWidget {
     required this.explore,
     required this.rateFloors,
     required this.saveAll,
+    required this.funnel,
     this.save,
     this.existingHost = false,
   });
@@ -289,6 +319,7 @@ class _Flow extends HookWidget {
   /// The last step's "Save" for an [existingHost] (every section).
   final Future<HostStep?> Function() saveAll;
   final bool existingHost;
+  final HostFunnel funnel;
   final VoidCallback exit;
   final VoidCallback explore;
   final (double, double) Function() rateFloors;
@@ -312,6 +343,7 @@ class _Flow extends HookWidget {
         editing: save != null,
         saveAll: () => latest.value.saveAll(),
         existingHost: () => latest.value.existingHost,
+        funnel: funnel,
       ),
       [pages],
     );
@@ -321,7 +353,10 @@ class _Flow extends HookWidget {
       if (flow.busy.value || save == null) return;
       flow.busy.value = true;
       final ok = await save!(step).whenComplete(() => flow.busy.value = false);
-      if (ok) exit();
+      if (ok) {
+        funnel.saved(step.name);
+        exit();
+      }
     }
 
     useEffect(() => flow.dispose, [flow]);
@@ -378,4 +413,25 @@ class _Flow extends HookWidget {
     HostStep.guidelines => GuidelinesStep(draft: draft),
     _ => const SubmittedStep(),
   };
+}
+
+/// This screen's route, or null outside the app router (tests).
+Uri? _routeOf(BuildContext context) {
+  try {
+    return GoRouterState.of(context).uri;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Analytics `source` of an open: `?source=` when an entry point passed
+/// one, else from how it was opened.
+String _sourceOf(Uri? route, {HostStep? editStep, HostStep? startStep}) {
+  final given = route?.queryParameters['source'];
+  if (given != null && given.isNotEmpty) return given;
+  if (editStep != null) return 'host_hub';
+  if (route != null && route.path != AppRoutes.hostOnboarding) {
+    return 'host_hub';
+  }
+  return startStep != null ? 'deeplink' : 'become_host';
 }

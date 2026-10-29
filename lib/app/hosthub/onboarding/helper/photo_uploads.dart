@@ -1,3 +1,5 @@
+import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/strapi.dart';
 import '../../../component/c_toast.dart';
@@ -18,11 +20,13 @@ class HostPhotoUploads {
 
   Future<void> add(HostPhotoOrigin origin) async {
     if (!canAdd) return;
+    HostEvents.photoSourceChosen(origin.name);
     final String? path;
     try {
       path = await HostPhotoPicker.instance.pick(origin);
     } catch (e) {
       // Permission denied or no camera: say so, keep the step usable.
+      HostEvents.photoPickFailed(origin: origin.name);
       draft.notice.value = (
         key: 'hostflow:photos.pick_failed',
         variables: null,
@@ -35,25 +39,36 @@ class HostPhotoUploads {
       localPath: path,
     );
     draft.photos.value = [...draft.photos.value, photo];
+    HostEvents.photoAdded(
+      origin: origin.name,
+      count: draft.photos.value.length,
+    );
     await _upload(photo);
   }
 
   Future<void> retry(HostDraftPhoto photo) async {
+    HostEvents.photoRetried();
     draft.updatePhoto(photo.key, (p) => p.copyWith(failed: false));
     await _upload(photo);
   }
 
-  void remove(HostDraftPhoto photo) => draft.photos.value = [
-    for (final p in draft.photos.value)
-      if (p.key != photo.key) p,
-  ];
+  void remove(HostDraftPhoto photo) {
+    draft.photos.value = [
+      for (final p in draft.photos.value)
+        if (p.key != photo.key) p,
+    ];
+    HostEvents.photoRemoved(count: draft.photos.value.length);
+  }
 
   /// Moves [photo] to slot 1 (the primary photo).
-  void makePrimary(HostDraftPhoto photo) => draft.photos.value = [
-    photo,
-    for (final p in draft.photos.value)
-      if (p.key != photo.key) p,
-  ];
+  void makePrimary(HostDraftPhoto photo) {
+    draft.photos.value = [
+      photo,
+      for (final p in draft.photos.value)
+        if (p.key != photo.key) p,
+    ];
+    HostEvents.photoMadePrimary();
+  }
 
   Future<void> _upload(HostDraftPhoto photo) async {
     final path = photo.localPath;
@@ -72,8 +87,10 @@ class HostPhotoUploads {
         photo.key,
         (p) => p.copyWith(mediaId: id, url: Strapi.mediaFromAsset(media)),
       );
+      HostEvents.photoUploaded(count: draft.photos.value.length);
     } catch (e) {
       if (draft.isDisposed) return;
+      HostEvents.photoUploadFailed(error: Analytics.errorCode(e));
       draft.updatePhoto(photo.key, (p) => p.copyWith(failed: true));
       CToast.error(e);
     }

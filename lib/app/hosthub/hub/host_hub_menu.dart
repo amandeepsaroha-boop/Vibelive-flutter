@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/host_events.dart';
 import '../../../core/router/app_router.dart';
 import '../../api/hosthub/approval_models.dart';
 import '../../api/hosthub/eligibility.dart';
@@ -107,7 +108,10 @@ class HostHubMenu extends StatelessWidget {
             icon: r.icon,
             label: r.label,
             trailing: r.status,
-            onTap: () => open(r.route),
+            onTap: () {
+              HostEvents.hubItemTapped(r.label.split('.').last);
+              open(r.route);
+            },
           ),
       ],
     );

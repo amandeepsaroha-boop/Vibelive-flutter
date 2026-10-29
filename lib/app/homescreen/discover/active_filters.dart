@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/discover_events.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
 import '../../api/listingflow/filter_models.dart';
@@ -13,10 +14,14 @@ class ActiveFilters extends StatelessWidget {
     super.key,
     required this.filter,
     required this.onChanged,
+    this.source = 'discover',
   });
 
   final HostFilter filter;
   final ValueChanged<HostFilter> onChanged;
+
+  /// Which screen shows the chips (analytics).
+  final String source;
 
   @override
   Widget build(BuildContext context) {
@@ -31,18 +36,31 @@ class ActiveFilters extends StatelessWidget {
             for (final lang in filter.languages)
               _Chip(
                 label: '🌐 $lang',
-                onRemove: () => onChanged(
-                  HostFilter(
-                    languages: [...filter.languages]..remove(lang),
-                    topic: filter.topic,
-                  ),
-                ),
+                onRemove: () {
+                  DiscoverEvents.filterChipRemoved(
+                    source: source,
+                    kind: 'language',
+                    value: lang,
+                  );
+                  onChanged(
+                    HostFilter(
+                      languages: [...filter.languages]..remove(lang),
+                      topic: filter.topic,
+                    ),
+                  );
+                },
               ),
             if (filter.hasTopic)
               _Chip(
                 label: '🏷️ ${filter.topic}',
-                onRemove: () =>
-                    onChanged(HostFilter(languages: filter.languages)),
+                onRemove: () {
+                  DiscoverEvents.filterChipRemoved(
+                    source: source,
+                    kind: 'topic',
+                    value: filter.topic,
+                  );
+                  onChanged(HostFilter(languages: filter.languages));
+                },
               ),
           ],
         ),

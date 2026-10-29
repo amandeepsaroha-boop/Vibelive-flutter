@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/discover_events.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
 import '../../callscreen/helper/call_actions.dart';
@@ -22,7 +23,9 @@ class TalkNowButton extends StatelessWidget {
       child: Pressable(
         activeOpacity: 0.85,
         onPressed: () {
-          if (CallController.instance.isOnCall) return;
+          final onCall = CallController.instance.isOnCall;
+          DiscoverEvents.talkNowTapped(blockedByCall: onCall);
+          if (onCall) return;
           unawaited(HapticFeedback.mediumImpact());
           unawaited(CallActions.talkNow());
         },

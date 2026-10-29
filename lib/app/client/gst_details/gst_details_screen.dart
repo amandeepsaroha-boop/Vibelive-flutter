@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/me_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/strapi.dart';
@@ -45,19 +46,28 @@ class GstDetailsScreen extends HookWidget {
 
     Future<void> pickImage(void Function(String) set) async {
       final path = await GstImageSource.instance.pick();
+      AccountListEvents.gstDocumentPicked(
+        document: set == form.setGstFile ? 'certificate' : 'logo',
+        picked: path != null,
+      );
       if (path != null) set(path);
     }
 
     Future<void> onSave() async {
       if (saving.value || !form.editable) return;
       FocusScope.of(context).unfocus();
-      if (!form.validate()) return;
+      AccountListEvents.gstSaveTapped(registered: form.hasRegistration);
+      if (!form.validate()) {
+        AccountListEvents.gstInvalid(errorCount: form.errors.length);
+        return;
+      }
       saving.value = true;
       try {
         final saved = await save.mutateAsync(
           form.input(context.t('resources:gst.declaration_statement')),
         );
         form.markSaved(J.str(saved?['documentId']) ?? J.str(saved?['id']));
+        AccountListEvents.gstSaved(registered: form.hasRegistration);
         if (!context.mounted) return;
         saving.value = false;
         await CAlert.show(
@@ -67,6 +77,7 @@ class GstDetailsScreen extends HookWidget {
           variant: CAlertVariant.success,
         );
       } on ApiException catch (e) {
+        AccountListEvents.gstSaveFailed(e);
         await CAlert.error(e);
       } finally {
         if (context.mounted) saving.value = false;
@@ -117,7 +128,10 @@ class GstDetailsScreen extends HookWidget {
             GstRegistrationToggle(
               value: form.hasRegistration,
               enabled: editable,
-              onChanged: form.setRegistration,
+              onChanged: (value) {
+                AccountListEvents.gstRegistrationSet(registered: value);
+                form.setRegistration(value);
+              },
             ),
             if (form.hasRegistration)
               ..._registeredFields(context, form, editable, pickImage)
@@ -126,7 +140,12 @@ class GstDetailsScreen extends HookWidget {
                 checked: form.declarationConfirmed,
                 enabled: editable,
                 error: form.errors['declaration'],
-                onTap: form.toggleDeclaration,
+                onTap: () {
+                  AccountListEvents.gstDeclarationToggled(
+                    confirmed: !form.declarationConfirmed,
+                  );
+                  form.toggleDeclaration();
+                },
               ),
             SizedBox(height: 10.ms),
             CButton(
@@ -160,7 +179,12 @@ class GstDetailsScreen extends HookWidget {
                             icon: LucideIcons.pencil,
                             iconSize: 15,
                             label: 'resources:gst.edit',
-                            onPressed: form.toggleEdit,
+                            onPressed: () {
+                              AccountListEvents.gstEditToggled(
+                                editing: !form.editMode,
+                              );
+                              form.toggleEdit();
+                            },
                           )
                         : null,
                   ),
@@ -243,7 +267,10 @@ class GstDetailsScreen extends HookWidget {
             context,
             kind: GeoPickerKind.state,
           );
-          if (picked != null) form.setState(picked);
+          if (picked != null) {
+            PersonalInfoEvents.geoSelected(level: 'state', source: 'gst');
+            form.setState(picked);
+          }
         },
       ),
     ),
@@ -261,7 +288,10 @@ class GstDetailsScreen extends HookWidget {
             kind: GeoPickerKind.district,
             state: form.state,
           );
-          if (picked != null) form.setDistrict(picked);
+          if (picked != null) {
+            PersonalInfoEvents.geoSelected(level: 'district', source: 'gst');
+            form.setDistrict(picked);
+          }
         },
       ),
     ),

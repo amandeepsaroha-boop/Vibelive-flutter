@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../../core/analytics/events/host_events.dart';
 import '../../../core/session/session_store.dart';
 import '../../api/client/client_models.dart';
 import '../../authscreen/helper/link_parser.dart';
@@ -21,6 +22,7 @@ class HostProfileQrScreen extends HookWidget {
         final s = SessionStore.instance.value;
         final me = UserWithExpert(user: s.user ?? const {}, expert: s.expert);
         final slug = me.shareSlug;
+        HostEvents.qrOpened(hasLink: slug != null);
         if (slug != null) {
           await showQrCodeSheet(
             context,

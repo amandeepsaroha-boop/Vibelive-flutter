@@ -94,10 +94,8 @@ abstract final class PaymentEvents {
   });
 
   /// Add Money closed without an order ([selectedAmount]: what was picked).
-  static void addMoneyClosed({int? selectedAmount}) => Analytics.log(
-    'add_money_closed',
-    {'selected_amount': selectedAmount},
-  );
+  static void addMoneyClosed({int? selectedAmount}) =>
+      Analytics.log('add_money_closed', {'selected_amount': selectedAmount});
 
   /// The backend created the order.
   static void orderCreated({
@@ -307,8 +305,7 @@ abstract final class PaymentEvents {
   });
 
   /// The success burst landed (coin sound + haptic).
-  static void celebrationShown() =>
-      Analytics.log('payment_celebration_shown');
+  static void celebrationShown() => Analytics.log('payment_celebration_shown');
 
   // ── Offers ─────────────────────────────────────────────────────────────
 
@@ -327,11 +324,13 @@ abstract final class PaymentEvents {
       });
 
   /// RN `logFirstTopupOfferTapped`.
-  static void firstTopupOfferTapped({required num percent, required int amount}) =>
-      Analytics.log('first_topup_offer_tapped', {
-        'percent': percent,
-        'amount': amount,
-      });
+  static void firstTopupOfferTapped({
+    required num percent,
+    required int amount,
+  }) => Analytics.log('first_topup_offer_tapped', {
+    'percent': percent,
+    'amount': amount,
+  });
 
   static void firstTopupOfferDismissed({required num percent}) =>
       Analytics.log('first_topup_offer_dismissed', {'percent': percent});
@@ -422,8 +421,10 @@ abstract final class PaymentEvents {
   static void transferFailed({required num amount, required String error}) =>
       Analytics.log('transfer_failed', {'amount': amount, 'error': error});
 
-  static void transferClosed({required bool done}) =>
-      Analytics.log('transfer_sheet_closed', {'result': done ? 'done' : 'closed'});
+  static void transferClosed({required bool done}) => Analytics.log(
+    'transfer_sheet_closed',
+    {'result': done ? 'done' : 'closed'},
+  );
 
   // ── Payout account (no account / IFSC / UPI values, ever) ──────────────
 
@@ -432,11 +433,10 @@ abstract final class PaymentEvents {
       Analytics.log('bank_sheet_opened', {'state': state});
 
   /// Local validation stopped the submit ([fields]: which ones, by name).
-  static void bankFormInvalid({required List<String> fields}) =>
-      Analytics.log('bank_form_invalid', {
-        'fields': fields.join(','),
-        'count': fields.length,
-      });
+  static void bankFormInvalid({required List<String> fields}) => Analytics.log(
+    'bank_form_invalid',
+    {'fields': fields.join(','), 'count': fields.length},
+  );
 
   static void bankSubmitted({required bool hasUpi}) =>
       Analytics.log('bank_details_submitted', {'has_upi': hasUpi});
@@ -448,11 +448,13 @@ abstract final class PaymentEvents {
       Analytics.log('bank_details_save_failed', {'error': error});
 
   /// A saved account's status ([status]: `pending`, `verified`).
-  static void bankStatusViewed({required String status, required bool hasUpi}) =>
-      Analytics.log('bank_status_viewed', {
-        'status': status,
-        'has_upi': hasUpi,
-      });
+  static void bankStatusViewed({
+    required String status,
+    required bool hasUpi,
+  }) => Analytics.log('bank_status_viewed', {
+    'status': status,
+    'has_upi': hasUpi,
+  });
 
   /// "Contact support" to change the payout account (Meta `Contact`).
   static void bankSupportTapped({required bool mailOpened}) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/analytics/events/me_events.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
@@ -59,6 +60,7 @@ class CategoriesScreen extends HookWidget {
       final expertId = setupData?.expertId;
       if (expertId == null || saving.value) return;
       if (ctrl.selectedCount == 0) {
+        AccountListEvents.categoriesEmptySave();
         await CAlert.show(
           title: 'resources:categories.title',
           message: 'resources:errors.pick_one',
@@ -71,6 +73,12 @@ class CategoriesScreen extends HookWidget {
           expertId: expertId,
           patch: ctrl.patch,
         ));
+        final picks = ctrl.selected;
+        AccountListEvents.specializationSelected(
+          expertId: expertId,
+          ids: [for (final o in picks) '${o.id ?? o.documentId ?? ''}'],
+          names: [for (final o in picks) o.label],
+        );
         if (!context.mounted) return;
         saving.value = false;
         await CAlert.show(
@@ -84,6 +92,7 @@ class CategoriesScreen extends HookWidget {
           await context.push<void>(CategoriesController.nextRoute(saved));
         }
       } on ApiException catch (e) {
+        AccountListEvents.categoriesSaveFailed(e);
         await CAlert.error(e);
       } finally {
         if (context.mounted) saving.value = false;

@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/network/strapi.dart';
 import '../../../../core/router/app_router.dart';
@@ -37,6 +38,13 @@ class HostModerationMessagesCard extends HookWidget {
   Widget build(BuildContext context) {
     final messages = useHostModerationMessages(context).data ?? const [];
     final expanded = useState(false);
+    // Once per message count shown.
+    useEffect(() {
+      if (messages.isNotEmpty) {
+        HostEvents.moderationMessagesShown(count: messages.length);
+      }
+      return null;
+    }, [messages.length]);
     if (messages.isEmpty) return const SizedBox.shrink();
     final p = HostPalette.of(context);
     final shown = expanded.value ? messages : messages.take(_first).toList();
@@ -73,7 +81,12 @@ class HostModerationMessagesCard extends HookWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Pressable(
-                  onPressed: () => expanded.value = !expanded.value,
+                  onPressed: () {
+                    expanded.value = !expanded.value;
+                    HostEvents.moderationMessagesExpanded(
+                      expanded: expanded.value,
+                    );
+                  },
                   hitPadding: EdgeInsets.all(6.ms),
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 8.ms),
@@ -218,8 +231,12 @@ class _Message extends StatelessWidget {
             SizedBox(width: 8.ms),
             Pressable(
               activeOpacity: 0.85,
-              onPressed: () =>
-                  link != null ? openLink(link) : unawaited(open(fix!)),
+              onPressed: () {
+                HostEvents.moderationMessageTapped(
+                  action: link != null ? 'link' : 'fix',
+                );
+                link != null ? openLink(link) : unawaited(open(fix!));
+              },
               child: Container(
                 height: 32.ms,
                 padding: EdgeInsets.symmetric(horizontal: 12.ms),

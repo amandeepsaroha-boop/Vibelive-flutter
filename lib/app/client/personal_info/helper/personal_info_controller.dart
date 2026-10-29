@@ -53,6 +53,22 @@ class PersonalInfoController {
     return s != null && s != _snapshot();
   }
 
+  /// Names of the fields edited since the last [seed] (analytics: no
+  /// values), gender included.
+  List<String> changedFields() {
+    final s = _seeded;
+    if (s == null) return const [];
+    final now = _snapshot();
+    return [
+      if (s.name != now.name) 'name',
+      if (s.email != now.email) 'email',
+      if (s.mobile != now.mobile) 'mobile',
+      if (s.state != now.state) 'state',
+      if (s.district != now.district) 'district',
+      if (genderChanged) 'gender',
+    ];
+  }
+
   /// Fills the form from [p]. A background refetch never overwrites what
   /// the user is typing: unless [force], edited fields are kept.
   void seed(UserWithExpert p, {bool force = false}) {

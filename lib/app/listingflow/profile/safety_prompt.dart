@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/discover_events.dart';
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
@@ -12,19 +14,27 @@ import '../../component/pressable.dart';
 Future<bool> showSafetyPrompt(
   BuildContext context, {
   required bool video,
-}) async =>
-    await showGeneralDialog<bool>(
-      context: context,
-      useRootNavigator: true,
-      barrierDismissible: true,
-      barrierLabel: 'safety',
-      barrierColor: AppColors.blackA(0.55),
-      transitionDuration: const Duration(milliseconds: 180),
-      transitionBuilder: (_, anim, _, child) =>
-          FadeTransition(opacity: anim, child: child),
-      pageBuilder: (_, _, _) => _SafetyCard(video: video),
-    ) ==
-    true;
+}) async {
+  final start =
+      await showGeneralDialog<bool>(
+        context: context,
+        routeSettings: ScreenTracker.sheet('call_safety_prompt'),
+        useRootNavigator: true,
+        barrierDismissible: true,
+        barrierLabel: 'safety',
+        barrierColor: AppColors.blackA(0.55),
+        transitionDuration: const Duration(milliseconds: 180),
+        transitionBuilder: (_, anim, _, child) =>
+            FadeTransition(opacity: anim, child: child),
+        pageBuilder: (_, _, _) => _SafetyCard(video: video),
+      ) ==
+      true;
+  DiscoverEvents.safetyPromptAnswered(
+    callType: video ? 'video' : 'audio',
+    accepted: start,
+  );
+  return start;
+}
 
 class _SafetyCard extends StatelessWidget {
   const _SafetyCard({required this.video});

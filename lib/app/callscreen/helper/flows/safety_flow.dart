@@ -1,3 +1,5 @@
+import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/call_ui_events.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/strapi.dart';
 import '../../../../core/query/query_client.dart';
@@ -10,6 +12,7 @@ import '../../../api/client/client_queries.dart';
 import '../../../api/component/report_api.dart';
 import '../../../api/homescreen/home_keys.dart';
 import '../../../api/listingflow/listing_keys.dart';
+import '../../call/helper/call_track.dart';
 import '../call_actions.dart';
 import '../call_analytics.dart';
 import '../call_controller.dart';
@@ -119,7 +122,20 @@ abstract final class SafetyFlow {
     final s = _call;
     final callId = s.callId;
     final user = CallIdentity.userDocumentId ?? CallIdentity.userId;
-    if (callId == null || user == null) return;
+    final text = comments.trim();
+    void track(bool success, [Object? error]) =>
+        CallUiEvents.feedbackSubmitted(
+          callInfoOf(s),
+          rating: rating,
+          hasComment: text.isNotEmpty,
+          commentLength: text.length,
+          success: success,
+          error: error == null ? null : Analytics.errorCode(error),
+        );
+    if (callId == null || user == null) {
+      track(false, 'no_call');
+      return;
+    }
     try {
       final expertId = await _expertProfileId(s);
       await ApiClient.guard(
@@ -140,8 +156,10 @@ abstract final class SafetyFlow {
         ListingKeys.all,
         CallKeys.callReview(callId),
       ]);
+      track(true);
     } catch (e) {
       Log.w('SafetyFlow', 'feedback failed: $e');
+      track(false, e);
     }
   }
 

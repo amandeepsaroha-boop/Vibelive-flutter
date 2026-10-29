@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/call_ui_events.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/session/session_store.dart';
 import '../../../core/utils/scale.dart';
@@ -71,7 +73,12 @@ class HistoryView extends HookWidget {
     Future<void> refresh() async {
       try {
         await feed.refresh();
+        CallUiEvents.historyRefreshed(success: true);
       } on ApiException catch (e) {
+        CallUiEvents.historyRefreshed(
+          success: false,
+          error: Analytics.errorCode(e),
+        );
         CToast.error(e);
       }
     }
@@ -79,6 +86,7 @@ class HistoryView extends HookWidget {
     final first = feed.firstPage;
     final hasUser = SessionStore.instance.value.userDocumentId != null;
     final busy = first.isLoading || first.isFetching;
+    _useHistoryAnalytics(feed, entries, hasUser: hasUser);
     // RN: 120 under the last row inside the bottom safe area, which clears
     // the floating navbar. View padding: fixed while a keyboard is up.
     // Edge to edge: only the room under the last row.
@@ -97,7 +105,12 @@ class HistoryView extends HookWidget {
         hasMore: feed.hasMore,
         loadingMore: feed.isLoadingMore,
         loadMoreFailed: feed.loadMoreError != null,
-        onLoadMore: feed.loadMore,
+        onLoadMore: () {
+          if (feed.hasMore && !feed.isLoadingMore) {
+            CallUiEvents.historyLoadMore(count: entries.length);
+          }
+          feed.loadMore();
+        },
         onRefresh: refresh,
         onScroll: NavbarCollapse.instance.track,
         endLabel: entries.isEmpty ? null : 'call:history.end',
@@ -130,7 +143,15 @@ class HistoryView extends HookWidget {
                 return HistoryRow(
                   key: ValueKey(e.key),
                   entry: e,
-                  onOpen: (e) => actions.openProfile(context, e),
+                  onOpen: (e) {
+                    CallUiEvents.historyRowTapped(
+                      direction: e.direction.name,
+                      outcome: e.outcome.name,
+                      video: e.isVideo,
+                      peerId: e.counterpartId,
+                    );
+                    actions.openProfile(context, e);
+                  },
                   onMenu: (e) => actions.openMenu(context, e),
                 );
               },
@@ -142,6 +163,45 @@ class HistoryView extends HookWidget {
     // The title is the shell's HistoryTopBar, like the other tabs.
     return body;
   }
+}
+
+/// Page 1's state (loaded / empty / failed) once per mount and state, and
+/// every failed next-page load.
+void _useHistoryAnalytics(
+  CallHistoryFeed feed,
+  List<HistoryEntry> entries, {
+  required bool hasUser,
+}) {
+  final first = feed.firstPage;
+  final reported = useRef<String?>(null);
+  final hasData = first.data != null;
+  final failed = entries.isEmpty && first.isError && !first.isFetching;
+  useEffect(() {
+    final state = hasData
+        ? (entries.isEmpty ? 'empty' : 'loaded')
+        : (failed && hasUser ? 'failed' : null);
+    if (state == null || reported.value == state) return null;
+    reported.value = state;
+    switch (state) {
+      case 'loaded':
+        CallUiEvents.historyLoaded(
+          count: entries.length,
+          hasMore: feed.hasMore,
+        );
+      case 'empty':
+        CallUiEvents.historyEmpty();
+      default:
+        CallUiEvents.historyLoadFailed(error: Analytics.errorCode(first.error));
+    }
+    return null;
+  }, [hasData, entries.isEmpty, failed]);
+  final moreError = feed.loadMoreError;
+  useEffect(() {
+    if (moreError != null) {
+      CallUiEvents.historyLoadMoreFailed(error: Analytics.errorCode(moreError));
+    }
+    return null;
+  }, [moreError]);
 }
 
 /// "Couldn't load call history" with the reason and a retry.

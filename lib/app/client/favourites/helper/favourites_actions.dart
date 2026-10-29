@@ -18,10 +18,14 @@ abstract final class FavouritesActions {
     final id = favourite.expertId?.trim() ?? '';
     if (id.isEmpty) return;
     final known = peekHostLink(id);
-    if (known != null) return showHostProfile(context, known);
+    if (known != null) {
+      return showHostProfile(context, known, source: 'favourites');
+    }
     try {
       final host = await ensureHostByLink(id);
-      if (context.mounted) await showHostProfile(context, host);
+      if (context.mounted) {
+        await showHostProfile(context, host, source: 'favourites');
+      }
     } on ApiException catch (e) {
       await CAlert.error(e);
     }

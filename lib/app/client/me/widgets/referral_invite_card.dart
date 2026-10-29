@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/events/me_events.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -39,6 +40,11 @@ class MeReferralInviteCard extends HookWidget {
       return t.cancel;
     }, [copied.value]);
 
+    useEffect(() {
+      if (code.isNotEmpty) ReferralEvents.inviteCardShown(referralCode: code);
+      return null;
+    }, [code.isEmpty]);
+
     if (code.isEmpty) return const SizedBox.shrink();
 
     final p = MePalette.of(context);
@@ -54,18 +60,28 @@ class MeReferralInviteCard extends HookWidget {
       await MeActions.copy(code);
       copied.value = true;
       count();
+      ReferralEvents.codeCopied(referralCode: code, source: 'invite_card');
     }
 
     Future<void> inviteAll() async {
       count();
-      await MeActions.share(message);
+      ReferralEvents.shared(
+        referralCode: code,
+        method: 'system_share',
+        source: 'invite_card',
+      );
+      await MeActions.share(message, contentType: 'referral');
     }
 
     Future<void> whatsApp() async {
       count();
-      if (!await MeActions.openWhatsApp(message)) {
-        await MeActions.share(message);
-      }
+      final opened = await MeActions.openWhatsApp(message);
+      ReferralEvents.shared(
+        referralCode: code,
+        method: opened ? 'whatsapp' : 'system_share',
+        source: 'invite_card',
+      );
+      if (!opened) await MeActions.share(message, contentType: 'referral');
     }
 
     return Container(
@@ -209,7 +225,13 @@ class MeReferralInviteCard extends HookWidget {
           SizedBox(height: 4.ms),
           Pressable(
             activeOpacity: 0.8,
-            onPressed: () => MeActions.open(context, AppRoutes.referral),
+            onPressed: () {
+              MeEvents.itemTapped(
+                item: 'referral_activity',
+                section: 'referral_card',
+              );
+              MeActions.open(context, AppRoutes.referral);
+            },
             child: Padding(
               padding: EdgeInsets.only(top: 10.ms),
               child: Row(

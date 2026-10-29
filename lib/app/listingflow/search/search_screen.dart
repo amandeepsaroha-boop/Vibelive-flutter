@@ -37,7 +37,7 @@ class SearchScreen extends HookWidget {
     useEffect(() {
       if (link.isNotEmpty && link != search.query.value) {
         WidgetsBinding.instance.addPostFrameCallback(
-          (_) => search.searchFor(link),
+          (_) => search.searchFor(link, trigger: 'link'),
         );
       }
       return null;
@@ -49,6 +49,7 @@ class SearchScreen extends HookWidget {
         current: search.filter.value,
         hosts: search.hits,
         includeCategories: true,
+        source: 'search',
       );
       if (next != null && context.mounted) search.filter.value = next;
     }
@@ -86,6 +87,7 @@ class SearchScreen extends HookWidget {
                             padding: EdgeInsets.fromLTRB(4.ms, 0, 4.ms, 4.ms),
                             child: ActiveFilters(
                               filter: filter,
+                              source: 'search',
                               onChanged: (f) => search.filter.value = f,
                             ),
                           )
@@ -96,7 +98,11 @@ class SearchScreen extends HookWidget {
                       controller: search,
                       onOpen: (hit) => search.open(hit, (host) async {
                         if (context.mounted) {
-                          await showHostProfile(context, host);
+                          await showHostProfile(
+                            context,
+                            host,
+                            source: 'search',
+                          );
                         }
                       }),
                     ),

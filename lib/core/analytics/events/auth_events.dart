@@ -61,22 +61,25 @@ abstract final class AuthEvents {
   static void otpRequestFailed({
     required String method,
     required String error,
-  }) =>
-      Analytics.log('otp_request_failed', {'method': method, 'error': error});
+  }) => Analytics.log('otp_request_failed', {'method': method, 'error': error});
 
   static void otpResent({required String method}) =>
       Analytics.log('otp_resent', {'method': method});
 
-  static void otpResendFailed({required String method, required String error}) =>
-      Analytics.log('otp_resend_failed', {'method': method, 'error': error});
+  static void otpResendFailed({
+    required String method,
+    required String error,
+  }) => Analytics.log('otp_resend_failed', {'method': method, 'error': error});
 
   /// The whole code arrived at once. [source]: `sms_retriever` (Android
   /// auto-read) or `keyboard` (iOS suggestion / paste).
   static void otpAutofilled({required String method, required String source}) =>
       Analytics.log('otp_autofilled', {'method': method, 'source': source});
 
-  static void otpVerifyFailed({required String method, required String error}) =>
-      Analytics.log('otp_verify_failed', {'method': method, 'error': error});
+  static void otpVerifyFailed({
+    required String method,
+    required String error,
+  }) => Analytics.log('otp_verify_failed', {'method': method, 'error': error});
 
   /// "Change" on the code step: back to the number / email.
   static void otpChangeIdentifier({required String method}) =>

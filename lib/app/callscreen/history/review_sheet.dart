@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/call_ui_events.dart';
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/session/session_store.dart';
@@ -37,6 +40,7 @@ Future<bool> showReviewSheet(BuildContext context, HistoryEntry entry) async =>
       enableDrag: false,
       backgroundColor: AppColors.transparent,
       barrierColor: AppColors.blackA(0.65),
+      routeSettings: ScreenTracker.sheet('call_review_sheet'),
       builder: (_) => KeyboardInset(child: _ReviewSheet(entry: entry)),
     ) ??
     false;
@@ -60,6 +64,21 @@ class _ReviewSheet extends HookWidget {
     final canSubmit = rating.value > 0 || hasText;
     final subtle = dark ? AppColors.whiteA(0.45) : AppColors.blackA(0.42);
 
+    void skip() {
+      CallUiEvents.reviewSkipped(rating: rating.value, hasComment: hasText);
+      Navigator.of(context).pop(false);
+    }
+
+    void track(bool success, {String? hostId, String? error}) =>
+        CallUiEvents.reviewSubmitted(
+          success: success,
+          rating: rating.value,
+          hasComment: hasText,
+          hostId: hostId,
+          callId: entry.item.call.id?.toString(),
+          error: error,
+        );
+
     Future<void> send() async {
       final me = SessionStore.instance.value.userDocumentId;
       if (!canSubmit || busy.value || me == null) return;
@@ -68,6 +87,7 @@ class _ReviewSheet extends HookWidget {
         final expertId = await _expertIdOf(entry.counterpartId);
         // RN: "Unable to resolve Host Profile." and nothing is posted.
         if (expertId == null) {
+          track(false, error: 'expert_unresolved');
           unawaited(
             CAlert.show(
               title: HistoryErrors.title,
@@ -87,8 +107,10 @@ class _ReviewSheet extends HookWidget {
             callId: entry.item.call.id,
           ),
         );
+        track(true, hostId: expertId);
         if (context.mounted) Navigator.of(context).pop(true);
       } on ApiException catch (e) {
+        track(false, error: Analytics.errorCode(e));
         unawaited(
           CAlert.error(
             HistoryErrors.relabel(e, CallErrorKeys.reviewFailed),
@@ -123,11 +145,15 @@ class _ReviewSheet extends HookWidget {
                     _Header(
                       name: entry.name ?? context.t('call:history.unknown'),
                       subtle: subtle,
+                      onClose: skip,
                     ),
                     SizedBox(height: 18.ms),
                     _Stars(
                       value: rating.value,
-                      onChanged: (v) => rating.value = v,
+                      onChanged: (v) {
+                        rating.value = v;
+                        CallUiEvents.reviewRatingSelected(rating: v);
+                      },
                     ),
                     SizedBox(height: 20.ms),
                     if (!canSubmit) ...[
@@ -161,7 +187,7 @@ class _ReviewSheet extends HookWidget {
                       showArrow: false,
                       height: 50.ms,
                       titleSize: 13,
-                      onPressed: () => Navigator.of(context).pop(false),
+                      onPressed: skip,
                     ),
                   ),
                   SizedBox(width: 10.ms),
@@ -221,9 +247,14 @@ class _Footer extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.name, required this.subtle});
+  const _Header({
+    required this.name,
+    required this.subtle,
+    required this.onClose,
+  });
   final String name;
   final Color subtle;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -254,7 +285,7 @@ class _Header extends StatelessWidget {
           ),
         ),
         Pressable(
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: onClose,
           semanticLabel: context.t('actions.close'),
           child: Container(
             width: 36.ms,

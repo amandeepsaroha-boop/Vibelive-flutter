@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/events/me_events.dart';
 import '../../../../core/app_scope.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/router/app_router.dart';
@@ -46,6 +47,11 @@ class MeSettingsList extends HookWidget {
     }
 
     Future<void> becomeHost() async {
+      MeEvents.becomeHostTapped(
+        source: 'me_list',
+        eligible: data.isPersonalInfoComplete,
+        missingCount: data.missingPersonalInfo.length,
+      );
       if (!data.isPersonalInfoComplete) {
         // Explain instead of a dead row: say what is missing, go fill it in.
         final fields = data.missingPersonalInfo
@@ -58,6 +64,7 @@ class MeSettingsList extends HookWidget {
           confirmLabel: 'client:me.become_host_locked.action',
           variant: CAlertVariant.info,
         );
+        MeEvents.becomeHostLocked(action: go ? 'fill_info' : 'cancel');
         if (go && context.mounted) {
           await MeActions.open(context, AppRoutes.personalInfo);
         }
@@ -74,18 +81,25 @@ class MeSettingsList extends HookWidget {
     Future<void> shareProfile() async {
       final link = data.profileLink;
       if (link == null) {
+        MeEvents.profileShareUnavailable(source: 'me_list');
         CToast.show(
           'client:me.share.unavailable',
           variant: CToastVariant.error,
         );
         return;
       }
+      MeEvents.profileShared(source: 'me_list', hostId: data.expertId);
       await MeActions.share(
         context.t('client:me.share.message', variables: {'link': link}),
+        contentType: 'own_profile',
       );
     }
 
     void tap(MeMenuItem item) {
+      MeEvents.itemTapped(
+        item: MeActions.itemName(item.label),
+        section: 'identity',
+      );
       switch (item.id) {
         case MeItemId.share:
           shareProfile();
@@ -132,7 +146,10 @@ class MeSettingsList extends HookWidget {
               icon: LucideIcons.wallet,
               label: 'client:me.wallet.title',
               subtitle: 'client:me.wallet.subtitle',
-              onTap: () => MeActions.open(context, AppRoutes.wallet),
+              onTap: () {
+                MeEvents.itemTapped(item: 'wallet', section: 'wallet');
+                MeActions.open(context, AppRoutes.wallet);
+              },
             ),
           ],
         ),
@@ -152,21 +169,32 @@ class MeSettingsList extends HookWidget {
                 ? null
                 : MeBadgePromptChip(
                     labelKey: badgeKey,
-                    onTap: () =>
-                        MeActions.open(context, AppRoutes.verificationBadgeFee),
+                    onTap: () {
+                      MeEvents.itemTapped(
+                        item: 'verification_badge_prompt',
+                        section: 'badge_chip',
+                      );
+                      MeActions.open(context, AppRoutes.verificationBadgeFee);
+                    },
                   ),
           ),
           // RN HOST HUB, every option, as one card (lib/app/hosthub/hub).
           HostHubMenu(
             host: data.host!,
+            // Taps are logged inside HostHubMenu (host_hub_item_tapped).
             open: (route) => MeActions.open(context, route),
             verificationRoute: data.verificationRoute,
             verificationPrompt: badgeKey == null
                 ? null
                 : MeBadgePromptChip(
                     labelKey: badgeKey,
-                    onTap: () =>
-                        MeActions.open(context, data.verificationRoute),
+                    onTap: () {
+                      MeEvents.itemTapped(
+                        item: 'verification_badge_prompt',
+                        section: 'badge_chip',
+                      );
+                      MeActions.open(context, data.verificationRoute);
+                    },
                   ),
           ),
         ],
@@ -179,7 +207,10 @@ class MeSettingsList extends HookWidget {
               icon: LucideIcons.settings2,
               label: 'client:me.categories.resources',
               subtitle: 'client:me.categories.resources_hint',
-              onTap: () => MeActions.open(context, MeMenu.resourcesRoute),
+              onTap: () {
+                MeEvents.itemTapped(item: 'resources', section: 'resources');
+                MeActions.open(context, MeMenu.resourcesRoute);
+              },
             ),
           ],
         ),
@@ -263,7 +294,10 @@ class _ThemeCard extends StatelessWidget {
                 builder: (_, mode, _) => MeSegmented<ThemeMode>(
                   segments: _modes,
                   selected: mode,
-                  onSelect: (next) => theme.setMode(next).ignore(),
+                  onSelect: (next) {
+                    if (next != mode) MeEvents.themeChanged(next.name);
+                    theme.setMode(next).ignore();
+                  },
                 ),
               ),
             ],

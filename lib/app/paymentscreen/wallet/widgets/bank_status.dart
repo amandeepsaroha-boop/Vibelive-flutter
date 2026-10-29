@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/analytics/events/payment_events.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../api/paymentscreen/billing_models.dart';
@@ -32,9 +33,17 @@ class BankStatusView extends HookWidget {
         : SupportContact.fromAppConfig(config).email;
     final verified = detail.isVerified;
     final tone = verified ? WalletPalette.success : WalletPalette.pending;
+    useEffect(() {
+      PaymentEvents.bankStatusViewed(
+        status: verified ? 'verified' : 'pending',
+        hasUpi: (detail.upiAddress ?? '').isNotEmpty,
+      );
+      return null;
+    }, const []);
 
     Future<void> contactSupport() async {
       if (email == null || email.isEmpty) {
+        PaymentEvents.bankSupportTapped(mailOpened: false);
         unawaited(
           CAlert.show(
             title: 'payment:bank.contact_title',
@@ -54,6 +63,7 @@ class BankStatusView extends HookWidget {
       } catch (_) {
         // No mail app: say where to write instead.
       }
+      PaymentEvents.bankSupportTapped(mailOpened: opened);
       if (!opened) {
         unawaited(
           CAlert.show(

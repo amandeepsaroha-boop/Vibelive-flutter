@@ -24,8 +24,13 @@ abstract final class AnalyticsIdentity {
     _sync();
   }
 
-  /// The next sign-out is the user's own (`user`) or "Not you?" etc.
-  static void markSignOut(String reason) => _signOutReason = reason;
+  /// Why the next sign-out happens (`user`, `terms_declined`,
+  /// `account_deleted`…). A more specific reason set first is kept: the
+  /// generic `logout()` marks `user` without replacing it.
+  static void markSignOut(String reason, {bool keep = false}) {
+    if (keep && _signOutReason != null) return;
+    _signOutReason = reason;
+  }
 
   static void _sync() {
     final s = SessionStore.instance.value;

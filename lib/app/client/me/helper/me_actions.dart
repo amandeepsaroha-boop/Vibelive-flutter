@@ -29,8 +29,22 @@ abstract final class MeActions {
     ensureMyProfile(id).ignore();
   }
 
-  /// The OS share sheet (copies the text if it can't open).
-  static Future<void> share(String text) => AppShare.text(text);
+  /// The OS share sheet (copies the text if it can't open). [contentType]:
+  /// what is shared, for analytics.
+  static Future<void> share(String text, {String contentType = 'text'}) =>
+      AppShare.text(text, contentType: contentType);
+
+  /// Analytics name of a ME row: the last part of its i18n key
+  /// (`client:me.items.personal` → `personal`) or of its route.
+  static String itemName(String keyOrRoute) {
+    final source = keyOrRoute.startsWith('/')
+        ? Uri.parse(keyOrRoute).path
+        : keyOrRoute;
+    final last = source
+        .split(RegExp(r'[.:/]'))
+        .lastWhere((p) => p.isNotEmpty, orElse: () => source);
+    return last.replaceAll('-', '_');
+  }
 
   static Future<void> copy(String text) =>
       Clipboard.setData(ClipboardData(text: text));

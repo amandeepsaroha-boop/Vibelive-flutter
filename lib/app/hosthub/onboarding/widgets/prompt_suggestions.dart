@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../helper/draft_models.dart';
 import '../helper/suggestions.dart';
@@ -19,6 +20,7 @@ class HostPromptSuggestions extends HookWidget {
     required this.page,
     required this.target,
     required this.source,
+    this.field = 'text',
   });
 
   final ValueListenable<List<HostTopic>> topics;
@@ -27,6 +29,9 @@ class HostPromptSuggestions extends HookWidget {
   /// The field "Use" fills.
   final TextEditingController target;
   final HostSuggestionSource source;
+
+  /// Analytics: the field it fills (`tagline` / `bio`).
+  final String field;
 
   @override
   Widget build(BuildContext context) {
@@ -41,10 +46,13 @@ class HostPromptSuggestions extends HookWidget {
     );
     return HostSuggestionCard(
       suggestions: ideas,
-      onUse: (s) => target.value = TextEditingValue(
-        text: s,
-        selection: TextSelection.collapsed(offset: s.length),
-      ),
+      onUse: (s) {
+        HostEvents.suggestionUsed(field, position: ideas.indexOf(s) + 1);
+        target.value = TextEditingValue(
+          text: s,
+          selection: TextSelection.collapsed(offset: s.length),
+        );
+      },
       onAnother: () => page.value = p + 1,
     );
   }

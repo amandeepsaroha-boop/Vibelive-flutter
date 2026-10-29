@@ -23,6 +23,21 @@ abstract final class AppEvents {
 
   // ── Notifications ──────────────────────────────────────────────────────
 
+  /// The campaign / sequence id of a push's data, if any (campaigns send
+  /// `notificationTrackingId`, sequences `trackingId`).
+  static String? campaignIdOf(Map<String, Object?> data) {
+    for (final key in const [
+      'campaignId',
+      'campaign_id',
+      'notificationTrackingId',
+      'trackingId',
+    ]) {
+      final v = data[key]?.toString().trim();
+      if (v != null && v.isNotEmpty && v != 'null') return v;
+    }
+    return null;
+  }
+
   /// A non-call push reached the app. [kind]: campaign, wallet,
   /// verification, milestone, general; [foreground]: app in front.
   static void pushReceived({
@@ -113,11 +128,13 @@ abstract final class AppEvents {
 
   // ── Update notice ──────────────────────────────────────────────────────
 
-  static void updatePromptShown({required String version, required bool forced}) =>
-      Analytics.log('update_prompt_shown', {
-        'version': version,
-        'forced': forced,
-      });
+  static void updatePromptShown({
+    required String version,
+    required bool forced,
+  }) => Analytics.log('update_prompt_shown', {
+    'version': version,
+    'forced': forced,
+  });
 
   static void updateTapped({String? version, bool? forced}) =>
       Analytics.log('update_tapped', {'version': version, 'forced': forced});

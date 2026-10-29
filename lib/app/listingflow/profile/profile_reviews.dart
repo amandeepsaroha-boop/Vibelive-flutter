@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fquery_core/fquery_core.dart' show InfiniteQueryResult;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/discover_events.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/strapi.dart';
 import '../../../core/theme/app_colors.dart';
@@ -18,9 +19,17 @@ typedef ReviewsQuery = InfiniteQueryResult<ReviewPage, ApiException, int>;
 /// "REVIEWS (n)": a horizontal, lazily built row of review cards with a
 /// "SEE MORE" tile that loads the next page (RN).
 class ProfileReviews extends StatelessWidget {
-  const ProfileReviews({super.key, required this.query, this.waiting = false});
+  const ProfileReviews({
+    super.key,
+    required this.query,
+    this.waiting = false,
+    this.hostId,
+  });
 
   final ReviewsQuery query;
+
+  /// The host's key, for analytics.
+  final String? hostId;
 
   /// The host's full profile is still loading (no expert id yet).
   final bool waiting;
@@ -83,7 +92,14 @@ class ProfileReviews extends StatelessWidget {
                 )
               : _SeeMore(
                   failed: query.isFetchNextPageError,
-                  onTap: query.fetchNextPage,
+                  onTap: () {
+                    DiscoverEvents.reviewsMoreTapped(
+                      hostId: hostId,
+                      loaded: reviews.length,
+                      total: total,
+                    );
+                    query.fetchNextPage();
+                  },
                 ),
         ),
       );

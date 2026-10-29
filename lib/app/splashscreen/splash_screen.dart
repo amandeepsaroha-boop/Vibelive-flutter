@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/events/app_events.dart';
+import '../../core/analytics/screen_tracker.dart';
 import '../../core/query/query_client.dart';
 import '../../core/session/session_store.dart';
 import '../../core/utils/scale.dart';
@@ -85,6 +87,13 @@ class SplashScreen extends HookWidget {
       // Signed in: Home's data loads during the splash's 2.5 s.
       if (signedIn) prefetchStartup();
       nextAuthRoute(confirmAgeGate: true).then((r) {
+        final session = SessionStore.instance.value;
+        AppEvents.appLaunched(
+          signedIn: signedIn,
+          role: !signedIn ? null : (session.isExpert ? 'host' : 'client'),
+          nextScreen: ScreenTracker.nameFor(Uri.parse(r)),
+          onCall: CallController.instance.isOnCall,
+        );
         if (alive) route.value = r;
       });
       final timer = Timer(minDuration, () {

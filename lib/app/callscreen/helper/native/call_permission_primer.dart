@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/widgets.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../../core/analytics/events/call_ui_events.dart';
 import '../../../../core/storage/app_prefs.dart';
 import '../../../../core/utils/log.dart';
 import '../call_controller.dart';
@@ -31,7 +32,11 @@ abstract final class CallPermissionPrimer {
     _running = true;
     try {
       await AppPrefs.setString(_primedKey, '1');
-      await [Permission.microphone, Permission.camera].request();
+      final result = await [Permission.microphone, Permission.camera].request();
+      CallUiEvents.permissionPrimed(
+        mic: result[Permission.microphone]?.isGranted ?? false,
+        camera: result[Permission.camera]?.isGranted ?? false,
+      );
       await _bluetooth();
     } catch (e) {
       Log.w('CallPermissionPrimer', 'prime: $e');
@@ -60,7 +65,8 @@ abstract final class CallPermissionPrimer {
     // Below Android 12 this reads as granted (install-time permission).
     if (!await Permission.bluetoothConnect.isDenied) return;
     await AppPrefs.setString(_bluetoothKey, '1');
-    await Permission.bluetoothConnect.request();
+    final status = await Permission.bluetoothConnect.request();
+    CallUiEvents.bluetoothPermission(granted: status.isGranted);
   }
 
   static bool _inFront() {

@@ -18,6 +18,9 @@ Future<GeoOption?> showGeoPicker(
 }) => showHostSheet<GeoOption>(
   context,
   title: state == null ? 'hostflow:basic.state' : 'hostflow:basic.district',
+  name: state == null
+      ? 'host_state_picker_sheet'
+      : 'host_district_picker_sheet',
   child: _GeoList(state: state, selected: selected),
 );
 
@@ -70,6 +73,7 @@ Future<void> showLanguagePicker(
 ) => showHostSheet<void>(
   context,
   title: 'hostflow:basic.languages',
+  name: 'host_language_picker_sheet',
   child: _LanguageList(selected: selected),
 );
 

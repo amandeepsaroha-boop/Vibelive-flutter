@@ -1,6 +1,10 @@
 import 'dart:async';
 
+import '../../../../core/analytics/events/call_ui_events.dart';
 import '../../helper/call_actions.dart';
+import '../../helper/call_controller.dart';
+import '../../helper/call_runtime.dart';
+import 'call_track.dart';
 
 /// RN `handleCallEndFeedbackTransition`, once per call (the screen keys a
 /// fresh runner on every callId): the caller of a connected call gets the
@@ -47,7 +51,19 @@ class PostCallRunner {
     if (_started || _disposed) return;
     _started = true;
     _feedback = CallActions.afterEnded() == PostCallStep.feedback;
+    _logSummary();
     _timer = Timer(_feedback ? feedbackDelay : exitDelay, _due);
+  }
+
+  void _logSummary() {
+    final now = CallController.instance.value;
+    final s = now.callId != null ? now : CallRuntime.lastCall;
+    CallUiEvents.summaryShown(
+      callInfoOf(s),
+      next: _feedback ? 'feedback' : 'exit',
+      connected: s.everConnected,
+      durationSeconds: s.everConnected ? s.durationSeconds(s.endedAt) : null,
+    );
   }
 
   /// The call screen may be on top again: run a parked step now.

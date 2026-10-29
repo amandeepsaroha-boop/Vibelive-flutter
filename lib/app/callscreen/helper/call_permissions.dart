@@ -1,5 +1,6 @@
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../core/analytics/events/call_ui_events.dart';
 import '../../component/c_alert.dart';
 import 'call_alerts.dart';
 
@@ -29,7 +30,7 @@ abstract final class CallPermissions {
 
   /// [ensureForOutgoing] for any call (the receiver's Accept too, A2).
   static Future<bool> ensureForCall({required bool video}) =>
-      ensureForOutgoing(video: video);
+      ensureForOutgoing(video: video, context: 'call');
 
   /// After a system-UI accept, with the app in front: true only when
   /// access WAS missing and is granted now (the engine must restart its
@@ -38,7 +39,7 @@ abstract final class CallPermissions {
     try {
       final access = await backend.check(video: video);
       if (!access.isMissing) return false;
-      return await ensureForOutgoing(video: video);
+      return await ensureForOutgoing(video: video, context: 'system_accept');
     } catch (_) {
       return false;
     }
@@ -46,12 +47,22 @@ abstract final class CallPermissions {
 
   /// Granted / unknown → true. Denied → asks; still missing → the RN alert
   /// (blocked: Cancel + Open Settings; denied: OK) and false. Never throws.
-  static Future<bool> ensureForOutgoing({required bool video}) async {
+  /// [context]: analytics (`outgoing` | `call` | `system_accept`).
+  static Future<bool> ensureForOutgoing({
+    required bool video,
+    String context = 'outgoing',
+  }) async {
+    final permission = video ? 'mic_camera' : 'mic';
     try {
       var access = await backend.check(video: video);
       if (!access.isMissing) return true;
       if (access == CallAccess.denied) {
         access = await backend.request(video: video);
+        CallUiEvents.permissionRequested(
+          permission: permission,
+          result: access.name,
+          context: context,
+        );
         if (!access.isMissing) return true;
       }
       if (access == CallAccess.blocked) {
@@ -62,12 +73,22 @@ abstract final class CallPermissions {
           primaryLabel: CallFlowKeys.permissionOpenSettings,
           secondaryLabel: 'actions.cancel',
         );
+        CallUiEvents.permissionAlert(
+          permission: permission,
+          blocked: true,
+          openedSettings: open == true,
+        );
         if (open == true) await backend.openSettings();
       } else {
         await CallAlerts.show(
           title: CallFlowKeys.permissionTitle(video: video),
           message: CallFlowKeys.permissionDenied(video: video),
           variant: CAlertVariant.warning,
+        );
+        CallUiEvents.permissionAlert(
+          permission: permission,
+          blocked: false,
+          openedSettings: false,
         );
       }
       return false;

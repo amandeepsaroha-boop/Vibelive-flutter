@@ -38,7 +38,7 @@ void main() {
 
   group('HostReview', () {
     test('a message reads what the server sends', () {
-      final m = HostModerationMessage.from({
+      final m = HostModerationMessage.from(const {
         'id': 4,
         'kind': 'status_changed',
         'body': ' Bio has a phone number ',
@@ -57,13 +57,13 @@ void main() {
 
     test('the named fields count while the profile stands rejected', () {
       final messages = [
-        HostModerationMessage.from({
+        HostModerationMessage.from(const {
           'id': 9,
           'kind': 'rejected',
           'body': 'Use your real name',
           'fields': ['name', 'handler'],
         }),
-        HostModerationMessage.from({
+        HostModerationMessage.from(const {
           'id': 3,
           'kind': 'rejected',
           'fields': ['tagline'],
@@ -86,7 +86,10 @@ void main() {
     });
 
     test('a rejection naming no field points at Basic', () {
-      final r = HostReview.from(host(status: 'rejected', note: 'Fake'), []);
+      final r = HostReview.from(
+        host(status: 'rejected', note: 'Fake'),
+        const [],
+      );
       expect(r.fields, isEmpty);
       expect(r.noticeOn(HostStep.basic), isTrue);
       expect(r.noticeOn(HostStep.bio), isFalse);
@@ -109,7 +112,7 @@ void main() {
             },
           ],
         ),
-        [],
+        const [],
       );
       expect(r.photoStatus(11), 'rejected');
       expect(r.photoStatus(12), 'pending');

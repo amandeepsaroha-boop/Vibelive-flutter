@@ -25,7 +25,7 @@ Put the link in the push's `data`. Pushes from the orchestrator already do this.
 
 | Screen name (aliases) | Opens | Params | Who |
 |---|---|---|---|
-| `home` (`discover`) | Discover | `topic` (a topic tab); `q` opens Search instead | all |
+| `home` (`discover`) | Discover | `topic` (`cat`): a topic tab; `q` opens Search instead | all |
 | `search` | Search | `q` | all |
 | `history` | Call history tab | | all |
 | `profile` (`me`) | Profile tab | | all |
@@ -34,7 +34,7 @@ Put the link in the push's `data`. Pushes from the orchestrator already do this.
 | `favourites` (`favorites`) | Favourites | | all |
 | `referral` (`invite`) | Referral / invite | | all |
 | `personal-info` | Personal info | | all |
-| `categories` (`topics`) | Topics picker | | all |
+| `categories` (`topics`, `interests`) | Topics picker | | all |
 | `resources` (`category-menu`) | A Resources category | `id` **required** | all |
 | `page` | A content page | `slug` **required**, `title` | all |
 | `about` | About the app | | all |
@@ -93,3 +93,15 @@ https://vibelive.angrymamba.com/app/wallet?amount=199
 - **Screens live under `/app/`.** A bare `https://vibelive.angrymamba.com/<word>` stays a host's share link, because a host's handle can be any word.
 - **Android** opens every path on the domain in the app.
 - **iOS** opens only the paths listed in the website's `apple-app-site-association` file. `/app/*` must be added there.
+
+## Messages from the moderation team
+
+The moderation thread in the admin panel (Host review drawer) can link a note to any screen above. The list is the notification composer's own presets (orchestrator Settings), so the two always offer the same screens.
+
+- **The push** opens the linked screen. A note with no link opens the profile editor, as before.
+- **The app** also lists the messages on the ME tab ("Messages from the moderation team", `GET /api/me/moderation-notes`). Each message has an **Open** button for its link. A rejection without a link gets **Fix it**, which opens the step to fix.
+- **Rejections say what was wrong.** The moderator ticks the text fields (`name`, `handler`, `tagline`, `descriptions`). The push opens the first field's step. In the app, that step shows the team's note at the top, and each named field has a red outline until it is edited.
+- **A rejected photo** sends a push to `host-photos`. In the app, that photo gets a red "Not approved" badge, and photos waiting for review show "In review".
+- **A rejected voice intro** sends a push to `host-voice`. The Voice step asks the host to record again until they do.
+
+`test/auth/link_parser_test.dart` checks that every backend preset opens a screen.

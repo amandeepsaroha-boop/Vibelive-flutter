@@ -117,16 +117,18 @@ class LoginController {
   /// follows completes THAT sign-in (analytics method = the provider).
   SocialProvider? _socialPending;
 
-  /// The sheet's current step as a screen (login_mobile, login_otp_email…).
-  void _viewStep() {
+  /// The sheet's current step as an analytics screen name: `login`,
+  /// `login_mobile`, `login_email`, `login_otp_mobile`, `login_otp_email`,
+  /// `login_phone_required`.
+  String get screenName {
     final m = method.value;
-    if (m == null) return ScreenTracker.view('login');
+    if (m == null) return 'login';
     final channel = m == OtpChannel.email ? 'email' : 'mobile';
-    if (otpSent.value) return ScreenTracker.view('login_otp_$channel');
-    ScreenTracker.view(
-      phoneRequired.value ? 'login_phone_required' : 'login_$channel',
-    );
+    if (otpSent.value) return 'login_otp_$channel';
+    return phoneRequired.value ? 'login_phone_required' : 'login_$channel';
   }
+
+  void _viewStep() => ScreenTracker.view(screenName);
 
   String get _identifier => _isEmail
       ? email.text.trim().toLowerCase()
@@ -209,7 +211,10 @@ class LoginController {
         ? LoginFormat.isValidEmail(identifier)
         : LoginFormat.isValidIndianMobile(identifier);
     if (!valid) {
-      AuthEvents.inputInvalid(method: _method, field: _isEmail ? 'email' : 'phone');
+      AuthEvents.inputInvalid(
+        method: _method,
+        field: _isEmail ? 'email' : 'phone',
+      );
       return _set(
         error,
         UiText(

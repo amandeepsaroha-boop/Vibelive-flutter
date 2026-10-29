@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/discover_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/network/strapi.dart';
 import '../../../core/session/session_store.dart';
@@ -27,6 +29,7 @@ Future<void> showReportSheet(BuildContext context, {required HostCard host}) =>
     showProfileSheet<void>(
       context,
       (_) => KeyboardInset(child: _ReportSheet(host: host)),
+      name: 'host_report_sheet',
     );
 
 class _ReportSheet extends HookWidget {
@@ -39,8 +42,17 @@ class _ReportSheet extends HookWidget {
     final categories = useReportCategories(context);
     final selected = useState<Object?>(null);
     final note = useTextEditingController();
+    final hostId = HostProfileRules.expertKey(host);
+    // The reason as sent, for the outcome events.
+    final sentReason = useRef('');
     final submit = useSubmitReport(
       onSuccess: () {
+        DiscoverEvents.reportSubmitted(
+          hostId: hostId,
+          reason: sentReason.value,
+          hasNote: note.text.trim().isNotEmpty,
+          noteLength: note.text.trim().length,
+        );
         if (context.mounted) Navigator.of(context).pop();
         CAlert.show(
           title: 'host:report.success_title',
@@ -48,7 +60,14 @@ class _ReportSheet extends HookWidget {
           variant: CAlertVariant.success,
         );
       },
-      onError: (e) => CAlert.error(e, title: 'host:report.failed_title'),
+      onError: (e) {
+        DiscoverEvents.reportFailed(
+          hostId: hostId,
+          reason: sentReason.value,
+          error: Analytics.errorCode(e),
+        );
+        CAlert.error(e, title: 'host:report.failed_title');
+      },
     );
 
     void send() {
@@ -65,6 +84,14 @@ class _ReportSheet extends HookWidget {
           ? ('host:report.missing_title', 'host:report.missing_category')
           : (null, null);
       if (title != null) {
+        DiscoverEvents.reportBlocked(
+          hostId: hostId,
+          problem: reporter == null
+              ? 'signed_out'
+              : reported == null
+              ? 'no_target'
+              : 'no_reason',
+        );
         CAlert.show(
           title: title,
           message: message,
@@ -72,6 +99,7 @@ class _ReportSheet extends HookWidget {
         );
         return;
       }
+      sentReason.value = '${selected.value}';
       submit.mutate(
         ReportInput(
           reporterId: reporter!,
@@ -141,7 +169,13 @@ class _ReportSheet extends HookWidget {
                                 selected:
                                     selected.value != null &&
                                     selected.value == _idOf(cat),
-                                onTap: () => selected.value = _idOf(cat),
+                                onTap: () {
+                                  selected.value = _idOf(cat);
+                                  DiscoverEvents.reportReasonSelected(
+                                    hostId: hostId,
+                                    reason: '${_idOf(cat)}',
+                                  );
+                                },
                               ),
                           ],
                         ),

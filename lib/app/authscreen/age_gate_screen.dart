@@ -3,6 +3,9 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/analytics/analytics.dart';
+import '../../core/analytics/events/auth_events.dart';
+import '../../core/analytics/screen_tracker.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/session/session_store.dart';
 import '../../core/theme/app_colors.dart';
@@ -30,11 +33,25 @@ class AgeGateScreen extends HookWidget {
     final errorRaw = useState(false);
     final busy = useState(false);
 
+    // The terminal "under 18" state is its own screen.
+    final isBlocked = status == AgeGateStatus.blocked;
+    useEffect(() {
+      if (isBlocked) {
+        AuthEvents.ageGateBlockedShown();
+        ScreenTracker.view('onboarding_age_blocked');
+      }
+      return null;
+    }, [isBlocked]);
+
     Future<void> submit() async {
       if (busy.value) return;
       final picked = dob.value;
       final check = picked == null ? null : DateOfBirthCheck.fromDate(picked);
       if (check == null || !check.isValid) {
+        AuthEvents.ageGateSubmitted(
+          result: 'invalid',
+          error: check?.errorKey ?? 'no_date',
+        );
         error.value = check?.errorKey ?? 'auth:onboarding.age.select_error';
         errorRaw.value = false;
         return;
@@ -43,11 +60,23 @@ class AgeGateScreen extends HookWidget {
       error.value = null;
       try {
         final verdict = await saveDateOfBirth(check.isoDate!);
+        AuthEvents.ageGateSubmitted(
+          result: switch (verdict) {
+            AgeGateStatus.ok => 'allowed',
+            AgeGateStatus.blocked => 'blocked',
+            AgeGateStatus.required => 'needs_date',
+            AgeGateStatus.unknown => 'unknown',
+          },
+        );
         if (verdict == AgeGateStatus.ok && context.mounted) {
-          await OnboardingActions.continueIntoApp(context);
+          await OnboardingActions.continueIntoApp(context, from: 'age_gate');
         }
       } catch (err) {
         final e = ApiException.from(err);
+        AuthEvents.ageGateSubmitted(
+          result: 'error',
+          error: Analytics.errorCode(e),
+        );
         error.value = e.serverMessage ?? e.i18nKey;
         errorRaw.value = e.serverMessage != null;
       }
@@ -59,7 +88,7 @@ class AgeGateScreen extends HookWidget {
       if (busy.value) return;
       busy.value = true;
       try {
-        await OnboardingActions.continueIntoApp(context);
+        await OnboardingActions.continueIntoApp(context, from: 'age_gate');
       } catch (err) {
         final e = ApiException.from(err);
         error.value = e.serverMessage ?? e.i18nKey;
@@ -113,7 +142,7 @@ class AgeGateScreen extends HookWidget {
             OnboardingNote(error.value!, error: true, raw: errorRaw.value),
         ],
         SizedBox(height: 18.ms),
-        SignOutLink(enabled: !busy.value),
+        SignOutLink(enabled: !busy.value, screen: 'age_gate'),
       ],
     );
   }
@@ -138,6 +167,7 @@ class _DateField extends StatelessWidget {
     final now = DateTime.now();
     final confirmed = await showCupertinoModalPopup<bool>(
       context: context,
+      routeSettings: ScreenTracker.sheet('age_date_picker_sheet'),
       builder: (sheet) {
         final c = sheet.colors;
         return Container(
@@ -199,6 +229,7 @@ class _DateField extends StatelessWidget {
         );
       },
     );
+    AuthEvents.ageDatePicked(confirmed: confirmed == true);
     if (confirmed == true) onPicked(value);
   }
 

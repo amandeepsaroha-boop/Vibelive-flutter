@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/payment_events.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/session/session_store.dart';
 import '../../../../core/utils/scale.dart';
@@ -55,7 +57,14 @@ class BankFormView extends HookWidget {
         upi: upi.text,
       );
       errors.value = next;
-      if (next.isNotEmpty) return;
+      if (next.isNotEmpty) {
+        PaymentEvents.bankFormInvalid(
+          fields: [for (final f in next.keys) f.name],
+        );
+        return;
+      }
+      final hasUpi = upi.text.trim().isNotEmpty;
+      PaymentEvents.bankSubmitted(hasUpi: hasUpi);
       busy.value = true;
       try {
         await save.mutateAsync(
@@ -70,9 +79,11 @@ class BankFormView extends HookWidget {
         );
       } on ApiException catch (e) {
         busy.value = false;
+        PaymentEvents.bankSaveFailed(error: Analytics.errorCode(e));
         unawaited(CAlert.error(e, title: 'payment:bank.save_failed_title'));
         return;
       }
+      PaymentEvents.bankSaved(hasUpi: hasUpi);
       unawaited(
         CAlert.show(
           title: 'payment:bank.saved_title',

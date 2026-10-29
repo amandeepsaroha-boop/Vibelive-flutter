@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../../core/analytics/events/me_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/query/query_hooks.dart';
 import '../../../core/utils/scale.dart';
@@ -37,10 +38,25 @@ class ReferralScreen extends HookWidget {
     final sharing = useValueNotifier(false);
     final track = useTrackReferralShare(type: ReferralShareType.referral);
 
+    // RN `referral_opened`: once per visit, when the dashboard first shows.
+    final opened = useRef(false);
+    final dashboard = query.data;
+    useEffect(() {
+      if (dashboard == null || opened.value) return null;
+      opened.value = true;
+      ReferralEvents.opened(
+        referralCode: dashboard.referralCode,
+        joined: dashboard.joinedUserCount,
+        clicks: dashboard.totalClicks,
+      );
+      return null;
+    }, [dashboard]);
+
     // Refresh button and pull-to-refresh (RN `loadData({silent: true})`):
     // a failure keeps what is shown and says why.
     Future<void> refresh() async {
       if (refreshing.value) return;
+      ReferralEvents.refreshed();
       refreshing.value = true;
       try {
         await ensureReferralDashboard();
@@ -55,6 +71,7 @@ class ReferralScreen extends HookWidget {
       if (sharing.value) return;
       final code = query.data?.referralCode ?? '';
       if (code.isEmpty) {
+        ReferralEvents.codeUnavailable(source: 'referral_screen');
         await CAlert.show(
           title: 'client:referral.alert_title',
           message: 'client:referral.code_unavailable',
@@ -63,9 +80,15 @@ class ReferralScreen extends HookWidget {
       }
       sharing.value = true;
       try {
+        ReferralEvents.shared(
+          referralCode: code,
+          method: 'system_share',
+          source: 'referral_screen',
+        );
         await AppShare.text(
           ReferralFormat.link(code),
           subject: context.t('client:referral.share_subject'),
+          contentType: 'referral',
         );
         // Counting is best effort (RN): show the backend's count, or one more
         // when the count fails. A success also re-reads the dashboard.

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/host_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/scale.dart';
@@ -11,6 +12,7 @@ import '../../client/me/helper/host_availability_controller.dart';
 import '../../client/me/widgets/host_availability_sheet.dart';
 import '../../component/c_text.dart';
 import '../../component/pressable.dart';
+import '../../hosthub/onboarding/helper/host_funnel.dart';
 
 /// The host's availability at a glance (the mode's icon and Online /
 /// Scheduled / Offline, with the time left on an offline timer) beside the
@@ -86,7 +88,10 @@ class _Pill extends StatelessWidget {
     return Pressable(
       activeOpacity: 0.85,
       semanticLabel: context.t('home:status.open'),
-      onPressed: () => unawaited(showHostAvailabilitySheet(context)),
+      onPressed: () {
+        HostEvents.statusPillTapped(status: hostStatusName(mode));
+        unawaited(showHostAvailabilitySheet(context, source: 'navbar_pill'));
+      },
       child: Container(
         height: height,
         width: HostStatusPill.width,

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../../core/analytics/events/app_events.dart';
+import '../../../core/analytics/events/auth_events.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/log.dart';
 import '../../api/authscreen/auth_queries.dart';
@@ -29,10 +31,18 @@ class LoginReferral {
   bool _disposed = false;
   Timer? _debounce, _referrerDelay;
 
-  void show() => open.value = true;
+  /// Where the code in the field came from (analytics): `typed`, `link`,
+  /// `install_referrer`.
+  String _source = 'typed';
+
+  void show() {
+    if (!open.value) AuthEvents.referralFieldOpened();
+    open.value = true;
+  }
 
   /// Typed code: re-validated 800 ms after the last keystroke.
   void onChanged(String text) {
+    _source = 'typed';
     _debounce?.cancel();
     status.value = ReferralStatus.idle;
     referrerName.value = null;
@@ -75,17 +85,24 @@ class LoginReferral {
     ]) {
       if (raw == null || LinkParser.isTechnical(raw)) continue;
       final capture = LinkParser.splitHandler(raw);
-      if (capture.handler.isNotEmpty) return _apply(capture);
+      if (capture.handler.isNotEmpty) return _apply(capture, source: 'link');
     }
     // Deferred like RN: the Play referrer client needs a moment after launch.
     _referrerDelay = Timer(const Duration(seconds: 1), () async {
       final capture = await DeepLinks.instance.installReferrer();
-      if (capture != null && !_disposed) _apply(capture);
+      AppEvents.installReferrer(
+        hasCode: capture != null && capture.handler.isNotEmpty,
+        intent: capture?.intent.name,
+      );
+      if (capture != null && !_disposed) {
+        _apply(capture, source: 'install_referrer');
+      }
     });
   }
 
-  void _apply(ReferralCapture capture) {
+  void _apply(ReferralCapture capture, {required String source}) {
     _captured = capture;
+    _source = source;
     // A plain profile link opens the host after login; it is not a code.
     if (capture.intent == ReferralIntent.hostProfile) return;
     code.text = capture.handler.toUpperCase();
@@ -112,6 +129,10 @@ class LoginReferral {
     }
     status.value = result;
     referrerName.value = name;
+    AuthEvents.referralChecked(
+      valid: result == ReferralStatus.valid,
+      source: _source,
+    );
   }
 
   void dispose() {

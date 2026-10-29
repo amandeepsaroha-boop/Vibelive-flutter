@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../../core/analytics/events/host_events.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/scale.dart';
 import '../../api/hosthub/approval_models.dart';
@@ -65,9 +66,13 @@ class _ReviewStatus extends HookWidget {
     if (latest.data == null && latest.isLoading) {
       return const SizedBox.shrink();
     }
+    final status = ApprovalRecord.effective(host, latest.data);
     return HostReviewStatusCard(
-      status: ApprovalRecord.effective(host, latest.data),
-      onOpenFlow: () => open(AppRoutes.hostOnboarding),
+      status: status,
+      onOpenFlow: () {
+        HostEvents.reviewCardTapped(status: status?.name ?? 'not_sent');
+        open(AppRoutes.hostOnboarding);
+      },
     );
   }
 }

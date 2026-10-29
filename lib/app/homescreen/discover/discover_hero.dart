@@ -66,7 +66,9 @@ class DiscoverHero extends StatelessWidget {
           HostAvailability.available => _Banner(
             copy: 'home:hero.host_online',
             icon: LucideIcons.slidersHorizontal,
-            onAction: () => unawaited(showHostAvailabilitySheet(context)),
+            onAction: () => unawaited(
+              showHostAvailabilitySheet(context, source: 'discover_banner'),
+            ),
           ),
           final mode => _Banner(
             copy: mode == HostAvailability.custom

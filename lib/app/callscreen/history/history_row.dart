@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/call_ui_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
@@ -331,6 +333,7 @@ class _NudgePill extends HookWidget {
       if (clientId == null || busy) return;
       try {
         await ping.mutateAsync(clientId);
+        CallUiEvents.nudgeSent(success: true, clientId: clientId);
         unawaited(
           CAlert.show(
             title: 'call:history.ping_sent_title',
@@ -340,6 +343,11 @@ class _NudgePill extends HookWidget {
           ),
         );
       } on ApiException catch (e) {
+        CallUiEvents.nudgeSent(
+          success: false,
+          clientId: clientId,
+          error: Analytics.errorCode(e),
+        );
         unawaited(
           CAlert.error(
             HistoryErrors.ping(e, CallErrorKeys.pingFailed),

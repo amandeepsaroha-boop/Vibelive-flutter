@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/call_ui_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
@@ -15,6 +16,7 @@ import '../helper/call_session.dart';
 import 'helper/call_format.dart';
 import 'helper/call_nav.dart';
 import 'helper/call_select.dart';
+import 'helper/call_track.dart';
 
 /// Slim green "return to call" pill (decision 1: back on the call screen
 /// minimizes instead of dropping the call, as RN silently did). Visible
@@ -44,7 +46,12 @@ class ReturnToCallBar extends HookWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(16.ms, 6.ms, 16.ms, 4.ms),
       child: Pressable(
-        onPressed: CallActions.returnToCall,
+        onPressed: () {
+          CallUiEvents.returnTapped(
+            callInfoOf(CallController.instance.value),
+          );
+          CallActions.returnToCall();
+        },
         activeOpacity: 0.85,
         semanticLabel: context.t('call:return_bar.label'),
         child: Container(

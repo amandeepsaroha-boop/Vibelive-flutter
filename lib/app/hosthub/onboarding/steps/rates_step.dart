@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../api/paymentscreen/billing_models.dart';
 import '../../../api/paymentscreen/payment_queries.dart';
@@ -78,7 +79,17 @@ class RatesStep extends HookWidget {
                     ),
                     SizedBox(height: 6.ms),
                     Pressable(
-                      onPressed: () => _showEarnings(context, draft, pricing),
+                      onPressed: () {
+                        HostEvents.earningsViewed(
+                          audioRate: draft.audioOn.value
+                              ? draft.audioRate.value
+                              : null,
+                          videoRate: draft.videoOn.value
+                              ? draft.videoRate.value
+                              : null,
+                        );
+                        _showEarnings(context, draft, pricing);
+                      },
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -174,7 +185,13 @@ class RateFormatCard extends StatelessWidget {
                 HostSwitch(
                   key: ValueKey('hostflow-switch-$title'),
                   value: enabled,
-                  onChanged: (v) => on.value = v,
+                  onChanged: (v) {
+                    on.value = v;
+                    HostEvents.callTypeToggled(
+                      callType: title.contains('video') ? 'video' : 'audio',
+                      enabled: v,
+                    );
+                  },
                 ),
               ],
             ),
@@ -233,6 +250,7 @@ Future<void> _showEarnings(
   return showHostSheet<void>(
     context,
     title: 'hostflow:rates.earn_title',
+    name: 'host_earnings_sheet',
     child: Builder(
       builder: (sheet) {
         final p = HostPalette.of(sheet);

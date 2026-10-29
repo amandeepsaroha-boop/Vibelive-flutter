@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:i18next/i18next.dart';
 
+import '../analytics/analytics.dart';
 import '../storage/app_prefs.dart';
 
 /// Translations live in `assets/i18n/<lang>/<namespace>.json`.
@@ -39,22 +42,26 @@ class LocaleController extends ValueNotifier<Locale> {
   /// Synchronous: [AppPrefs] is already loaded.
   factory LocaleController.load() {
     final saved = AppPrefs.getString(_prefsKey);
-    if (saved != null && AppI18n.isSupported(Locale(saved))) {
-      return LocaleController(Locale(saved));
-    }
     final device = WidgetsBinding.instance.platformDispatcher.locale;
-    return LocaleController(
-      AppI18n.isSupported(device)
-          ? Locale(device.languageCode)
-          : AppI18n.fallbackLocale,
-    );
+    final locale = saved != null && AppI18n.isSupported(Locale(saved))
+        ? Locale(saved)
+        : AppI18n.isSupported(device)
+        ? Locale(device.languageCode)
+        : AppI18n.fallbackLocale;
+    _reportLanguage(locale);
+    return LocaleController(locale);
   }
 
   Future<void> setLocale(Locale locale) async {
     if (!AppI18n.isSupported(locale) || locale == value) return;
     value = locale;
+    _reportLanguage(locale);
     await AppPrefs.setString(_prefsKey, locale.languageCode);
   }
+
+  /// Firebase user property `app_language` (en / hi).
+  static void _reportLanguage(Locale locale) =>
+      unawaited(Analytics.userProperty('app_language', locale.languageCode));
 }
 
 extension I18nContext on BuildContext {

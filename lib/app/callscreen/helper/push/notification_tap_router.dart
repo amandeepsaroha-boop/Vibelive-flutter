@@ -2,6 +2,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../../../../core/analytics/events/app_events.dart';
+import '../../../../core/analytics/screen_tracker.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/utils/log.dart';
 import '../../../api/authscreen/push_api.dart';
@@ -148,12 +150,33 @@ abstract final class NotificationTapRouter {
     }
     final target = route(m);
     Log.d('NotificationTap', '${m.type} → $target');
+    _logOpened(target, m);
     try {
       return await _open(target, m);
     } catch (e, st) {
       Log.e('NotificationTap', e, st);
       return false;
     }
+  }
+
+  /// Analytics: every tap (calls included: a missed-call tap opens History).
+  static void _logOpened(TapTarget target, PushEnvelope m) {
+    final location = target.location;
+    final destination = switch (target.destination) {
+      TapDestination.ongoingCall => 'ongoing_call',
+      TapDestination.incomingCall => 'incoming_call',
+      TapDestination.callHistory => 'call_history',
+      final d => d.name,
+    };
+    AppEvents.pushOpened(
+      destination: destination,
+      type: m.type,
+      campaignId: AppEvents.campaignIdOf(m.data),
+      screen: location != null && location.startsWith('/')
+          ? ScreenTracker.nameFor(Uri.parse(location))
+          : null,
+      hasDeeplink: m.deeplink != null,
+    );
   }
 
   /// One tap reaches several listeners: `trackingId|deeplink`, else the
@@ -203,7 +226,7 @@ abstract final class NotificationTapRouter {
         DeepLinks.instance.queueRoute(target.location!);
         return true;
       case TapDestination.link:
-        await DeepLinks.instance.handle(target.location!);
+        await DeepLinks.instance.handle(target.location!, fromPush: true);
         return true;
       case TapDestination.none:
         return false;

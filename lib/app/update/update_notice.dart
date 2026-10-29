@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/analytics/events/app_events.dart';
+import '../../core/analytics/screen_tracker.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/network/strapi.dart';
 import '../../core/router/app_router.dart';
@@ -60,6 +62,21 @@ class _UpdateNoticeHostState extends State<UpdateNoticeHost> {
     if (!mounted || info == null) return;
     setState(() => _info = info);
     _syncBack();
+    _logShown();
+  }
+
+  /// Analytics, once per notice and only while it is actually on screen
+  /// (a call hides it; it shows after the call).
+  bool _loggedShown = false;
+  void _logShown() {
+    final info = _info;
+    if (_loggedShown || info == null || !_showing) return;
+    _loggedShown = true;
+    AppEvents.updatePromptShown(
+      version: info.version,
+      forced: info.isForceUpdate,
+    );
+    ScreenTracker.view('update_notice', {'forced': info.isForceUpdate});
   }
 
   bool get _inCall =>
@@ -74,6 +91,7 @@ class _UpdateNoticeHostState extends State<UpdateNoticeHost> {
     if (!mounted || _info == null) return;
     setState(() {});
     _syncBack();
+    _logShown();
   }
 
   /// While shown, Back belongs to the notice (closes it, or does nothing
@@ -102,6 +120,7 @@ class _UpdateNoticeHostState extends State<UpdateNoticeHost> {
   void _later() {
     final info = _info;
     if (info == null || info.isForceUpdate) return;
+    AppEvents.updateDismissed(version: info.version);
     UpdateCheck.dismissed = true;
     setState(() => _info = null);
     _releaseBack();

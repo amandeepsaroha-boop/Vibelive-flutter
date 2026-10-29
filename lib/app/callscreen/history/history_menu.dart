@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/vibe_colors.dart';
@@ -24,6 +25,7 @@ Future<HistoryMenuChoice?> showHistoryMenu(
   barrierLabel: context.t('actions.close'),
   barrierColor: AppColors.blackA(0.55),
   transitionDuration: const Duration(milliseconds: 180),
+  routeSettings: ScreenTracker.sheet('call_history_menu'),
   transitionBuilder: (_, anim, _, child) =>
       FadeTransition(opacity: anim, child: child),
   pageBuilder: (_, _, _) => _HistoryMenu(entry: entry),

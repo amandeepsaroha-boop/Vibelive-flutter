@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../core/analytics/events/auth_events.dart';
+import '../../core/analytics/screen_tracker.dart';
 import '../../core/utils/scale.dart';
 import '../component/app_logo.dart';
 import 'launch_logo.dart';
@@ -39,11 +41,23 @@ class OnboardingView extends HookWidget {
     // above that, or at RN's 128 when the home indicator leaves room.
     final slideBottom = math.max(128.ms, ctaBottom + 104.ms);
 
+    useEffect(() {
+      AuthEvents.introStarted();
+      return null;
+    }, const []);
+    // Each slide is a screen.
+    useEffect(() {
+      ScreenTracker.view('intro_${_slides[i]}');
+      AuthEvents.introSlideViewed(index: i, slide: _slides[i]);
+      return null;
+    }, [i]);
+
     void show(int to) => index.value = to.clamp(0, _slides.length - 1);
     void next() {
       if (!isLast) {
         show(i + 1);
       } else if (ready) {
+        AuthEvents.introCompleted(slides: _slides.length);
         onFinish();
       }
     }
@@ -100,8 +114,10 @@ class OnboardingView extends HookWidget {
                       variant: CButtonVariant.ghost,
                       showArrow: false,
                       titleColor: palette.text,
-                      onPressed: () =>
-                          ready ? onFinish() : show(_slides.length - 1),
+                      onPressed: () {
+                        AuthEvents.introSkipped(index: i, slide: _slides[i]);
+                        ready ? onFinish() : show(_slides.length - 1);
+                      },
                     ),
                   ],
                 ),

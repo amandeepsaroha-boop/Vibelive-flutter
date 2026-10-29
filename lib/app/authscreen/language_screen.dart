@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/analytics/analytics.dart';
+import '../../core/analytics/events/auth_events.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/theme/vibe_colors.dart';
@@ -34,8 +36,11 @@ class LanguageScreen extends HookWidget {
     // The form stopped asking: the step is done.
     useEffect(() {
       if (query.data != null && question == null) {
+        AuthEvents.languageSkipped(reason: 'not_asked');
         skipLanguageStep().then((_) {
-          if (context.mounted) OnboardingActions.continueIntoApp(context);
+          if (context.mounted) {
+            OnboardingActions.continueIntoApp(context, from: 'language');
+          }
         });
       }
       return null;
@@ -57,9 +62,14 @@ class LanguageScreen extends HookWidget {
           'auth:onboarding.language.errors.pick_max',
           {'max': max},
         );
+        return;
       } else {
         selected.value = [...picks, value];
       }
+      AuthEvents.languageToggled(
+        selected: selected.value!.contains(value),
+        count: selected.value!.length,
+      );
     }
 
     Future<void> run(Future<void> Function() action) async {
@@ -67,10 +77,14 @@ class LanguageScreen extends HookWidget {
       busy.value = true;
       try {
         await action();
-        if (context.mounted) await OnboardingActions.continueIntoApp(context);
+        if (context.mounted) {
+          await OnboardingActions.continueIntoApp(context, from: 'language');
+        }
       } on ApiException catch (e) {
+        AuthEvents.languageSaveFailed(error: Analytics.errorCode(e));
         error.value = (e.i18nKey, null);
-      } catch (_) {
+      } catch (e) {
+        AuthEvents.languageSaveFailed(error: Analytics.errorCode(e));
         error.value = ('auth:onboarding.language.errors.save_failed', null);
       }
       if (context.mounted) busy.value = false;
@@ -83,7 +97,13 @@ class LanguageScreen extends HookWidget {
             : ('auth:onboarding.language.errors.pick_one', null);
         return;
       }
-      run(() => saveLanguageStep(picks));
+      run(() async {
+        await saveLanguageStep(picks);
+        AuthEvents.languageSelected(
+          languages: picks.join(','),
+          count: picks.length,
+        );
+      });
     }
 
     final hasTitle = question?.title.isNotEmpty ?? false;
@@ -121,7 +141,10 @@ class LanguageScreen extends HookWidget {
           _TextAction(
             'auth:onboarding.language.continue_app',
             enabled: idle,
-            onPressed: () => run(skipLanguageStep),
+            onPressed: () {
+              AuthEvents.languageSkipped(reason: 'load_error');
+              run(skipLanguageStep);
+            },
           ),
         ] else if (question != null) ...[
           Wrap(
@@ -155,11 +178,14 @@ class LanguageScreen extends HookWidget {
             _TextAction(
               'auth:onboarding.language.skip',
               enabled: idle,
-              onPressed: () => run(skipLanguageStep),
+              onPressed: () {
+                AuthEvents.languageSkipped(reason: 'skip');
+                run(skipLanguageStep);
+              },
             ),
         ],
         SizedBox(height: 10.ms),
-        SignOutLink(enabled: idle),
+        SignOutLink(enabled: idle, screen: 'language'),
       ],
     );
   }

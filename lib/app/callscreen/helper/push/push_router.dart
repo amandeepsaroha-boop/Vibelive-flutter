@@ -1,6 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../../../core/analytics/events/app_events.dart';
 import '../../../../core/utils/log.dart';
 import '../../../api/authscreen/push_api.dart';
 import '../../../api/authscreen/push_queries.dart';
@@ -74,6 +75,7 @@ abstract final class PushRouter {
       default:
         break;
     }
+    _logReceived(kind, m, foreground: true);
     // Nothing is drawn over a live call (CE); a wallet screen under it still
     // gets its refresh.
     if (CallController.instance.isOnCall) {
@@ -116,6 +118,7 @@ abstract final class PushRouter {
       default:
         break;
     }
+    _logReceived(kind, m, foreground: false);
     if (alreadyShownByOs) {
       // Never redraw what the OS drew; the balance is still stale.
       if (kind == PushKind.wallet) {
@@ -128,11 +131,38 @@ abstract final class PushRouter {
     await _draw(kind, m, background: true);
   }
 
+  /// Analytics: a non-call push arrived (calls: CallAnalytics).
+  static void _logReceived(
+    PushKind kind,
+    PushEnvelope m, {
+    required bool foreground,
+  }) => AppEvents.pushReceived(
+    kind: kind.name,
+    type: m.type,
+    campaignId: AppEvents.campaignIdOf(m.data),
+    foreground: foreground,
+    hasDeeplink: m.deeplink != null,
+  );
+
   static Future<void> _draw(
     PushKind kind,
     PushEnvelope m, {
     required bool background,
   }) async {
+    final drawn = switch (kind) {
+      PushKind.heartbeat || PushKind.call => false,
+      PushKind.general ||
+      PushKind.milestone => m.title != null || m.body != null,
+      _ => true,
+    };
+    if (drawn) {
+      AppEvents.pushShown(
+        kind: kind.name,
+        type: m.type,
+        campaignId: AppEvents.campaignIdOf(m.data),
+        background: background,
+      );
+    }
     switch (kind) {
       case PushKind.campaign:
         await CampaignPush.present(m);

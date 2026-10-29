@@ -43,6 +43,10 @@ void main() {
     tester,
   ) async {
     await open(tester);
+    // The guide: 1 Record, 2 Listen, 3 Done.
+    for (final step in ['Record', 'Listen', 'Done']) {
+      expect(find.text(step), findsOneWidget);
+    }
     expect(find.text('Tap to record'), findsOneWidget);
     expect(find.text('Up to 30 seconds'), findsOneWidget);
     await tester.tap(record());
@@ -60,8 +64,10 @@ void main() {
     expect(intro.seconds, inInclusiveRange(3, 4));
     expect(File(intro.path!).existsSync(), isTrue);
     expect(find.text('Tap to listen'), findsOneWidget);
-    expect(find.textContaining('New recording'), findsOneWidget);
+    // Next: listen to it once. Play, Re-record and Delete are buttons.
+    expect(find.textContaining('Now listen to it once'), findsOneWidget);
     expect(find.bySemanticsLabel('Play voice intro'), findsOneWidget);
+    expect(find.text('Play'), findsOneWidget);
     expect(find.text('Re-record'), findsOneWidget);
 
     await tester.tap(find.text('Delete'));

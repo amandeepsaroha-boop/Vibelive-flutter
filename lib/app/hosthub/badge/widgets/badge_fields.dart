@@ -21,6 +21,7 @@ Future<String?> showDocTypePicker(BuildContext context, String? selected) =>
     showHostSheet<String>(
       context,
       title: 'hostflow:badge.doc_type',
+      name: 'badge_doc_type_sheet',
       child: HostOptionList<String>(
         items: BadgeFormController.idTypes,
         labelOf: (t) => context.t(BadgeFormController.idTypeKey(t)),

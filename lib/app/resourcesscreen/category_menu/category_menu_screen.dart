@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../../core/analytics/events/me_events.dart';
 import '../../../core/session/session_store.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
@@ -63,9 +64,10 @@ class CategoryMenuScreen extends HookWidget {
             open: open,
             onTap: () {
               if (isDropdown) {
+                ResourceEvents.dropdownToggled(item: item.id, open: !open);
                 expanded.value = open ? null : item.id;
               } else {
-                ResourceMenuActions.run(context, item);
+                ResourceMenuActions.run(context, item, menu: id);
               }
             },
           ),
@@ -85,7 +87,8 @@ class CategoryMenuScreen extends HookWidget {
                       item: c,
                       color: color,
                       child: true,
-                      onTap: () => ResourceMenuActions.run(context, c),
+                      onTap: () =>
+                          ResourceMenuActions.run(context, c, menu: id),
                     ),
                   ),
               ],

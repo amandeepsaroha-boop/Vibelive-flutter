@@ -3,6 +3,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/host_events.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/session/session_store.dart';
@@ -18,9 +20,9 @@ import '../../component/c_text.dart';
 import '../../component/pressable.dart';
 import '../common/host_page.dart';
 import '../onboarding/helper/host_palette.dart';
+import '../onboarding/steps/submitted_step.dart';
 import '../onboarding/widgets/continue_bar.dart';
 import '../onboarding/widgets/step_body.dart';
-import '../onboarding/steps/submitted_step.dart';
 
 /// Approval Status (RN ApprovalScreen): status, the sections still missing,
 /// then one action — send the request (again after a rejection), or go live
@@ -50,6 +52,8 @@ class HostApprovalScreen extends HookWidget {
       alsoInvalidate: const [ClientKeys.profiles],
     );
     final goLive = useGoLive(alsoInvalidate: const [ClientKeys.profiles]);
+    // Analytics: the approval state last reported.
+    final viewed = useRef<String?>(null);
     final p = HostPalette.of(context);
 
     if (host == null) {
@@ -71,9 +75,23 @@ class HostApprovalScreen extends HookWidget {
       status = ApprovalStatus.pending;
     }
     final missing = completion.data?.missing ?? const <HostProfileSection>[];
+    final statusName = _statusName(status, host);
+    // Once per status shown, after the frame (not on every rebuild).
+    if (!loading && !failed && viewed.value != statusName) {
+      viewed.value = statusName;
+      final count = missing.length;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => HostEvents.approvalViewed(
+          status: statusName,
+          missingCount: count,
+        ),
+      );
+    }
 
     Future<void> request() async {
+      HostEvents.approvalRequested(resend: status == ApprovalStatus.rejected);
       if (missing.isNotEmpty) {
+        HostEvents.approvalBlockedIncomplete(missingCount: missing.length);
         await CAlert.show(
           title: 'hostflow:approval.title',
           message: 'hostflow:approval.complete_first',
@@ -88,6 +106,7 @@ class HostApprovalScreen extends HookWidget {
           sentKey(host.key),
           DateTime.now().toIso8601String(),
         );
+        HostEvents.approvalRequestSent(result: result?.name ?? 'unknown');
         if (result == ApprovalStatus.pending) {
           await CAlert.show(
             title: 'hostflow:approval.sent_title',
@@ -96,6 +115,7 @@ class HostApprovalScreen extends HookWidget {
           );
         }
       } on ApiException catch (e) {
+        HostEvents.approvalRequestFailed(error: Analytics.errorCode(e));
         await CAlert.error(e, title: 'hostflow:approval.title');
       } finally {
         if (context.mounted) busy.value = false;
@@ -103,6 +123,7 @@ class HostApprovalScreen extends HookWidget {
     }
 
     Future<void> live() async {
+      HostEvents.goLiveTapped();
       busy.value = true;
       try {
         final user = session.user;
@@ -111,6 +132,7 @@ class HostApprovalScreen extends HookWidget {
           name: user?['name']?.toString(),
           email: user?['email']?.toString(),
         ));
+        HostEvents.wentLive();
         await CAlert.show(
           title: 'hostflow:approval.live_title',
           message: 'hostflow:approval.live_body',
@@ -118,10 +140,16 @@ class HostApprovalScreen extends HookWidget {
         );
         if (context.mounted) context.go('${AppRoutes.home}?tab=me');
       } on ApiException catch (e) {
+        HostEvents.goLiveFailed(error: Analytics.errorCode(e));
         await CAlert.error(e, title: 'hostflow:approval.go_live');
       } finally {
         if (context.mounted) busy.value = false;
       }
+    }
+
+    void explore() {
+      HostEvents.approvalExploreTapped(status: statusName);
+      context.go('${AppRoutes.home}?tab=discover');
     }
 
     final Widget? action = loading
@@ -136,12 +164,12 @@ class HostApprovalScreen extends HookWidget {
             // Waiting for review: the onboarding "submitted" design.
             ApprovalStatus.pending => HostButton(
               label: 'hostflow:submitted.cta',
-              onPressed: () => context.go('${AppRoutes.home}?tab=discover'),
+              onPressed: () => explore(),
             ),
             // Already live: nothing to do but explore.
             ApprovalStatus.approved when host.isActive => HostButton(
               label: 'hostflow:submitted.cta',
-              onPressed: () => context.go('${AppRoutes.home}?tab=discover'),
+              onPressed: () => explore(),
             ),
             ApprovalStatus.approved => HostButton(
               label: 'hostflow:approved.go_online',
@@ -207,8 +235,7 @@ class HostApprovalScreen extends HookWidget {
                 SizedBox(height: 16.ms),
                 Center(
                   child: Pressable(
-                    onPressed: () =>
-                        context.go('${AppRoutes.home}?tab=discover'),
+                    onPressed: explore,
                     hitPadding: EdgeInsets.all(8.ms),
                     child: CText(
                       'hostflow:approval.explore',
@@ -270,8 +297,10 @@ class _MissingCard extends StatelessWidget {
           ),
           for (final s in missing)
             Pressable(
-              onPressed: () =>
-                  context.push(HostApprovalScreen.sectionRoutes[s]!),
+              onPressed: () {
+                HostEvents.approvalMissingTapped(s.name);
+                context.push(HostApprovalScreen.sectionRoutes[s]!);
+              },
               child: Padding(
                 padding: EdgeInsets.only(top: 10.ms),
                 child: Row(
@@ -300,3 +329,12 @@ class _MissingCard extends StatelessWidget {
     );
   }
 }
+
+/// Analytics name of the approval state.
+String _statusName(ApprovalStatus? status, HostProfile host) =>
+    switch (status) {
+      ApprovalStatus.approved => host.isActive ? 'live' : 'approved',
+      ApprovalStatus.pending => 'pending',
+      ApprovalStatus.rejected => 'rejected',
+      null => 'not_sent',
+    };

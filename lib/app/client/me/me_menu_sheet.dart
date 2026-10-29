@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/me_events.dart';
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/session/session_store.dart';
@@ -24,6 +26,7 @@ Future<void> showMeMenu(BuildContext context) async {
   final after = await showModalBottomSheet<_AfterClose>(
     context: context,
     useRootNavigator: true,
+    routeSettings: ScreenTracker.sheet('me_menu_sheet'),
     backgroundColor: AppColors.transparent,
     barrierColor: AppColors.blackA(0.6),
     builder: (_) => const _MeMenu(),
@@ -48,6 +51,10 @@ class _MeMenu extends HookWidget {
     // auth guard then replaces everything with the login screen.
     Future<void> signOut() async {
       if (loggingOut.value) return;
+      // No confirm here: the tap is the confirmation.
+      MeEvents.itemTapped(item: 'logout', section: 'menu_sheet');
+      MeEvents.logoutTapped(source: 'me_menu');
+      MeEvents.logoutConfirmed(source: 'me_menu');
       loggingOut.value = true;
       await logout();
       if (context.mounted && nav.canPop()) close();
@@ -100,14 +107,25 @@ class _MeMenu extends HookWidget {
                   label: 'client:me.menu.share',
                   onTap: link == null
                       ? null
-                      : () => close(
-                          (ctx) => MeActions.share(
-                            ctx.t(
-                              'client:me.share.my_message',
-                              variables: {'link': link},
+                      : () {
+                          MeEvents.itemTapped(
+                            item: 'share',
+                            section: 'menu_sheet',
+                          );
+                          MeEvents.profileShared(
+                            source: 'me_menu',
+                            hostId: data.expertId,
+                          );
+                          close(
+                            (ctx) => MeActions.share(
+                              ctx.t(
+                                'client:me.share.my_message',
+                                variables: {'link': link},
+                              ),
+                              contentType: 'own_profile',
                             ),
-                          ),
-                        ),
+                          );
+                        },
                 )
               else
                 _MenuItem(
@@ -115,12 +133,25 @@ class _MeMenu extends HookWidget {
                   iconColor: p.accent,
                   label: 'client:me.menu.become_host',
                   onTap: data.hasBasics
-                      ? () => close((ctx) async {
-                          await HostIntroImage.precache(ctx);
-                          if (ctx.mounted) {
-                            await MeActions.open(ctx, AppRoutes.hostOnboarding);
-                          }
-                        })
+                      ? () {
+                          MeEvents.itemTapped(
+                            item: 'become_host',
+                            section: 'menu_sheet',
+                          );
+                          MeEvents.becomeHostTapped(
+                            source: 'me_menu',
+                            eligible: true,
+                          );
+                          close((ctx) async {
+                            await HostIntroImage.precache(ctx);
+                            if (ctx.mounted) {
+                              await MeActions.open(
+                                ctx,
+                                AppRoutes.hostOnboarding,
+                              );
+                            }
+                          });
+                        }
                       : null,
                 ),
               _MenuItem(

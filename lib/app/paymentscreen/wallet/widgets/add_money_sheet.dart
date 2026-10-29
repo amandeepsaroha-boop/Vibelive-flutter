@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/payment_events.dart';
+import '../../../../core/analytics/screen_tracker.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -28,15 +31,18 @@ typedef AddMoneyExit = ({RechargeCheckout? checkout, bool profileIncomplete});
 
 /// Full-screen "Add Money" (RN modal, slide up): amount, presets, GST
 /// breakdown, then the backend order. [initialAmount] pre-fills it (the call
-/// balance gate, the first-top-up and exit-intent offers).
+/// balance gate, the first-top-up and exit-intent offers). [source]: what
+/// opened it (analytics).
 Future<AddMoneyExit?> showAddMoney(
   BuildContext context, {
   required TopUpCheckout flow,
   required PayerInfo Function() payer,
   double? initialAmount,
   TopUpBonus? bonus,
+  String source = 'wallet',
 }) => showGeneralDialog<AddMoneyExit>(
   context: context,
+  routeSettings: ScreenTracker.sheet('add_money_sheet'),
   barrierDismissible: false,
   barrierColor: AppColors.transparent,
   transitionDuration: const Duration(milliseconds: 280),
@@ -52,6 +58,7 @@ Future<AddMoneyExit?> showAddMoney(
     payer: payer,
     initialAmount: initialAmount,
     bonus: bonus,
+    source: source,
   ),
 );
 
@@ -61,11 +68,13 @@ class _AddMoneyScreen extends HookWidget {
     required this.payer,
     this.initialAmount,
     this.bonus,
+    this.source = 'wallet',
   });
 
   final TopUpCheckout flow;
   final PayerInfo Function() payer;
   final double? initialAmount;
+  final String source;
 
   /// Previewed on the cards and in the breakdown (first top-up, come-back).
   final TopUpBonus? bonus;
@@ -87,15 +96,61 @@ class _AddMoneyScreen extends HookWidget {
     ];
     final selected = useValueNotifier<int?>(prefill);
     final loading = useValueNotifier<bool>(false);
+    // Analytics: the last picked amount, and whether an order came out.
+    final picked = useRef<int?>(prefill);
+    final ordered = useRef(false);
+    useEffect(() {
+      final b = bonus;
+      final kind = switch (b?.kind) {
+        TopUpBonusKind.firstTopup => 'first_topup',
+        TopUpBonusKind.comeback => 'comeback',
+        null => null,
+      };
+      PaymentEvents.addMoneyOpened(
+        source: source,
+        prefillAmount: prefill,
+        bonusKind: kind,
+        bonusPercent: b?.percent,
+        presetCount: options.length,
+      );
+      if (b != null && kind != null && b.percent > 0) {
+        PaymentEvents.topupBonusShown(kind: kind, percent: b.percent);
+      }
+      return () {
+        if (!ordered.value) {
+          PaymentEvents.addMoneyClosed(selectedAmount: picked.value);
+        }
+      };
+    }, const []);
 
-    void pick(int value) =>
-        selected.value = selected.value == value ? null : value;
+    void pick(int value) {
+      final next = selected.value == value ? null : value;
+      selected.value = next;
+      picked.value = next;
+      PaymentEvents.amountSelected(
+        amount: value,
+        kind: presets.contains(value) ? 'preset' : 'prefill',
+        selected: next != null,
+        bonusPercent: bonus?.percent,
+        position: options.indexOf(value),
+      );
+    }
 
     Future<void> submit() async {
       final amount = selected.value;
       if (loading.value || amount == null) return;
       final who = payer();
+      PaymentEvents.payTapped(
+        amount: amount,
+        gstPercent: config.gstPercent,
+        total: TopUpAmount.breakdown(
+          amount.toDouble(),
+          config.gstPercent,
+        ).total,
+        bonus: bonus?.on(amount),
+      );
       if ((who.name ?? '').isEmpty || (who.email ?? '').isEmpty) {
+        ordered.value = true; // the wallet logs the profile prompt
         Navigator.of(context).pop((checkout: null, profileIncomplete: true));
         return;
       }
@@ -107,12 +162,22 @@ class _AddMoneyScreen extends HookWidget {
           description: context.t('payment:add_money.description'),
           gstPercent: config.gstPercent,
         );
+        ordered.value = true;
+        PaymentEvents.orderCreated(
+          amount: amount,
+          gateway: checkout.gateway.name,
+          orderId: checkout.txnId,
+        );
         if (context.mounted) {
           Navigator.of(
             context,
           ).pop((checkout: checkout, profileIncomplete: false));
         }
       } on ApiException catch (e) {
+        PaymentEvents.orderFailed(
+          amount: amount,
+          error: Analytics.errorCode(e),
+        );
         unawaited(CAlert.error(e));
       } finally {
         if (context.mounted) loading.value = false;

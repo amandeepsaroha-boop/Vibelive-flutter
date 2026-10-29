@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/me_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/utils/scale.dart';
 import '../../api/resourcesscreen/resources_models.dart';
@@ -88,10 +89,20 @@ class SupportContacts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = ResourcePalette.of(context);
-    Widget line(String label, String? value, String Function(String) link) {
+    Widget line(
+      String label,
+      String? value,
+      String Function(String) link,
+      String channel,
+    ) {
       final v = value?.trim() ?? '';
       return Pressable(
-        onPressed: v.isEmpty ? null : () => ResourceLinks.open(link(v)),
+        onPressed: v.isEmpty
+            ? null
+            : () {
+                ResourceEvents.supportContact(channel);
+                ResourceLinks.open(link(v), source: 'support');
+              },
         child: Text.rich(
           TextSpan(
             style: TextStyle(fontSize: 14, height: 22 / 14, color: p.text),
@@ -123,12 +134,23 @@ class SupportContacts extends StatelessWidget {
           color: p.text,
         ),
         SizedBox(height: 12.ms),
-        line('resources:support.email', contact.email, ResourceLinks.mailto),
-        line('resources:support.phone', contact.phone, ResourceLinks.tel),
+        line(
+          'resources:support.email',
+          contact.email,
+          ResourceLinks.mailto,
+          'email',
+        ),
+        line(
+          'resources:support.phone',
+          contact.phone,
+          ResourceLinks.tel,
+          'phone',
+        ),
         line(
           'resources:support.whatsapp',
           contact.whatsapp,
           ResourceLinks.whatsapp,
+          'whatsapp',
         ),
       ],
     );

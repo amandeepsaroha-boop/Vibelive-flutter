@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/call_ui_events.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/utils/log.dart';
 import '../../../api/callscreen/call_api.dart';
@@ -40,6 +42,7 @@ class OutgoingRequest {
     this.isCompany = false,
     this.categoryId,
     this.ratePerMin,
+    this.source = 'host_profile',
   });
 
   /// Profile path: RN sent the fallback category for every host card call.
@@ -53,12 +56,16 @@ class OutgoingRequest {
         avatarUrl: host.images.firstOrNull ?? host.cardImage,
         categoryId: CallWire.profileCategoryId,
         ratePerMin: video ? host.vPrice : host.aPrice,
+        source: 'host_profile',
       );
 
   /// Callback sheet (`categoryId: null`) or history redial (the old call's
   /// category).
-  factory OutgoingRequest.fromTarget(CallTarget t, {required bool video}) =>
-      OutgoingRequest(
+  factory OutgoingRequest.fromTarget(
+    CallTarget t, {
+    required bool video,
+    String source = 'callback',
+  }) => OutgoingRequest(
         receiverId: t.receiverId,
         video: video,
         receiverDocId: t.receiverDocId,
@@ -67,6 +74,7 @@ class OutgoingRequest {
         isCompany: t.isCompany,
         categoryId: t.categoryId,
         ratePerMin: t.ratePerMin?.toDouble(),
+        source: source,
       );
 
   /// Numeric public-user id of the person called (their Agora uid).
@@ -85,6 +93,12 @@ class OutgoingRequest {
 
   /// Host rate for this call type (max duration); null = look it up.
   final double? ratePerMin;
+
+  /// Analytics: where the call was started (`host_profile` | `callback`).
+  final String source;
+
+  /// Analytics: the host's expert-profile (else user) documentId.
+  String? get hostId => expertDocId ?? receiverDocId;
 }
 
 /// Placing a call (RN DiscoveryScreen `handleInitiateCall`, CallbackModal
@@ -100,16 +114,26 @@ abstract final class OutgoingFlow {
     if (_placing) return false; // E-74 double tap
     final now = CallController.instance.value;
     // One call at a time (decision 17).
-    if (now.phase.isActive) return false;
+    if (now.phase.isActive) {
+      _failed(r, 'call_in_progress');
+      return false;
+    }
     // The previous call's summary is still up (its screen would be reused
     // for this call): finish it first. Its own exit is ignored from now on
     // (`EndFlow.exitToHome` checks the call id).
     if (now.phase == CallPhase.ended) CallController.instance.reset();
     _placing = true;
+    CallUiEvents.attempt(
+      video: r.video,
+      source: r.source,
+      hostId: r.hostId,
+      ratePerMin: r.ratePerMin,
+    );
     try {
       return await _place(r);
     } catch (e) {
       Log.w('OutgoingFlow', 'place: $e');
+      _failed(r, 'exception', Analytics.errorCode(e));
       return false;
     } finally {
       _placing = false;
@@ -120,13 +144,17 @@ abstract final class OutgoingFlow {
     final callerId = CallIdentity.userId;
     final receiverId = r.receiverId;
     if (callerId == null || receiverId == null || receiverId.isEmpty) {
+      _failed(r, 'missing_participants');
       await CallAlerts.show(
         title: CallFlowKeys.unableTitle,
         message: CallErrorKeys.missingParticipants,
       );
       return false;
     }
-    if (!await CallPermissions.ensureForOutgoing(video: r.video)) return false;
+    if (!await CallPermissions.ensureForOutgoing(video: r.video)) {
+      _failed(r, 'permission_denied');
+      return false;
+    }
 
     final InitiatedCall started;
     try {
@@ -140,6 +168,7 @@ abstract final class OutgoingFlow {
         ),
       );
     } on ApiException catch (e) {
+      _failed(r, failureReason(e), Analytics.errorCode(e));
       // Busy is an answer, not a call: never Callend it (E-82).
       await CallAlerts.error(
         e,
@@ -198,6 +227,36 @@ abstract final class OutgoingFlow {
     } catch (e) {
       Log.w('OutgoingFlow', 'markOutgoing: $e');
     }
+  }
+
+  static void _failed(OutgoingRequest r, String reason, [String? error]) =>
+      CallUiEvents.initiateFailed(
+        reason: reason,
+        video: r.video,
+        source: r.source,
+        hostId: r.hostId,
+        error: error,
+      );
+
+  /// Analytics reason of a refused `/initiateCall` (instant calls too).
+  static String failureReason(ApiException e) {
+    if (e.isUserBusy) return 'host_busy';
+    final m = '${e.serverMessage ?? ''} ${e.messageKey ?? ''}'.toLowerCase();
+    if (m.contains('balance') ||
+        m.contains('insufficient') ||
+        m.contains('recharge')) {
+      return 'insufficient_balance';
+    }
+    if (m.contains('offline') ||
+        m.contains('unavailable') ||
+        m.contains('not available')) {
+      return 'host_offline';
+    }
+    if (m.contains('block')) return 'blocked';
+    return switch (e.type) {
+      ApiErrorType.network || ApiErrorType.timeout => 'network',
+      _ => 'api_error',
+    };
   }
 
   /// The caller is in the channel while it rings (RN C5); the ringback

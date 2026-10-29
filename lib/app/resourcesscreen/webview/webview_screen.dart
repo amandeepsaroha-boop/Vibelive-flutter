@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/analytics/events/me_events.dart';
 import '../../../core/network/network_status.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/vibe_colors.dart';
@@ -43,6 +44,8 @@ class WebviewScreen extends HookWidget {
       }
     }
 
+    String? domainOf(String target) => Uri.tryParse(target)?.host;
+
     Future<void> open() async {
       final target = startUrl;
       if (target == null) return;
@@ -51,15 +54,32 @@ class WebviewScreen extends HookWidget {
         Uri.parse(target),
         mode: LaunchMode.inAppBrowserView,
       );
+      final online = NetworkStatus.instance.value;
+      ResourceEvents.webview(
+        result: ok ? 'opened' : (online ? 'failed' : 'offline'),
+        domain: domainOf(target),
+      );
       if (!context.mounted) return;
       if (ok) return leave();
-      load.value = NetworkStatus.instance.value ? _Load.failed : _Load.offline;
+      load.value = online ? _Load.failed : _Load.offline;
+    }
+
+    Future<void> retry() async {
+      ResourceEvents.webviewRetry(
+        startUrl == null ? null : domainOf(startUrl),
+      );
+      await open();
     }
 
     Future<void> openExternally() async {
       final target = startUrl;
       if (target == null) return;
       final ok = await ResourceLinks.tryOpen(Uri.parse(target));
+      ResourceEvents.webview(
+        result: ok ? 'opened' : 'failed',
+        domain: domainOf(target),
+        mode: 'external',
+      );
       if (!ok) {
         CToast.show('resources:webview.no_app', variant: CToastVariant.error);
       }
@@ -70,6 +90,7 @@ class WebviewScreen extends HookWidget {
         if (!context.mounted) return;
         if (startUrl == null) {
           // A missing / non-http(s) url: say so and leave.
+          ResourceEvents.webview(result: 'invalid');
           CToast.show(
             'resources:webview.invalid',
             variant: CToastVariant.error,
@@ -99,7 +120,7 @@ class WebviewScreen extends HookWidget {
                 host: host,
                 secure: startUrl?.toLowerCase().startsWith('https://') ?? false,
                 onBack: leave,
-                onReload: open,
+                onReload: retry,
                 onExternal: openExternally,
               ),
             ),
@@ -123,14 +144,14 @@ class WebviewScreen extends HookWidget {
                     message: 'resources:webview.failed_message',
                     icon: LucideIcons.triangleAlert,
                     actionLabel: 'actions.retry',
-                    onAction: open,
+                    onAction: retry,
                   ),
                   _Load.offline => CStateView(
                     title: 'resources:webview.offline_title',
                     message: 'resources:webview.offline_message',
                     icon: LucideIcons.wifiOff,
                     actionLabel: 'actions.retry',
-                    onAction: open,
+                    onAction: retry,
                   ),
                 },
               ),

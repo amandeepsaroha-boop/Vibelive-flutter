@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/events/payment_events.dart';
+import '../../../../core/analytics/screen_tracker.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/scale.dart';
@@ -23,6 +25,7 @@ import 'wallet_header.dart';
 /// here — pending or verified, changing where payouts go is done by support.
 Future<void> showBankSheet(BuildContext context) => showModalBottomSheet<void>(
   context: context,
+  routeSettings: ScreenTracker.sheet('bank_sheet'),
   isScrollControlled: true,
   useSafeArea: true,
   // RN Modal: no drag to dismiss; the backdrop or X closes it.
@@ -40,6 +43,21 @@ class _BankSheet extends HookWidget {
     final p = WalletPalette.of(context);
     final query = useBankDetail(context);
     final detail = query.data;
+
+    // Analytics: which state the sheet opened on, once it is known.
+    final state = detail != null
+        ? (detail.isVerified ? 'verified' : 'pending')
+        : query.isError
+        ? 'error'
+        : (query.isLoading ? null : 'form');
+    final opened = useRef(false);
+    useEffect(() {
+      if (state != null && !opened.value) {
+        opened.value = true;
+        PaymentEvents.bankSheetOpened(state: state);
+      }
+      return null;
+    }, [state]);
 
     final Widget body;
     if (detail != null) {
@@ -171,7 +189,10 @@ class BankButton extends HookWidget {
     };
     final fill = Color.alphaBlend(p.soft, p.bg);
     return Pressable(
-      onPressed: () => unawaited(showBankSheet(context)),
+      onPressed: () {
+        PaymentEvents.walletAction('bank');
+        unawaited(showBankSheet(context));
+      },
       semanticLabel: context.t('payment:bank.title'),
       child: Container(
         height: 38.ms,

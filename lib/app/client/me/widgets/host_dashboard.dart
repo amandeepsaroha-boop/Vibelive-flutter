@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/i18n/i18n.dart';
-import '../../../../core/router/app_router.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/scale.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/query/query_client.dart';
 import '../../../../core/query/query_persist.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/session/session_store.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/scale.dart';
 import '../../../api/hosthub/hosthub_keys.dart';
 import '../../../api/hosthub/hosthub_queries.dart';
 import '../../../api/hosthub/stats_models.dart';
@@ -290,7 +291,10 @@ class _DashboardList extends StatelessWidget {
             title: 'client:me.stats.referral_program',
             subtitle: 'client:me.stats.referral_program_hint',
             chevron: false,
-            onTap: () => MeActions.open(context, AppRoutes.referral),
+            onTap: () {
+              HostEvents.dashboardReferralTapped();
+              MeActions.open(context, AppRoutes.referral);
+            },
           ),
         ),
         ?footer,
@@ -315,7 +319,10 @@ class _EarningsCard extends StatelessWidget {
     final label = AppColors.whiteA(0.5);
     return Pressable(
       activeOpacity: 0.85,
-      onPressed: () => MeActions.open(context, AppRoutes.wallet),
+      onPressed: () {
+        HostEvents.earningsCardTapped();
+        MeActions.open(context, AppRoutes.wallet);
+      },
       child: Container(
         margin: EdgeInsets.only(top: 14.ms),
         padding: EdgeInsets.all(20.ms),

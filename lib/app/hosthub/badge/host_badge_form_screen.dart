@@ -3,6 +3,9 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/host_events.dart';
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/app_router.dart';
@@ -47,6 +50,13 @@ class HostBadgeFormScreen extends HookWidget {
     final form = useMemoized(BadgeFormController.new);
     useEffect(() => form.dispose, [form]);
     final saving = useState(false);
+    // Analytics: the form step last shown.
+    final viewedStep = useRef<String?>(null);
+    useEffect(
+      () =>
+          () => ScreenTracker.clearSubScreen(AppRoutes.verificationBadgeForm),
+      const [],
+    );
     final issue = useState<({String key, Map<String, dynamic>? vars})?>(null);
     useListenable(Listenable.merge([form.step, form.influencer]));
     final p = HostPalette.of(context);
@@ -80,8 +90,20 @@ class HostBadgeFormScreen extends HookWidget {
     final steps = form.steps;
     final index = form.step.value.clamp(0, steps.length - 1);
     final last = index == steps.length - 1;
+    // Each form step is the page's analytics sub-screen.
+    if (viewedStep.value != steps[index]) {
+      viewedStep.value = steps[index];
+      final name = 'verification_badge_form_${steps[index]}';
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => ScreenTracker.setSubScreen(
+          AppRoutes.verificationBadgeForm,
+          name,
+        ),
+      );
+    }
 
     Future<void> pickDoc(ValueNotifier<BadgeDoc?> target) async {
+      final side = identical(target, form.front) ? 'front' : 'back';
       final path = await HostPhotoPicker.instance.pick(HostPhotoOrigin.gallery);
       if (path == null) return;
       target.value = BadgeDoc(localPath: path);
@@ -91,7 +113,12 @@ class HostBadgeFormScreen extends HookWidget {
           mediaId: media['id'] ?? media['documentId'],
           localPath: path,
         );
+        HostEvents.badgeDocUploaded(side: side);
       } catch (e) {
+        HostEvents.badgeDocUploadFailed(
+          side: side,
+          error: Analytics.errorCode(e),
+        );
         target.value = BadgeDoc(localPath: path, failed: true);
         await CAlert.error(e);
       }
@@ -100,7 +127,10 @@ class HostBadgeFormScreen extends HookWidget {
     Future<bool> saveStep(String id) async {
       final problem = form.validate(id);
       issue.value = problem;
-      if (problem != null) return false;
+      if (problem != null) {
+        HostEvents.badgeFormValidationFailed(id, issue: problem.key);
+        return false;
+      }
       await update.mutateAsync(
         id == 'identity'
             ? VerificationUpdate.identity(
@@ -127,6 +157,7 @@ class HostBadgeFormScreen extends HookWidget {
       saving.value = true;
       try {
         if (!await saveStep(steps[index])) return;
+        HostEvents.badgeFormStepSaved(steps[index]);
         if (!last) {
           form.step.value = index + 1;
           return;
@@ -135,6 +166,7 @@ class HostBadgeFormScreen extends HookWidget {
         for (final (i, id) in steps.indexed) {
           final problem = form.validate(id);
           if (problem != null) {
+            HostEvents.badgeFormValidationFailed(id, issue: problem.key);
             issue.value = problem;
             form.step.value = i;
             return;
@@ -149,7 +181,10 @@ class HostBadgeFormScreen extends HookWidget {
             cancelLabel: 'hostflow:badge.influencer_no',
             variant: CAlertVariant.info,
           );
-          if (!ok) return;
+          if (!ok) {
+            HostEvents.badgeInfluencerDeclined();
+            return;
+          }
         }
         await update.mutateAsync(
           VerificationUpdate.submit(
@@ -157,6 +192,11 @@ class HostBadgeFormScreen extends HookWidget {
             platform: form.influencer.value ? form.platform.value : null,
             url: form.influencer.value ? form.socialUrl.text : '',
           ),
+        );
+        HostEvents.badgeFormSubmitted(
+          userId: session.userDocumentId,
+          influencer: form.influencer.value,
+          platform: form.influencer.value ? form.platform.value.name : null,
         );
         await CAlert.show(
           title: 'hostflow:badge.submitted_title',
@@ -167,6 +207,7 @@ class HostBadgeFormScreen extends HookWidget {
           context.pushReplacement(AppRoutes.verificationBadge);
         }
       } on ApiException catch (e) {
+        HostEvents.badgeFormSubmitFailed(error: Analytics.errorCode(e));
         await CAlert.error(e, title: 'hostflow:badge.form_title');
       } finally {
         if (context.mounted) saving.value = false;
@@ -185,7 +226,10 @@ class HostBadgeFormScreen extends HookWidget {
           hint: 'hostflow:badge.doc_type_hint',
           onTap: () async {
             final picked = await showDocTypePicker(context, type);
-            if (picked != null) form.docType.value = picked;
+            if (picked != null) {
+              form.docType.value = picked;
+              HostEvents.badgeDocTypeSelected(picked);
+            }
           },
         ),
       ),
@@ -227,7 +271,10 @@ class HostBadgeFormScreen extends HookWidget {
       ),
       SizedBox(height: 16.ms),
       Pressable(
-        onPressed: () => form.influencer.value = !form.influencer.value,
+        onPressed: () {
+          form.influencer.value = !form.influencer.value;
+          HostEvents.badgeInfluencerToggled(enabled: form.influencer.value);
+        },
         child: Row(
           children: [
             Icon(
@@ -298,7 +345,10 @@ class HostBadgeFormScreen extends HookWidget {
           ),
           if (index > 0)
             Pressable(
-              onPressed: () => form.step.value = index - 1,
+              onPressed: () {
+                HostEvents.badgeFormBack(steps[index]);
+                form.step.value = index - 1;
+              },
               child: Padding(
                 padding: EdgeInsets.only(top: 12.ms),
                 child: CText(

@@ -6,6 +6,7 @@ import '../../../../core/storage/app_prefs.dart';
 import '../../../../core/utils/log.dart';
 import '../../../api/callscreen/pending_decline_queue.dart';
 import '../call_actions.dart';
+import '../call_analytics.dart';
 import '../call_controller.dart';
 import '../call_signals.dart';
 import '../push/call_push_handler.dart';
@@ -146,7 +147,7 @@ abstract final class NativeCallEvents {
     // call this is the user's hang-up; otherwise send it headless.
     final call = CallController.instance.value;
     if (call.isSameCall(callId) && call.phase.isActive) {
-      await CallActions.hangup();
+      await CallActions.hangup(reason: CallEndReason.systemUi);
     } else {
       await HeadlessCallEnd.hangUp(callId, extra);
       await CallSignals.onNativeEnded(callId);

@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/host_events.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/session/session_store.dart';
 import '../../../core/utils/scale.dart';
@@ -38,6 +39,8 @@ class HostBadgeScreen extends HookWidget {
       enabled: allowed,
     );
     final p = HostPalette.of(context);
+    // Analytics: the step last reported as viewed.
+    final viewed = useRef<String?>(null);
     final title = review
         ? 'hostflow:badge.status_title'
         : 'hostflow:badge.title';
@@ -54,6 +57,12 @@ class HostBadgeScreen extends HookWidget {
     }
     final record = latest.data;
     final step = VerificationRecord.nextStepOf(record?.raw);
+    if (viewed.value != step.name) {
+      viewed.value = step.name;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => HostEvents.badgeStatusViewed(step: step.name, review: review),
+      );
+    }
 
     final card = review
         ? switch (step) {
@@ -104,6 +113,7 @@ class HostBadgeScreen extends HookWidget {
           };
 
     void primary() {
+      HostEvents.badgePrimaryTapped(step: step.name, review: review);
       if (review) {
         context.pushReplacement(
           step == VerificationStep.fee || step == VerificationStep.form
@@ -162,9 +172,22 @@ class HostBadgeScreen extends HookWidget {
 }
 
 /// Not approved yet: RN sent the host to Approval Status.
-class HostBadgeLocked extends StatelessWidget {
+class HostBadgeLocked extends StatefulWidget {
   const HostBadgeLocked({super.key, required this.title});
   final String title;
+
+  @override
+  State<HostBadgeLocked> createState() => _HostBadgeLockedState();
+}
+
+class _HostBadgeLockedState extends State<HostBadgeLocked> {
+  String get title => widget.title;
+
+  @override
+  void initState() {
+    super.initState();
+    HostEvents.badgeLockedViewed(screen: title.split('.').last);
+  }
 
   @override
   Widget build(BuildContext context) => HostPage(

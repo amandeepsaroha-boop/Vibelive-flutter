@@ -1,3 +1,5 @@
+import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/strapi.dart';
 import '../../../../core/session/session_store.dart';
@@ -12,6 +14,7 @@ import '../../../api/hosthub/profile_patch.dart';
 import '../../../component/c_alert.dart';
 import '../../../component/c_toast.dart';
 import 'draft_controller.dart';
+import 'host_funnel.dart';
 import 'host_steps.dart';
 import 'submit_plan.dart';
 import 'topic_catalog.dart';
@@ -59,7 +62,7 @@ HostSaver useHostSectionSave(
   ];
 
   /// The first of [steps] with an issue (shown as the notice), or null.
-  HostStep? invalid(Iterable<HostStep> steps) {
+  HostStep? invalid(Iterable<HostStep> steps, {required String mode}) {
     final (voice, video) = rateFloors();
     for (final s in steps) {
       final issue = HostValidation.check(
@@ -70,6 +73,7 @@ HostSaver useHostSectionSave(
       );
       if (issue != null) {
         draft.notice.value = issue;
+        HostEvents.validationFailed(s.name, issue: issue.key, mode: mode);
         return s;
       }
     }
@@ -120,6 +124,7 @@ HostSaver useHostSectionSave(
         key: 'hostflow:errors.handle_taken',
         variables: null,
       );
+      HostEvents.handleTaken(mode: 'edit');
       return false;
     }
     await profile.mutateAsync(
@@ -150,6 +155,34 @@ HostSaver useHostSectionSave(
         : (expertId: expertId, user: user);
   }
 
+  /// RN's settings events for the sections that had them.
+  void logSaved(HostStep step, String expertId) {
+    switch (step) {
+      case HostStep.interests:
+        final topics = draft.topics.value;
+        HostEvents.specializationSelected(
+          expertId: expertId,
+          categoryIds: [for (final t in topics) t.value],
+          categoryNames: [for (final t in topics) t.label],
+          source: 'settings',
+        );
+      case HostStep.rates:
+        final rates = HostValidation.ratesOf(draft);
+        HostEvents.callRatesUpdated(
+          expertId: expertId,
+          audioRate: rates.voiceCallRate,
+          videoRate: rates.videoCallRate,
+        );
+      case HostStep.availability:
+        HostEvents.scheduleUpdated(
+          expertId: expertId,
+          mode: hostStatusName(draft.mode),
+        );
+      case _:
+        break;
+    }
+  }
+
   Future<bool> section(HostStep step) async {
     final id = ids();
     if (id == null) return false;
@@ -162,7 +195,7 @@ HostSaver useHostSectionSave(
               if (s != HostStep.voice || step == HostStep.voice) s,
           ]
         : [step];
-    if (invalid(checks) != null) {
+    if (invalid(checks, mode: 'edit') != null) {
       return false;
     }
     try {
@@ -182,9 +215,11 @@ HostSaver useHostSectionSave(
         case _:
           if (!await saveProfile(id.expertId, id.user)) return false;
       }
+      logSaved(step, id.expertId);
       CToast.show('hostflow:edit.saved', variant: CToastVariant.success);
       return true;
     } on ApiException catch (e) {
+      HostEvents.sectionSaveFailed(step.name, error: Analytics.errorCode(e));
       await CAlert.error(e);
       return false;
     }
@@ -196,7 +231,7 @@ HostSaver useHostSectionSave(
     final bad = invalid([
       for (final s in HostStep.pages)
         if (hostSavableSteps.contains(s)) s,
-    ]);
+    ], mode: 'existing_host');
     if (bad != null) return bad;
     try {
       if (!await saveProfile(id.expertId, id.user)) return HostStep.basic;
@@ -205,9 +240,17 @@ HostSaver useHostSectionSave(
         expertId: id.expertId,
         patch: HostProfilePatch({...ratesPatch(), ...schedulePatch()}),
       ));
+      for (final s in const [
+        HostStep.interests,
+        HostStep.rates,
+        HostStep.availability,
+      ]) {
+        logSaved(s, id.expertId);
+      }
       CToast.show('hostflow:edit.saved', variant: CToastVariant.success);
       return null;
     } on ApiException catch (e) {
+      HostEvents.sectionSaveFailed('all', error: Analytics.errorCode(e));
       await CAlert.error(e);
       return HostStep.guidelines;
     }

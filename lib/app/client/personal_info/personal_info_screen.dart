@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../../core/analytics/events/me_events.dart';
 import '../../api/authscreen/interests_queries.dart';
 import '../../api/client/client_queries.dart';
 import '../../component/c_alert.dart';
@@ -74,6 +75,7 @@ class PersonalInfoScreen extends HookWidget {
           alive: () => context.mounted,
           silent: true,
           stillEmpty: empty,
+          analyticsSource: 'personal_info',
         );
       }
       return null;
@@ -83,16 +85,21 @@ class PersonalInfoScreen extends HookWidget {
       locating: form.locating,
       apply: form.applyLocation,
       alive: () => context.mounted,
+      analyticsSource: 'personal_info',
     );
 
     Future<void> pickState() async {
       final picked = await showGeoPicker(context, kind: GeoPickerKind.state);
-      if (picked != null) form.selectState(picked);
+      if (picked != null) {
+        PersonalInfoEvents.geoSelected(level: 'state', source: 'personal_info');
+        form.selectState(picked);
+      }
     }
 
     Future<void> pickDistrict() async {
       final state = form.state.value;
       if (state == null) {
+        PersonalInfoEvents.geoNeedsState(source: 'personal_info');
         await CAlert.show(
           title: 'client:personal_info.title',
           message: 'client:personal_info.picker.select_state_first',
@@ -104,7 +111,13 @@ class PersonalInfoScreen extends HookWidget {
         kind: GeoPickerKind.district,
         state: state,
       );
-      if (picked != null) form.selectDistrict(picked);
+      if (picked != null) {
+        PersonalInfoEvents.geoSelected(
+          level: 'district',
+          source: 'personal_info',
+        );
+        form.selectDistrict(picked);
+      }
     }
 
     final Widget body;

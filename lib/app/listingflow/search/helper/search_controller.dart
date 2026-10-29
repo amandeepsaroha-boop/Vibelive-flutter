@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/discover_events.dart';
+
 import '../../../api/listingflow/filter_models.dart';
 import '../../../api/listingflow/listing_models.dart';
 import '../../../api/listingflow/listing_queries.dart';
@@ -54,13 +57,20 @@ class SearchScreenController {
       return;
     }
     _timer = Timer(debounce, () {
-      if (!_disposed) query.value = q;
+      if (_disposed) return;
+      trigger = 'typing';
+      query.value = q;
     });
   }
 
+  /// How the current [query] was asked for: `typing` (debounced), `submit`
+  /// (keyboard), `category` (a category row), `link` (`?q=`). Analytics.
+  String trigger = 'typing';
+
   /// Keyboard "search": runs now instead of after the debounce.
-  void submit() {
+  void submit({String trigger = 'submit'}) {
     if (_disposed) return;
+    this.trigger = trigger;
     _timer?.cancel();
     final q = text.text.trim();
     typing.value = q.isNotEmpty;
@@ -69,16 +79,17 @@ class SearchScreenController {
 
   /// A category row (no category screen exists) or a deep-link `q`: fill
   /// the field and search at once.
-  void searchFor(String value) {
+  void searchFor(String value, {String trigger = 'category'}) {
     if (_disposed) return;
     text.value = TextEditingValue(
       text: value,
       selection: TextSelection.collapsed(offset: value.length),
     );
-    submit();
+    submit(trigger: trigger);
   }
 
   void clear() {
+    if (text.text.isNotEmpty) DiscoverEvents.searchCleared();
     text.clear();
     onChanged('');
   }
@@ -110,6 +121,7 @@ class SearchScreenController {
         handler: hit.handler,
       );
     } catch (e) {
+      DiscoverEvents.searchOpenFailed(error: Analytics.errorCode(e));
       if (_disposed) return;
       opening.value = null;
       await CAlert.error(e, title: 'search:results.profile_title');

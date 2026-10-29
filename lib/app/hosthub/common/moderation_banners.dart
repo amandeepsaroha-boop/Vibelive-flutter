@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/host_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/utils/scale.dart';
 import '../../api/hosthub/profile_models.dart';
@@ -110,26 +111,56 @@ class HostModerationBanners extends StatelessWidget {
       for (final f in (vars?['fields'] as List? ?? const []))
         _known.contains(f) ? context.t('hostflow:moderation.field.$f') : '$f',
     ].join(', ');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final n in notices)
-          Padding(
-            padding: EdgeInsets.only(bottom: 10.ms),
-            child: HostToneCard(
-              tone: n.tone,
-              icon: n.tone == HostTone.danger
-                  ? LucideIcons.circleAlert
-                  : LucideIcons.clock3,
-              title: n.title,
-              titleVariables: n.vars,
-              message:
-                  n.note ??
-                  context.t(n.body!, variables: {'fields': fieldNames(n.vars)}),
-              translateMessage: false,
+    return _ShownOnce(
+      onShown: () => HostEvents.moderationBannersShown(
+        count: notices.length,
+        kinds: [for (final n in notices) n.title.split('.').last].join(','),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final n in notices)
+            Padding(
+              padding: EdgeInsets.only(bottom: 10.ms),
+              child: HostToneCard(
+                tone: n.tone,
+                icon: n.tone == HostTone.danger
+                    ? LucideIcons.circleAlert
+                    : LucideIcons.clock3,
+                title: n.title,
+                titleVariables: n.vars,
+                message:
+                    n.note ??
+                    context.t(
+                      n.body!,
+                      variables: {'fields': fieldNames(n.vars)},
+                    ),
+                translateMessage: false,
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
+}
+
+/// Runs [onShown] once, when first built (analytics "shown").
+class _ShownOnce extends StatefulWidget {
+  const _ShownOnce({required this.onShown, required this.child});
+  final VoidCallback onShown;
+  final Widget child;
+
+  @override
+  State<_ShownOnce> createState() => _ShownOnceState();
+}
+
+class _ShownOnceState extends State<_ShownOnce> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onShown();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

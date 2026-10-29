@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/discover_events.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
@@ -65,6 +67,28 @@ class SearchResultsView extends HookWidget {
     final fetching = q.isNotEmpty && search.isFetching;
     final error = search.error;
 
+    // Analytics: one `search` per settled query (never per keystroke), and
+    // its no-results / failed outcome.
+    final settled =
+        q.isNotEmpty && !fetching && (data != null || error != null);
+    final logged = useRef<String?>(null);
+    useEffect(() {
+      if (!settled || logged.value == q) return null;
+      logged.value = q;
+      if (data == null) {
+        DiscoverEvents.searchFailed(term: q, error: Analytics.errorCode(error));
+        return null;
+      }
+      DiscoverEvents.search(
+        term: q,
+        resultsCount: data.experts.length,
+        categoriesCount: data.categories.length + data.categoryLocations.length,
+        trigger: controller.trigger,
+      );
+      if (!hasResults) DiscoverEvents.searchNoResults(term: q);
+      return null;
+    }, [settled, q]);
+
     final List<Widget> body;
     if (q.isEmpty && !typing) {
       body = const [SliverToBoxAdapter(child: _Idle())];
@@ -81,7 +105,16 @@ class SearchResultsView extends HookWidget {
               hit: experts[i],
               highlight: highlight,
               opening: controller.opening,
-              onOpen: onOpen,
+              onOpen: (hit) {
+                DiscoverEvents.searchResultTapped(
+                  hostId:
+                      hit.documentId ?? hit.userDocumentId ?? hit.handler ?? '',
+                  position: i,
+                  resultsCount: experts.length,
+                  filtered: filter.isActive,
+                );
+                onOpen(hit);
+              },
             ),
           ),
           const _SectionGap(),
@@ -92,7 +125,14 @@ class SearchResultsView extends HookWidget {
             itemCount: data.categories.length,
             itemBuilder: (_, i) => SearchCategoryRow.category(
               category: data.categories[i],
-              onSearch: controller.searchFor,
+              onSearch: (name) {
+                DiscoverEvents.searchCategoryTapped(
+                  kind: 'category',
+                  category: name,
+                  position: i,
+                );
+                controller.searchFor(name);
+              },
             ),
           ),
           const _SectionGap(),
@@ -103,7 +143,14 @@ class SearchResultsView extends HookWidget {
             itemCount: data.categoryLocations.length,
             itemBuilder: (_, i) => SearchCategoryRow.location(
               location: data.categoryLocations[i],
-              onSearch: controller.searchFor,
+              onSearch: (name) {
+                DiscoverEvents.searchCategoryTapped(
+                  kind: 'location',
+                  category: name,
+                  position: i,
+                );
+                controller.searchFor(name);
+              },
             ),
           ),
         ],

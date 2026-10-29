@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../../core/analytics/events/me_events.dart';
 import '../../../../core/location/current_place.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../api/client/client_models.dart';
@@ -45,22 +46,32 @@ abstract final class LocationAutofill {
   /// explains the failure and, where the fix is in Settings, opens it.
   /// [alive] is checked after the wait: a screen left meanwhile has disposed
   /// the notifiers. [stillEmpty] (silent runs) is checked too: a saved
-  /// location that loaded meanwhile is never replaced.
+  /// location that loaded meanwhile is never replaced. [analyticsSource]:
+  /// the screen, for the `location_autofill` event.
   static Future<void> run({
     required ValueNotifier<bool> locating,
     required void Function(LocationFill fill) apply,
     required bool Function() alive,
     bool silent = false,
     bool Function()? stillEmpty,
+    String? analyticsSource,
   }) async {
     if (locating.value) return;
     locating.value = true;
+    void track(String result, [String? reason]) =>
+        PersonalInfoEvents.locationAutofill(
+          trigger: silent ? 'auto' : 'tap',
+          result: result,
+          reason: reason,
+          source: analyticsSource,
+        );
     try {
       final fill = await detect();
       if (!alive()) return;
       if (silent && stillEmpty != null && !stillEmpty()) return;
       apply(fill);
       final district = fill.district;
+      track(district == null ? 'state_only' : 'filled');
       if (district == null) {
         CToast.show(
           'client:location.state_only',
@@ -74,6 +85,7 @@ abstract final class LocationAutofill {
         );
       }
     } on LocationException catch (e) {
+      track('failed', e.reason.name);
       if (silent || !alive()) return;
       switch (e.reason) {
         case LocationFailure.serviceOff:
@@ -102,6 +114,7 @@ abstract final class LocationAutofill {
           );
       }
     } on ApiException catch (e) {
+      track('failed', 'api');
       if (!silent && alive()) CToast.error(e);
     } finally {
       if (alive()) locating.value = false;

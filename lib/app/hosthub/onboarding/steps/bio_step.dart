@@ -38,6 +38,7 @@ class BioStep extends StatelessWidget {
         page: draft.bioSeed,
         target: draft.bio,
         source: HostSuggestions.bios,
+        field: 'bio',
       ),
     ],
   );

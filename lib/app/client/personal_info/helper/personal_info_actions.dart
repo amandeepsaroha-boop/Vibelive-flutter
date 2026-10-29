@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/analytics/events/me_events.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/query/query_client.dart';
 import '../../../../core/router/app_router.dart';
@@ -61,6 +62,7 @@ PersonalInfoActions usePersonalInfoActions(
 
   void leave() {
     if (!context.mounted) return;
+    PersonalInfoEvents.left(dirty: form.isDirty || form.genderChanged);
     if (context.canPop()) {
       context.pop();
     } else {
@@ -71,8 +73,12 @@ PersonalInfoActions usePersonalInfoActions(
   Future<void> save() async {
     if (form.saving.value) return;
     FocusManager.instance.primaryFocus?.unfocus();
+    final changed = form.changedFields();
+    final fields = changed.join(',');
+    PersonalInfoEvents.saveTapped(fields: fields, count: changed.length);
     final issue = form.validate();
     if (issue != null) {
+      PersonalInfoEvents.invalid(issue.name);
       await CAlert.show(
         title: _title,
         message: issue.messageKey,
@@ -90,13 +96,22 @@ PersonalInfoActions usePersonalInfoActions(
       return;
     }
 
+    // RN `wasProfileIncomplete`: this save finishes registration.
+    final wasIncomplete = !form.profile!.isPersonalInfoComplete;
     form.saving.value = true;
     try {
       // Gender goes in the same public-user update (`gender`).
       await update.mutateAsync(form.input());
       form.markGenderSaved();
+      PersonalInfoEvents.saved(
+        fields: fields,
+        count: changed.length,
+        firstCompletion: wasIncomplete,
+      );
+      if (wasIncomplete) PersonalInfoEvents.userSignup(id);
       await refresh(id, force: true);
     } on ApiException catch (e) {
+      PersonalInfoEvents.saveFailed(e);
       if (!context.mounted) return;
       form.saving.value = false;
       await CAlert.error(e, title: _title);
@@ -116,11 +131,13 @@ PersonalInfoActions usePersonalInfoActions(
 
   Future<void> changePhoto() async {
     if (form.uploading.value) return;
+    PersonalInfoEvents.photoTapped();
     String? path;
     try {
       path = await PersonalInfoPhotoSource.instance.pick();
     } catch (e) {
       Log.w(_tag, 'picker failed: $e');
+      PersonalInfoEvents.photoFailed(stage: 'pick', error: e);
       await CAlert.show(
         title: 'client:personal_info.upload_title',
         message: 'client:personal_info.errors.pick_failed',
@@ -129,13 +146,16 @@ PersonalInfoActions usePersonalInfoActions(
       return;
     }
     final id = userId();
+    if (path == null) PersonalInfoEvents.photoCancelled();
     if (path == null || id == null || !context.mounted) return;
 
     form.uploading.value = true;
     try {
       await photo.mutateAsync(path);
+      PersonalInfoEvents.photoUpdated();
       await refresh(id);
     } on ApiException catch (e) {
+      PersonalInfoEvents.photoFailed(stage: 'upload', error: e);
       if (!context.mounted) return;
       form.uploading.value = false;
       await CAlert.error(e, title: 'client:personal_info.upload_error_title');

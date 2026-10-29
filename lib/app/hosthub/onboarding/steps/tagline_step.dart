@@ -39,6 +39,7 @@ class TaglineStep extends StatelessWidget {
         page: draft.taglineSeed,
         target: draft.tagline,
         source: HostSuggestions.taglines,
+        field: 'tagline',
       ),
     ],
   );

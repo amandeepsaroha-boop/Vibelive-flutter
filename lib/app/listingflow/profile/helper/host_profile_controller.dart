@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/discover_events.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/app_router.dart';
@@ -33,6 +34,7 @@ typedef BalanceGatePrompt =
 /// rebuilds: the photo index, the call buttons' busy state, the status bar.
 class HostProfileController {
   HostProfileController({
+    this.source = 'profile_sheet',
     required this.close,
     required this.navigate,
     required this.confirmStart,
@@ -41,6 +43,9 @@ class HostProfileController {
     Future<void> Function(WalletBalance balance)? transferEarnings,
   }) : _showBalanceGate = showBalanceGate ?? _defaultGate,
        _transferEarnings = transferEarnings ?? _defaultTransfer;
+
+  /// Where the profile was opened from (analytics `source`).
+  final String source;
 
   /// Closes the profile sheet.
   final VoidCallback close;
@@ -75,6 +80,7 @@ class HostProfileController {
       ctx,
       cash: balance.cashBalance,
       earnings: balance.earningsBalance,
+      source: 'balance_gate',
     );
   }
 
@@ -108,15 +114,25 @@ class HostProfileController {
       _set(pastHero, pixels > heroEnd);
 
   /// OS share sheet with RN's message ("Check out … on Vibe: link").
-  Future<void> share(BuildContext context, HostCard host) => AppShare.text(
-    context.t(
-      'host:share.message',
-      variables: {'name': host.name, 'url': HostProfileRules.shareUrl(host)},
-    ),
-    anchor: context.findRenderObject(),
-  );
+  Future<void> share(BuildContext context, HostCard host) {
+    DiscoverEvents.profileShared(
+      hostId: HostProfileRules.expertKey(host),
+      method: 'system',
+    );
+    return AppShare.text(
+      context.t(
+        'host:share.message',
+        variables: {'name': host.name, 'url': HostProfileRules.shareUrl(host)},
+      ),
+      anchor: context.findRenderObject(),
+    );
+  }
 
   Future<void> copyLink(HostCard host) async {
+    DiscoverEvents.profileShared(
+      hostId: HostProfileRules.expertKey(host),
+      method: 'copy_link',
+    );
     await Clipboard.setData(
       ClipboardData(text: HostProfileRules.shareUrl(host)),
     );
@@ -135,6 +151,13 @@ class HostProfileController {
   }) async {
     if (_callLock) return;
     _callLock = true;
+    DiscoverEvents.callButtonTapped(
+      hostId: HostProfileRules.expertKey(host),
+      callType: video ? 'video' : 'audio',
+      rate: video ? host.vPrice : host.aPrice,
+      source: source,
+      isCompany: isCompany,
+    );
     _set(preparingCall, true);
     var handedOff = false;
     try {
@@ -152,7 +175,17 @@ class HostProfileController {
     bool isMe,
     bool isCompany,
   ) async {
+    final hostId = HostProfileRules.expertKey(host);
+    final callType = video ? 'video' : 'audio';
+    void precheck(String result, {bool? enoughBalance}) =>
+        DiscoverEvents.callPrecheck(
+          hostId: hostId,
+          callType: callType,
+          result: result,
+          enoughBalance: enoughBalance,
+        );
     if (isMe) {
+      precheck('own_profile');
       await CAlert.show(
         title: 'host:call.self_title',
         message: 'host:call.self_message',
@@ -162,12 +195,17 @@ class HostProfileController {
 
     final uid = SessionStore.instance.value.userDocumentId;
     if (uid == null) {
+      precheck('signed_out');
       final login = await CAlert.show(
         title: 'host:call.login_title',
         message: 'host:call.login_message',
         primaryLabel: 'host:call.login',
         secondaryLabel: 'actions.cancel',
         variant: CAlertVariant.warning,
+      );
+      DiscoverEvents.callPromptAnswered(
+        prompt: 'login',
+        accepted: login == true,
       );
       if (login == true) _leaveTo(AppRoutes.login);
       return false;
@@ -190,12 +228,17 @@ class HostProfileController {
       company = company || me.isCompanyAccount;
       if (me.name == null || me.email == null || me.mobile == null) {
         if (_disposed) return false;
+        precheck('incomplete_profile');
         final update = await CAlert.show(
           title: 'host:call.incomplete_title',
           message: 'host:call.incomplete_message',
           primaryLabel: 'host:call.update_profile',
           secondaryLabel: 'actions.cancel',
           variant: CAlertVariant.warning,
+        );
+        DiscoverEvents.callPromptAnswered(
+          prompt: 'update_profile',
+          accepted: update == true,
         );
         if (update == true) _leaveTo(AppRoutes.personalInfo);
         return false;
@@ -221,6 +264,7 @@ class HostProfileController {
             );
       if (balance != null && gate != null) {
         if (_disposed) return false;
+        precheck('balance_gate', enoughBalance: false);
         final expertId = host.documentId ?? '${host.id}';
         Analytics.log('balance_gate_shown', {
           'expert_id': expertId,
@@ -241,15 +285,28 @@ class HostProfileController {
               '&reason=call_gate',
             );
           case BalanceGateAction.transferEarnings:
+            DiscoverEvents.balanceGateTransferTapped(
+              expertId: expertId,
+              gap: gate.gap,
+            );
             if (!_disposed) await _transferEarnings(balance);
           case null:
-            break;
+            DiscoverEvents.balanceGateDismissed(
+              expertId: expertId,
+              gap: gate.gap,
+            );
         }
         return false;
       }
     }
 
-    if (_disposed || !await confirmStart(video) || _disposed) return false;
+    if (_disposed) return false;
+    if (!await confirmStart(video)) {
+      precheck('safety_cancelled');
+      return false;
+    }
+    if (_disposed) return false;
+    precheck('passed', enoughBalance: company || rate <= 0 ? null : true);
     close();
     await handOff(host, video);
     return true;

@@ -97,7 +97,7 @@ void main() {
       callId: id,
       isVideo: true,
       receiverDocId: 'host$id',
-      remote: CallPeer(id: '7', documentId: 'user7'),
+      remote: const CallPeer(id: '7', documentId: 'user7'),
     );
 
     CallSession ring(String id) =>

@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/me_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
@@ -30,6 +31,16 @@ class BlockedUsersScreen extends HookWidget {
     final removed = useState(const <String>{});
     final p = BlockedPalette.of(context);
     final bottom = MediaQuery.paddingOf(context).bottom;
+
+    // Once per visit, when the list first loads.
+    final loaded = blocked.data;
+    final viewed = useRef(false);
+    useEffect(() {
+      if (loaded == null || viewed.value) return null;
+      viewed.value = true;
+      AccountListEvents.blockedViewed(loaded.length);
+      return null;
+    }, [loaded]);
 
     Future<void> onUnblock(String id) async {
       final user = blocked.data?.where((u) => u.targetUserId == id).firstOrNull;

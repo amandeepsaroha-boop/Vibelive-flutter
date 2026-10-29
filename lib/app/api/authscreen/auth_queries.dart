@@ -178,7 +178,7 @@ const _logoutCleanupLimit = Duration(seconds: 8);
 /// The server cleanup runs first: it needs the user's token, and
 /// `SessionStore.signOut` wipes it and blocks every non-auth request.
 Future<void> logout([LogoutInput input = const LogoutInput()]) async {
-  AnalyticsIdentity.markSignOut('user');
+  AnalyticsIdentity.markSignOut('user', keep: true);
   try {
     await _serverLogout(
       input,

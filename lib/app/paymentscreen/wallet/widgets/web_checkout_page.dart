@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../../../core/analytics/events/payment_events.dart';
+import '../../../../core/analytics/screen_tracker.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/utils/log.dart';
 import '../../../../core/utils/scale.dart';
@@ -45,9 +47,14 @@ class _WebCheckoutPageState extends State<WebCheckoutPage> {
   Timer? _poll;
   bool _done = false;
 
+  /// Analytics: PayU's hosted form polls; the Razorpay page does not.
+  String get _kind => widget.request.poll != null ? 'payu' : 'razorpay';
+
   @override
   void initState() {
     super.initState();
+    PaymentEvents.webCheckoutOpened(kind: _kind);
+    ScreenTracker.view('web_checkout', {'kind': _kind});
     _web = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..addJavaScriptChannel(
@@ -97,7 +104,7 @@ class _WebCheckoutPageState extends State<WebCheckoutPage> {
       busy = true;
       try {
         final end = await poll();
-        if (end != null) _finish(end);
+        if (end != null) _finish(end, polled: true);
       } catch (e) {
         Log.d(_tag, 'poll failed: $e');
       } finally {
@@ -106,10 +113,20 @@ class _WebCheckoutPageState extends State<WebCheckoutPage> {
     });
   }
 
-  void _finish(WebCheckoutEnd end) {
+  void _finish(WebCheckoutEnd end, {bool polled = false}) {
     if (_done || !mounted) return;
     _done = true;
     _poll?.cancel();
+    final (result, reason) = switch (end) {
+      WebCheckoutPaid() => ('paid', null),
+      WebCheckoutFailed(:final reason) => ('failed', reason),
+      WebCheckoutClosed() => ('closed', null),
+    };
+    PaymentEvents.webCheckoutEnded(
+      kind: _kind,
+      result: polled ? 'polled_$result' : result,
+      reason: reason,
+    );
     Navigator.of(context).pop(end);
   }
 
