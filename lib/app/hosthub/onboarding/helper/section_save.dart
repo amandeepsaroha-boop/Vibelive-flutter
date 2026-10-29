@@ -21,6 +21,7 @@ import 'validation.dart';
 const hostSavableSteps = {
   HostStep.basic,
   HostStep.photos,
+  HostStep.voice,
   HostStep.tagline,
   HostStep.bio,
   HostStep.interests,
@@ -52,6 +53,7 @@ HostSaver useHostSectionSave(
   const profileSteps = [
     HostStep.basic,
     HostStep.photos,
+    HostStep.voice,
     HostStep.tagline,
     HostStep.bio,
   ];
@@ -133,6 +135,7 @@ HostSaver useHostSectionSave(
           for (final p in draft.photos.value)
             if (p.mediaId != null) p.mediaId!,
         ],
+        audioIntro: draft.voiceIntro.value?.upload,
         userPatch: me == null ? const {} : HostSubmitPlan.userPatch(draft, me),
       ),
     );

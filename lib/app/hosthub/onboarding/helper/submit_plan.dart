@@ -30,6 +30,7 @@ abstract final class HostSubmitPlan {
       for (final p in d.photos.value)
         if (p.mediaId != null) p.mediaId!,
     ],
+    audioIntro: d.voiceIntro.value?.upload,
     rates: HostValidation.ratesOf(d),
     callAnyTime: d.availableNow.value && !d.vacation.value,
     vacation: d.vacation.value,

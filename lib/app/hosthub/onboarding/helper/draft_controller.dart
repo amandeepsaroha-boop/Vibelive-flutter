@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 
@@ -30,6 +31,7 @@ class HostDraftController {
       district,
       topics,
       photos,
+      voiceIntro,
       audioOn,
       videoOn,
       audioRate,
@@ -84,6 +86,7 @@ class HostDraftController {
   final district = ValueNotifier<GeoOption?>(null);
   final topics = ValueNotifier<List<HostTopic>>(const []);
   final photos = ValueNotifier<List<HostDraftPhoto>>(const []);
+  final voiceIntro = ValueNotifier<HostVoiceIntro?>(null);
   final audioOn = ValueNotifier(true);
   final videoOn = ValueNotifier(true);
   final audioRate = ValueNotifier(defaultAudioRate);
@@ -152,6 +155,13 @@ class HostDraftController {
         for (final p in json['photos'] as List)
           if (p is Map && p['mediaId'] != null) HostDraftPhoto.fromJson(p),
     ];
+    // A recording whose file is gone (cleared storage) falls back to the
+    // saved intro instead of failing the upload.
+    final voice = HostVoiceIntro.fromJson(json['voiceIntro']);
+    voiceIntro.value = switch (voice?.path) {
+      final p? when !File(p).existsSync() => voice!.withoutRecording(),
+      _ => voice,
+    };
     audioOn.value = json['audioOn'] != false;
     videoOn.value = json['videoOn'] != false;
     audioRate.value = _int(json['audioRate']) ?? defaultAudioRate;
@@ -188,6 +198,7 @@ class HostDraftController {
     'district': district.value?.toJson(),
     'topics': [for (final t in topics.value) t.toJson()],
     'photos': [for (final p in photos.value) ?p.toJson()],
+    'voiceIntro': voiceIntro.value?.toJson(),
     'audioOn': audioOn.value,
     'videoOn': videoOn.value,
     'audioRate': audioRate.value,
@@ -269,6 +280,7 @@ class HostDraftController {
       district,
       topics,
       photos,
+      voiceIntro,
       audioOn,
       videoOn,
       audioRate,

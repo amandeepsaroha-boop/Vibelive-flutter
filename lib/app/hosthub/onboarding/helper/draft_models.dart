@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/network/strapi.dart';
 import '../../../api/hosthub/catalog_models.dart';
 import '../../../api/hosthub/profile_models.dart';
+import '../../../api/hosthub/profile_patch.dart';
 
 /// A topic of the interests form's topic question (option value + label).
 @immutable
@@ -73,6 +74,73 @@ class HostDraftPhoto {
   JsonMap? toJson() => mediaId == null
       ? null
       : {'key': key, 'mediaId': mediaId, 'url': url, 'localPath': localPath};
+}
+
+/// The voice intro on the Bio step (RN ProfessionalDetails "Voice Intro"):
+/// a new recording on this phone ([path], uploaded on save) and/or the one
+/// already on the profile ([savedUrl], left alone: re-sending it would put an
+/// approved intro back into review).
+@immutable
+class HostVoiceIntro {
+  const HostVoiceIntro({
+    this.path,
+    this.seconds = 0,
+    this.savedMediaId,
+    this.savedUrl,
+  });
+
+  static const maxSeconds = 30;
+
+  static HostVoiceIntro? fromJson(dynamic json) {
+    if (json is! Map) return null;
+    final intro = HostVoiceIntro(
+      path: J.str(json['path']),
+      seconds: J.integer(json['seconds']) ?? 0,
+      savedMediaId: json['savedMediaId'],
+      savedUrl: J.str(json['savedUrl']),
+    );
+    return intro.isEmpty ? null : intro;
+  }
+
+  /// A recording made here, not uploaded yet.
+  final String? path;
+
+  /// Its length (the saved one's is unknown).
+  final int seconds;
+  final Object? savedMediaId;
+  final String? savedUrl;
+
+  bool get isNew => path != null;
+  bool get isEmpty => path == null && savedUrl == null;
+
+  /// What the save uploads: only a new recording.
+  HostMediaRef? get upload => path == null
+      ? null
+      : HostMediaRef.file(
+          path!,
+          fileName: 'audio-intro-${DateTime.now().millisecondsSinceEpoch}.m4a',
+          mimeType: 'audio/mp4',
+        );
+
+  /// [path] recorded now, the saved intro kept as the fallback.
+  HostVoiceIntro withRecording(String path, int seconds) => HostVoiceIntro(
+    path: path,
+    seconds: seconds,
+    savedMediaId: savedMediaId,
+    savedUrl: savedUrl,
+  );
+
+  /// The new recording dropped: back to the saved intro, or nothing.
+  HostVoiceIntro? withoutRecording() => savedUrl == null
+      ? null
+      : HostVoiceIntro(savedMediaId: savedMediaId, savedUrl: savedUrl);
+
+  JsonMap toJson() => {
+    'path': path,
+    'seconds': seconds,
+    'savedMediaId': savedMediaId,
+    'savedUrl': savedUrl,
+  };
 }
 
 /// One time slot of a day, minutes since midnight.

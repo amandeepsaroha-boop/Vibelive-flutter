@@ -50,7 +50,10 @@ abstract final class Strapi {
     if (url == null) return null;
     final s = url.toString();
     if (s.isEmpty) return null;
-    return s.startsWith('http') ? s : '${Env.apiBaseUrl}$s';
+    // A local file (the host's own new recording, in the preview) as is.
+    return s.startsWith('http') || s.startsWith('file:')
+        ? s
+        : '${Env.apiBaseUrl}$s';
   }
 
   /// Best URL for a Strapi media node, original first (RN `mediaFromAsset`).

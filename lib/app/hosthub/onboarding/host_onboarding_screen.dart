@@ -37,6 +37,7 @@ import 'steps/guidelines_step.dart';
 import 'steps/preview_step.dart';
 import 'steps/submitted_step.dart';
 import 'steps/tagline_step.dart';
+import 'steps/voice_step.dart';
 import 'widgets/continue_bar.dart';
 import 'widgets/progress_header.dart';
 import 'helper/submit_errors.dart';
@@ -347,6 +348,7 @@ class _Flow extends HookWidget {
     HostStep.basic => BasicProfileStep(draft: draft),
     HostStep.interests => InterestsStep(draft: draft),
     HostStep.photos => PhotosStep(draft: draft),
+    HostStep.voice => VoiceStep(draft: draft),
     HostStep.tagline => TaglineStep(draft: draft),
     HostStep.bio => BioStep(draft: draft),
     HostStep.rates => RatesStep(draft: draft),

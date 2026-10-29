@@ -72,6 +72,12 @@ abstract final class HostPrefill {
             ),
       ];
     }
+    if (d.voiceIntro.value == null && host.audioIntroUrl != null) {
+      d.voiceIntro.value = HostVoiceIntro(
+        savedMediaId: host.audioIntroMediaId,
+        savedUrl: host.audioIntroUrl,
+      );
+    }
     hostSettings(d, host);
   }
 

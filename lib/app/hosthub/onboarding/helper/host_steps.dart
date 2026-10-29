@@ -1,4 +1,4 @@
-/// The eleven screens of "Become a Host", in order. The intro and the
+/// The twelve screens of "Become a Host", in order. The intro and the
 /// success screen have their own chrome; the form steps share the progress
 /// header and the sticky Continue bar.
 enum HostStep {
@@ -6,6 +6,9 @@ enum HostStep {
   basic,
   interests,
   photos,
+
+  /// A short recorded hello (optional; RN's "Voice Intro").
+  voice,
   tagline,
   bio,
   rates,
@@ -18,9 +21,9 @@ enum HostStep {
   guidelines,
   submitted;
 
-  static const total = 11;
+  static const total = 12;
 
-  /// "N of 11".
+  /// "N of 12".
   int get number => index + 1;
 
   /// Index in the flow's page view (basic = 0).
@@ -31,6 +34,7 @@ enum HostStep {
     basic,
     interests,
     photos,
+    voice,
     tagline,
     bio,
     rates,

@@ -437,5 +437,21 @@
     "title": "A few things to keep VibeLive welcoming",
     "subtitle": "Our community guidelines keep every conversation safe, respectful and genuine."
   },
-  "counter": "{{count}}/{{max}}"
+  "counter": "{{count}}/{{max}}",
+  "voice": {
+    "title": "Voice intro (optional)",
+    "hint": "Record a short voice intro so callers can hear your vibe before they call. Up to 30 seconds.",
+    "record": "RECORD VOICE INTRO",
+    "rerecord": "RE-RECORD",
+    "recording": "STOP  {{time}} / {{max}}",
+    "play": "Play voice intro",
+    "stop": "Stop",
+    "delete": "Delete recording",
+    "recorded": "New recording, {{time}}. It is saved when you continue.",
+    "saved": "Your current voice intro. Record again to replace it.",
+    "permission": "Allow microphone access to record your voice intro.",
+    "failed": "Could not record. Please try again.",
+    "too_short": "Too short. Hold on a little longer.",
+    "play_failed": "Could not play the voice intro."
+  }
 }

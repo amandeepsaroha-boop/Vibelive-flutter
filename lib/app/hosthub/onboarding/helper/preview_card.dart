@@ -10,6 +10,13 @@ HostCard previewHostCard(HostDraftController d) {
     for (final p in d.photos.value)
       if (p.url != null) p,
   ];
+  // The new recording on this phone, else the saved one: the preview plays
+  // the voice intro as clients will hear it.
+  final voice = d.voiceIntro.value;
+  final voiceUrl = switch (voice?.path) {
+    final path? => Uri.file(path).toString(),
+    _ => voice?.savedUrl,
+  };
   final rates = (
     voice: d.audioOn.value ? d.audioRate.value : 0,
     video: d.videoOn.value ? d.videoRate.value : 0,
@@ -44,6 +51,10 @@ HostCard previewHostCard(HostDraftController d) {
           'image': {'url': p.url},
         },
     ],
+    if (voiceUrl != null) ...{
+      'audio_intro': {'url': voiceUrl},
+      'audio_intro_status': 'approved',
+    },
     'user': {
       'name': d.name.text.trim(),
       'district': {'name': d.district.value?.name ?? ''},

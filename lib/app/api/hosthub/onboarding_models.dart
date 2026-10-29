@@ -3,6 +3,7 @@ import 'approval_models.dart';
 import 'catalog_models.dart';
 import 'expertise_models.dart';
 import 'profile_models.dart';
+import 'profile_patch.dart';
 
 /// Everything the "Become a Host" flow writes, in one submit (see
 /// `useSubmitHostOnboarding`).
@@ -16,6 +17,7 @@ class HostOnboardingInput {
     required this.description,
     required this.languages,
     required this.photoMediaIds,
+    this.audioIntro,
     required this.rates,
     required this.callAnyTime,
     this.vacation = false,
@@ -40,6 +42,9 @@ class HostOnboardingInput {
 
   /// Uploaded media ids, slot 1 = primary photo.
   final List<Object> photoMediaIds;
+
+  /// A new voice-intro recording to upload as `audio_intro`.
+  final HostMediaRef? audioIntro;
 
   /// A disabled call type is 0 (CallRatesScreen rule).
   final HostRates rates;
@@ -89,11 +94,16 @@ class HostProfileEditInput {
     required this.description,
     required this.languages,
     required this.photoMediaIds,
+    this.audioIntro,
     this.userPatch = const {},
   });
 
   final String userDocumentId;
   final String expertId;
+
+  /// A new voice-intro recording to upload as `audio_intro` (none: the
+  /// profile's stays as it is).
+  final HostMediaRef? audioIntro;
   final String handler;
   final String tagline;
   final String? gender;

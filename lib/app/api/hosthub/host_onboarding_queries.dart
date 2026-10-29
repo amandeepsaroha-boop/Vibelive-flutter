@@ -67,6 +67,7 @@ Future<HostOnboardingResult> _submitHostOnboarding(
       languages: input.languages,
       photos: [for (final id in input.photoMediaIds) HostMediaRef.media(id)],
       existingPhotos: existingPhotos,
+      audioIntro: input.audioIntro,
     ),
   );
   final expertId = details.expertId;
@@ -151,6 +152,7 @@ Future<HostProfile?> _saveHostProfileEdit(HostProfileEditInput input) async {
       languages: input.languages,
       photos: [for (final id in input.photoMediaIds) HostMediaRef.media(id)],
       existingPhotos: existing,
+      audioIntro: input.audioIntro,
     ),
   );
   await ProfileApi.updatePublicUser(input.userDocumentId, {

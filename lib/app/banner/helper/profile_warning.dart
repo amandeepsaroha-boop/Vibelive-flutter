@@ -84,13 +84,13 @@ class ProfileWarning {
 
   /// The step a review notice is about: photos → Photos; text changes →
   /// the first changed field's step (tagline, about → Bio, handle /
-  /// website → Basic). The audio intro has no step of its own: Basic.
+  /// website → Basic); the audio intro → Voice.
   static String _noticeRoute(HostModerationNotice n, HostProfile host) {
     if (n.title.startsWith('hostflow:moderation.photos_')) {
       return AppRoutes.hostStep(HostStep.photos.name);
     }
     if (n.title.startsWith('hostflow:moderation.audio_')) {
-      return AppRoutes.hostStep(HostStep.basic.name);
+      return AppRoutes.hostStep(HostStep.voice.name);
     }
     for (final field in host.pendingChangeFields) {
       final step = _fieldSteps[field];

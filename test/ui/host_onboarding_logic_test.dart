@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vibelive/app/api/hosthub/onboarding_models.dart';
+import 'package:vibelive/app/api/hosthub/profile_patch.dart';
 import 'package:vibelive/app/api/authscreen/interests_models.dart';
 import 'package:vibelive/app/api/client/client_models.dart';
 import 'package:vibelive/app/api/hosthub/catalog_models.dart';
@@ -242,6 +244,32 @@ void main() {
       expect(input.callAnyTime, isFalse);
     });
 
+    test('a new voice recording is uploaded; a saved one is left alone', () {
+      final d = _complete();
+      HostOnboardingInput build() => HostSubmitPlan.build(
+        d,
+        userDocumentId: 'u1',
+        form: form,
+        me: UserWithExpert.fromUser(meUser()),
+      );
+      expect(build().audioIntro, isNull); // optional
+
+      d.voiceIntro.value = const HostVoiceIntro(
+        savedMediaId: 7,
+        savedUrl: 'https://cdn.example/old.m4a',
+      );
+      expect(build().audioIntro, isNull); // re-sending would re-queue review
+
+      d.voiceIntro.value = d.voiceIntro.value!.withRecording(
+        '/tmp/new.m4a',
+        12,
+      );
+      final upload = build().audioIntro! as HostMediaFile;
+      expect(upload.path, '/tmp/new.m4a');
+      expect(upload.mimeType, 'audio/mp4');
+      expect(upload.fileName, endsWith('.m4a'));
+    });
+
     test('a disabled day is not saved; midnight is 23:59', () {
       final d = _complete();
       final week = HostSubmitPlan.week(d);
@@ -266,6 +294,34 @@ void main() {
   });
 
   group('prefill and draft', () {
+    test('voice intro: prefilled from the profile, kept by the draft', () {
+      final d = HostDraftController('v', persist: false);
+      HostPrefill.apply(
+        d,
+        UserWithExpert.fromUser(meUser()),
+        host: HostProfile.from({
+          'documentId': 'exp1',
+          'audio_intro': {'id': 7, 'url': 'https://cdn.example/old.m4a'},
+        }),
+      );
+      expect(d.voiceIntro.value!.savedUrl, 'https://cdn.example/old.m4a');
+      expect(d.voiceIntro.value!.isNew, isFalse);
+
+      // A recording whose file is gone falls back to the saved intro.
+      final file = File('${Directory.systemTemp.path}/voice_draft_test.m4a')
+        ..writeAsBytesSync([1]);
+      d.voiceIntro.value = d.voiceIntro.value!.withRecording(file.path, 5);
+      final saved = jsonDecode(jsonEncode(d.toJson())) as Map;
+      final again = HostDraftController('v2', persist: false)..restore(saved);
+      expect(again.voiceIntro.value!.path, file.path);
+      expect(again.voiceIntro.value!.seconds, 5);
+
+      file.deleteSync();
+      final gone = HostDraftController('v3', persist: false)..restore(saved);
+      expect(gone.voiceIntro.value!.isNew, isFalse);
+      expect(gone.voiceIntro.value!.savedUrl, 'https://cdn.example/old.m4a');
+    });
+
     test('Personal Info fills an empty draft once', () {
       final d = HostDraftController('p', persist: false);
       HostPrefill.apply(

@@ -49,6 +49,7 @@ class PreviewStep extends HookWidget {
     return ListenableBuilder(
       listenable: Listenable.merge([
         d.photos,
+        d.voiceIntro,
         d.topics,
         d.languages,
         d.district,
