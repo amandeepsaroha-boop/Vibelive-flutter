@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/utils/log.dart';
 import '../../api/listingflow/listing_queries.dart';
 import '../../api/paymentscreen/payment_queries.dart';
+import 'call_analytics.dart';
 import 'call_alerts.dart';
 import 'call_controller.dart';
 import 'call_identity.dart';
@@ -66,8 +67,10 @@ abstract final class CallBilling {
     CallAlerts.toast(CallFlowKeys.lowBalanceWarning);
   }
 
-  static void rememberRate(String callId, double ratePerMin) =>
-      _rates[callId] = ratePerMin;
+  static void rememberRate(String callId, double ratePerMin) {
+    _rates[callId] = ratePerMin;
+    CallAnalytics.rate(callId, ratePerMin);
+  }
 
   /// Caller only; reads the cash balance now. [onLimit] hangs up. A failed
   /// read leaves the call uncapped (the backend's low-balance cron is the

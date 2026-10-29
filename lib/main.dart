@@ -13,6 +13,9 @@ import 'app/callscreen/helper/push/push_bootstrap.dart';
 import 'app/splashscreen/launch_logo.dart';
 import 'app/splashscreen/splash_screen.dart';
 import 'app/update/update_notice.dart';
+import 'core/analytics/analytics.dart';
+import 'core/analytics/analytics_identity.dart';
+import 'core/analytics/screen_tracker.dart';
 import 'core/app_scope.dart';
 import 'core/error/app_error_handler.dart';
 import 'core/i18n/i18n.dart';
@@ -42,6 +45,10 @@ Future<void> main() async {
   await SessionStore.instance.restore();
   // Firebase eagerly + the FCM background handler (before runApp).
   await PushBootstrap.initFirebase();
+  // Firebase Analytics + Meta App Events: user identity, every screen.
+  unawaited(Analytics.init());
+  AnalyticsIdentity.attach();
+  ScreenTracker.attach(appRouter);
   // CallPlatform, native config, session hooks, cold-start reconcile.
   await CallFlow.init();
   DeepLinks.instance.init();

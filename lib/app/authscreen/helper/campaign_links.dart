@@ -74,8 +74,11 @@ abstract final class CampaignLinks {
     AppRoutes.home,
     aliases: ['', 'discover'],
     fixed: {'tab': 'DISCOVER'},
-    // A Discover topic tab (e.g. `topic=dating-advice`).
-    params: [CampaignParam('topic')],
+    // A Discover topic tab (e.g. `topic=Dating advice`). `cat`: the older
+    // admin presets' name for it.
+    params: [
+      CampaignParam('topic', aliases: ['cat']),
+    ],
   );
   static const search = CampaignRoute(
     'search',
@@ -173,7 +176,12 @@ abstract final class CampaignLinks {
       aliases: ['badge-status'],
       hostOnly: true,
     ),
-    CampaignRoute('categories', AppRoutes.categories, aliases: ['topics']),
+    // `interests`: the older admin preset for the same picker.
+    CampaignRoute(
+      'categories',
+      AppRoutes.categories,
+      aliases: ['topics', 'interests'],
+    ),
     CampaignRoute(
       'resources',
       AppRoutes.categoryMenu,

@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../../core/analytics/analytics.dart';
-
 import 'call_session.dart';
 
 /// The one call (RN `call.store`), outside widgets. Screens only observe
@@ -99,25 +97,7 @@ class CallController {
       ),
     );
     _startTicker();
-    _logStarted(value);
-  }
-
-  /// RN `call_started` (CallingScreen, on `ongoing`): once per call, since
-  /// this transition happens once. `expert_id` was dropped on every RN
-  /// event until df52e87; the caller knows the host's expert profile.
-  static void _logStarted(CallSession s) {
-    final id = s.callId ?? s.callDocumentId;
-    if (id == null) return;
-    String? clean(String? v) =>
-        v == null || v.isEmpty || v.toLowerCase() == 'null' ? null : v;
-    Analytics.log('call_started', {
-      'consultation_id': id,
-      'call_type': s.isVideo ? 'video' : 'audio',
-      'expert_id':
-          (s.isCaller ? clean(s.receiverDocId) : null) ??
-          clean(s.remote.documentId) ??
-          clean(s.remote.id),
-    });
+    // `call_started` and every other call event: CallAnalytics.
   }
 
   /// → [CallPhase.ended] (summary / feedback). Idempotent.

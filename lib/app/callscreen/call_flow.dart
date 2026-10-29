@@ -9,6 +9,7 @@ import '../../core/session/session_store.dart';
 import '../../core/storage/app_prefs.dart';
 import '../../core/storage/token_storage.dart';
 import '../../core/utils/log.dart';
+import 'helper/call_analytics.dart';
 import 'helper/call_actions.dart';
 import 'helper/call_controller.dart';
 import 'helper/call_platform.dart';
@@ -54,6 +55,8 @@ abstract final class CallFlow {
       SessionStore.protectedDataAvailable =
           NativeCallBridge.isProtectedDataAvailable;
       NativeCallEvents.attach();
+      // Call events (Firebase + Meta) from the call's phase changes.
+      CallAnalytics.attach();
     } catch (e, st) {
       Log.e(_tag, e, st);
     }

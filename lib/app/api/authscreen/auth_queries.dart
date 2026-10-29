@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../../core/analytics/analytics_identity.dart';
 import '../../../core/network/device_info.dart';
 import '../../../core/network/strapi.dart';
 import '../../../core/query/query_hooks.dart';
@@ -177,6 +178,7 @@ const _logoutCleanupLimit = Duration(seconds: 8);
 /// The server cleanup runs first: it needs the user's token, and
 /// `SessionStore.signOut` wipes it and blocks every non-auth request.
 Future<void> logout([LogoutInput input = const LogoutInput()]) async {
+  AnalyticsIdentity.markSignOut('user');
   try {
     await _serverLogout(
       input,

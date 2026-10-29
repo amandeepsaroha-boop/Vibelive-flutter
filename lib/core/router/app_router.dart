@@ -30,6 +30,7 @@ import '../../app/resourcesscreen/webview/webview_screen.dart';
 import '../../app/component/vibe_background.dart';
 import '../../app/paymentscreen/wallet/wallet_screen.dart';
 import '../../app/splashscreen/splash_screen.dart';
+import '../analytics/screen_tracker.dart';
 import '../session/session_store.dart';
 
 /// Lets non-widget code (push handlers, `CAlert` without a context) reach
@@ -92,6 +93,8 @@ const _publicRoutes = {AppRoutes.splash, AppRoutes.login};
 final GoRouter appRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: AppRoutes.splash,
+  // Named sheets / dialogs as analytics screens (pages: ScreenTracker).
+  observers: [ScreenTracker.observer],
   // Logout, a failed token refresh, or "Not you?" → login, from any screen.
   refreshListenable: SessionStore.instance.signedIn,
   redirect: (context, state) {

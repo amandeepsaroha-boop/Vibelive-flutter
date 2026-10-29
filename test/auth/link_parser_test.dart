@@ -173,6 +173,69 @@ void main() {
       );
     });
 
+    // The backend's deep-link presets (app-notification-orchestrator
+    // settings.js `defaultDeepLinkPresets`): the moderation thread and the
+    // notification composer offer exactly these. Each must open a screen.
+    test('every backend preset path opens a screen', () {
+      const presets = [
+        'home',
+        'wallet',
+        'search',
+        'history',
+        'profile',
+        'favourites',
+        'login',
+        'expert-profile.php?userid=x',
+        'professional-account',
+        'approval',
+        'referral',
+        'personal-info',
+        'interests',
+        'expertise',
+        'schedule',
+        'call-rates',
+        'verification-badge',
+        'profile-qr',
+        'gst-details',
+        'blocked-users',
+        'about',
+        'support',
+        'page?slug=x',
+        'webview',
+        'become-host',
+        'host-basic',
+        'host-interests',
+        'host-photos',
+        'host-voice',
+        'host-tagline',
+        'host-bio',
+        'host-rates',
+        'host-availability',
+        'host-preview',
+        'host-guidelines',
+        'host-step?step=bio',
+        'verification-badge-info',
+        'verification-badge-form',
+        'verification-badge-status',
+        'categories',
+        'resources?id=1',
+      ];
+      for (final path in presets) {
+        final t = CampaignLinks.resolve('vibecalling://$path');
+        expect(t.route, isNotNull, reason: path);
+        expect(t.missing, isEmpty, reason: path);
+      }
+      // The older presets' names.
+      expect(
+        CampaignLinks.resolve('vibecalling://interests').route!.route,
+        AppRoutes.categories,
+      );
+      expect(CampaignLinks.resolve('vibecalling://home?cat=Self-love').params, {
+        'tab': 'DISCOVER',
+        'topic': 'Self-love',
+      });
+    });
+
     test('each onboarding step has a link', () {
       for (final step in HostStep.pages) {
         if (step == HostStep.submitted) continue;
