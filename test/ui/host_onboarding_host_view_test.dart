@@ -139,6 +139,21 @@ void main() {
     await finishHost(tester);
   });
 
+  testWidgets('a link opens the flow on its step (the voice intro)', (
+    tester,
+  ) async {
+    backend = await resetHost();
+    phone(tester);
+    await pumpRoutes(
+      tester,
+      const HostOnboardingScreen(startStep: HostStep.voice),
+    );
+    await pumpFor(tester, 900);
+    expect(find.text('Introduce yourself'), findsOneWidget);
+    expect(find.text('5 of 12'), findsOneWidget);
+    await finishHost(tester);
+  });
+
   testWidgets('a host back in the flow: Back returns where it was opened', (
     tester,
   ) async {
@@ -160,18 +175,18 @@ void main() {
       await pumpFor(tester, 900);
     }
 
-    // Editing one section (step 5): Back leaves, it doesn't step to 4.
+    // Editing one section (step 6): Back leaves, it doesn't step to 5.
     backend = await resetHost(expert: _host(active: true));
     phone(tester);
     await openFrom(const HostOnboardingScreen(editStep: HostStep.tagline));
-    expect(find.text('5 of 11'), findsOneWidget);
+    expect(find.text('6 of 12'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('Back'));
     await pumpFor(tester, 600);
     expect(find.byType(HostOnboardingScreen), findsNothing);
     expect(find.text('ORIGIN'), findsOneWidget);
     await finishHost(tester);
 
-    // An approved host resuming the whole flow on step 5: same.
+    // An approved host resuming the whole flow on step 6: same.
     backend = await resetHost(expert: _host(active: true));
     await AppPrefs.setString(
       'hostflow_draft_v1:u1',
@@ -179,7 +194,7 @@ void main() {
     );
     phone(tester);
     await openFrom(const HostOnboardingScreen());
-    expect(find.text('5 of 11'), findsOneWidget);
+    expect(find.text('6 of 12'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('Back'));
     await pumpFor(tester, 600);
     expect(find.byType(HostOnboardingScreen), findsNothing);

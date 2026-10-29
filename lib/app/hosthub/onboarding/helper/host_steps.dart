@@ -53,6 +53,14 @@ enum HostStep {
     return intro;
   }
 
+  /// A step a link may open on (`?step=`): any form step, the preview or
+  /// the guidelines; null for the rest (and unknown names).
+  static HostStep? linkable(String? name) {
+    if (name == null || name.isEmpty) return null;
+    final s = fromName(name);
+    return s == intro || s == submitted ? null : s;
+  }
+
   HostStep? get previous => index == 0 ? null : values[index - 1];
   HostStep? get next => index == values.length - 1 ? null : values[index + 1];
 

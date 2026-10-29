@@ -39,7 +39,7 @@ void main() {
 
     await start(tester);
     expect(find.text('Tell us about yourself'), findsOneWidget);
-    expect(find.text('2 of 11'), findsOneWidget);
+    expect(find.text('2 of 12'), findsOneWidget);
     expect(fieldText(tester, 'name'), 'Aanya Sharma');
     expect(fieldText(tester, 'handle'), 'aanyasharma');
     expect(find.text('Assam'), findsOneWidget);
@@ -119,6 +119,21 @@ void main() {
     expect(find.text('Primary'), findsOneWidget);
     await tapContinue(tester, settle: 900);
 
+    // Voice: required. Continue without one says so; then record 3 s.
+    expect(find.text('Introduce yourself'), findsOneWidget);
+    expect(find.text('5 of 12'), findsOneWidget);
+    await tapContinue(tester);
+    expect(
+      find.text('Record a short voice intro to continue.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.bySemanticsLabel('Record voice intro'));
+    await pumpFor(tester, 3000);
+    await tester.tap(find.bySemanticsLabel('Stop recording'));
+    await pumpFor(tester, 300);
+    expect(find.text('Tap to listen'), findsOneWidget);
+    await tapContinue(tester, settle: 900);
+
     // Tagline: suggestions from the topics; "Use" fills the field.
     expect(find.text('Write a short tagline'), findsOneWidget);
     expect(find.text('Based on your interests'), findsOneWidget);
@@ -188,7 +203,7 @@ void main() {
     await tapContinue(tester, settle: 900);
 
     // Preview: how clients see it; Edit goes to the step and comes back.
-    expect(find.text('9 of 11'), findsOneWidget);
+    expect(find.text('10 of 12'), findsOneWidget);
     expect(find.text('Preview your profile'), findsOneWidget);
     // The client sheet's own header: name in capitals, then the city.
     expect(find.text('AANYA SHARMA'), findsOneWidget);
@@ -204,13 +219,13 @@ void main() {
     await tapContinue(tester, settle: 900);
 
     // Guidelines: Submit stays disabled until the box is ticked.
-    expect(find.text('10 of 11'), findsOneWidget);
+    expect(find.text('11 of 12'), findsOneWidget);
     expect(
       find.text('A few things to keep VibeLive welcoming'),
       findsOneWidget,
     );
     await tapContinue(tester);
-    expect(find.text('10 of 11'), findsOneWidget);
+    expect(find.text('11 of 12'), findsOneWidget);
     expect(backend.sent('POST', '/expert-profiles'), isEmpty);
     // Back from 10 is 9.
     await tester.tap(find.bySemanticsLabel('Back'));
@@ -223,6 +238,8 @@ void main() {
     // ── What was sent ────────────────────────────────────────────────────
     final created = backend.sent('POST', '/expert-profiles').single;
     final data = (created.data! as Map)['data'] as Map;
+    // The voice intro: uploaded once recorded, attached as `audio_intro`.
+    expect(data['audio_intro'], 801);
     expect(data['handler'], 'aanyatalks');
     expect(data['gender'], 'Female');
     expect(data['user'], 'u1');
@@ -281,7 +298,7 @@ void main() {
 
     // ── Submitted ────────────────────────────────────────────────────────
     expect(find.text('Your profile is submitted!'), findsOneWidget);
-    expect(find.text('11 of 11'), findsOneWidget);
+    expect(find.text('12 of 12'), findsOneWidget);
     expect(find.text('Profile submitted'), findsOneWidget);
     expect(find.text('We review your details'), findsOneWidget);
     expect(find.text("You'll be notified"), findsOneWidget);
@@ -316,7 +333,7 @@ void main() {
     );
     await open(tester);
     expect(find.text('Write a short tagline'), findsOneWidget);
-    expect(find.text('5 of 11'), findsOneWidget);
+    expect(find.text('6 of 12'), findsOneWidget);
     expect(
       fieldText(tester, 'tagline'),
       'Good conversations, music and everyday stories.',
@@ -324,7 +341,7 @@ void main() {
     expect(find.text('47/60'), findsOneWidget);
 
     // Back walks the steps; the intro then offers "Continue setup".
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < 5; i++) {
       await tester.tap(find.bySemanticsLabel('Back'));
       await pumpFor(tester, 450);
     }

@@ -43,6 +43,10 @@ HostDraftController _complete() {
     ..tagline.text = 'Good conversations, music and everyday stories.'
     ..bio.text = 'I love meeting new people and having real conversations.';
   d.gender.value = 'Female';
+  d.voiceIntro.value = const HostVoiceIntro(
+    savedMediaId: 7,
+    savedUrl: 'https://cdn.example/intro.m4a',
+  );
   d.languages.value = const [HostOption(id: 5, label: 'English')];
   d.state.value = const GeoOption({'id': 4, 'name': 'Assam'});
   d.district.value = const GeoOption({'id': 9, 'name': 'Baksa'});
@@ -268,6 +272,13 @@ void main() {
       expect(upload.path, '/tmp/new.m4a');
       expect(upload.mimeType, 'audio/mp4');
       expect(upload.fileName, endsWith('.m4a'));
+
+      // Uploaded in the background: the save sends its id, not the file.
+      d.voiceIntro.value = d.voiceIntro.value!.withUploaded(801);
+      expect((build().audioIntro! as HostMediaId).id, 801);
+      final kept = HostDraftController('k', persist: false)
+        ..restore(jsonDecode(jsonEncode(d.toJson())) as Map);
+      expect(kept.voiceIntro.value?.uploadedId, isNull); // file gone: dropped
     });
 
     test('a disabled day is not saved; midnight is 23:59', () {

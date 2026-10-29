@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../../../../core/network/strapi.dart';
+import '../../../api/component/upload_api.dart';
+
 /// The microphone for the voice intro (RN expo-av `Audio.Recording`, HIGH
 /// QUALITY preset): AAC in an .m4a, kept in the app's own storage so a saved
 /// draft still finds it after a restart.
@@ -11,6 +14,15 @@ abstract class HostVoiceRecorder {
 
   /// Swap in tests: `HostVoiceRecorder.create = _FakeRecorder.new;`.
   static HostVoiceRecorder Function() create = _DeviceVoiceRecorder.new;
+
+  /// Uploads a finished recording (AAC, `audio/mp4`); the media node. Swap
+  /// in tests.
+  static Future<JsonMap> Function(String path) upload = (path) =>
+      UploadApi.uploadFile(
+        path,
+        fileName: 'audio-intro-${DateTime.now().millisecondsSinceEpoch}.m4a',
+        mimeType: 'audio/mp4',
+      );
 
   /// Asks for the microphone the first time; false when refused.
   Future<bool> hasPermission();

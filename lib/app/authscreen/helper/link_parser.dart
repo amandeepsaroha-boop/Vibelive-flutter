@@ -49,6 +49,7 @@ abstract final class LinkParser {
   static const sections = {
     'home', 'discover', 'search', 'expert', 'expert-profile', 'wallet', //
     'profile', 'me', 'referral', 'invite', 'history', 'login',
+    'app', // `/app/<screen>`: CampaignLinks.fromWeb
   };
 
   static final _withDomain = RegExp(

@@ -219,7 +219,10 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.hostOnboarding,
-      builder: (context, state) => const HostOnboardingScreen(),
+      // `?step=`: open on that step (a link from a push or a campaign).
+      builder: (context, state) => HostOnboardingScreen(
+        startStep: HostStep.linkable(state.uri.queryParameters['step']),
+      ),
     ),
     GoRoute(
       path: AppRoutes.hostSchedule,
@@ -230,16 +233,18 @@ final GoRouter appRouter = GoRouter(
     // onboarding flow itself on their step, in edit mode.
     GoRoute(
       path: AppRoutes.professionalDetails,
-      // `?step=`: a warning opens the step it is about; form steps only.
+      // `?step=`: a warning or a link opens the step it is about. Form
+      // steps open on their own ("Save changes"); the preview and the
+      // guidelines open the whole flow there.
       builder: (context, state) {
-        final step = HostStep.fromName(state.uri.queryParameters['step']);
-        return HostOnboardingScreen(
-          editStep:
-              step.index >= HostStep.basic.index &&
-                  step.index <= HostStep.availability.index
-              ? step
-              : HostStep.basic,
-        );
+        final name = state.uri.queryParameters['step'];
+        final step = HostStep.fromName(name);
+        final form =
+            step.index >= HostStep.basic.index &&
+            step.index <= HostStep.availability.index;
+        final flow = form ? null : HostStep.linkable(name);
+        if (flow != null) return HostOnboardingScreen(startStep: flow);
+        return HostOnboardingScreen(editStep: form ? step : HostStep.basic);
       },
     ),
     GoRoute(

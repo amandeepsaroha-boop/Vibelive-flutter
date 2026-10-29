@@ -85,6 +85,7 @@ class HostVoiceIntro {
   const HostVoiceIntro({
     this.path,
     this.seconds = 0,
+    this.uploadedId,
     this.savedMediaId,
     this.savedUrl,
   });
@@ -96,6 +97,7 @@ class HostVoiceIntro {
     final intro = HostVoiceIntro(
       path: J.str(json['path']),
       seconds: J.integer(json['seconds']) ?? 0,
+      uploadedId: json['uploadedId'],
       savedMediaId: json['savedMediaId'],
       savedUrl: J.str(json['savedUrl']),
     );
@@ -107,25 +109,40 @@ class HostVoiceIntro {
 
   /// Its length (the saved one's is unknown).
   final int seconds;
+
+  /// Its media id once uploaded in the background (right after it was
+  /// recorded); null until then, and the save uploads the file itself.
+  final Object? uploadedId;
   final Object? savedMediaId;
   final String? savedUrl;
 
   bool get isNew => path != null;
   bool get isEmpty => path == null && savedUrl == null;
 
-  /// What the save uploads: only a new recording.
-  HostMediaRef? get upload => path == null
-      ? null
-      : HostMediaRef.file(
-          path!,
-          fileName: 'audio-intro-${DateTime.now().millisecondsSinceEpoch}.m4a',
-          mimeType: 'audio/mp4',
-        );
+  /// What the save sends: only a new recording, by id once uploaded.
+  HostMediaRef? get upload => switch ((path, uploadedId)) {
+    (null, _) => null,
+    (_, final Object id) => HostMediaRef.media(id),
+    (final String p, null) => HostMediaRef.file(
+      p,
+      fileName: 'audio-intro-${DateTime.now().millisecondsSinceEpoch}.m4a',
+      mimeType: 'audio/mp4',
+    ),
+  };
 
   /// [path] recorded now, the saved intro kept as the fallback.
   HostVoiceIntro withRecording(String path, int seconds) => HostVoiceIntro(
     path: path,
     seconds: seconds,
+    savedMediaId: savedMediaId,
+    savedUrl: savedUrl,
+  );
+
+  /// The same recording, uploaded as [id].
+  HostVoiceIntro withUploaded(Object id) => HostVoiceIntro(
+    path: path,
+    seconds: seconds,
+    uploadedId: id,
     savedMediaId: savedMediaId,
     savedUrl: savedUrl,
   );
@@ -138,6 +155,7 @@ class HostVoiceIntro {
   JsonMap toJson() => {
     'path': path,
     'seconds': seconds,
+    'uploadedId': uploadedId,
     'savedMediaId': savedMediaId,
     'savedUrl': savedUrl,
   };

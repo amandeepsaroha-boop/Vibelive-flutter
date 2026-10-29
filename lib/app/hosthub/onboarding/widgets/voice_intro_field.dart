@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
@@ -19,14 +20,16 @@ import '../helper/draft_controller.dart';
 import '../helper/draft_models.dart';
 import '../helper/host_palette.dart';
 import '../helper/voice_recorder.dart';
+import 'step_body.dart';
 
-/// "Voice intro (optional)" on the Bio step (RN ProfessionalDetails): record
-/// up to [HostVoiceIntro.maxSeconds] (it stops on its own), listen back,
-/// record again, or drop a new recording. The draft keeps the file; the save
-/// uploads it as the profile's `audio_intro`.
+/// The Voice step's recorder (RN ProfessionalDetails "Voice Intro"): one big
+/// round button records (a ring fills toward [HostVoiceIntro.maxSeconds],
+/// where it stops on its own), stops, then plays it back. Re-record and
+/// Delete sit below. The draft keeps the file; the save uploads it as the
+/// profile's `audio_intro`.
 ///
 /// Leaving the step mid-recording discards it; the player and the recorder
-/// live only while this field is on screen.
+/// live only while this is on screen.
 class HostVoiceIntroField extends StatefulWidget {
   const HostVoiceIntroField({super.key, required this.draft});
   final HostDraftController draft;
@@ -35,7 +38,8 @@ class HostVoiceIntroField extends StatefulWidget {
   State<HostVoiceIntroField> createState() => _HostVoiceIntroFieldState();
 }
 
-class _HostVoiceIntroFieldState extends State<HostVoiceIntroField> {
+class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
+    with SingleTickerProviderStateMixin {
   /// Shorter than this is a slip of the finger, not an intro.
   static const _minimum = Duration(seconds: 1);
   static const _max = Duration(seconds: HostVoiceIntro.maxSeconds);
@@ -47,12 +51,29 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField> {
   final _recording = ValueNotifier(false);
   final _playing = ValueNotifier(false);
   final _elapsed = ValueNotifier(Duration.zero);
+
   /// `package:clock`: real time in the app, test time in tests.
   final _clock = clock.stopwatch();
   Timer? _ticker;
   bool _busy = false;
 
+  /// The halo breathing around the button while it records or plays.
+  late final _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
+
   ValueNotifier<HostVoiceIntro?> get _intro => widget.draft.voiceIntro;
+
+  void _breathe(bool on) {
+    if (on && !MediaQuery.disableAnimationsOf(context)) {
+      unawaited(_pulse.repeat(reverse: true));
+    } else {
+      _pulse
+        ..stop()
+        ..value = 0;
+    }
+  }
 
   Future<void> _start() async {
     if (_busy || _recording.value) return;
@@ -76,6 +97,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField> {
         ..start();
       _elapsed.value = Duration.zero;
       _recording.value = true;
+      _breathe(true);
       _ticker = Timer.periodic(const Duration(milliseconds: 100), (_) {
         final now = _clock.elapsed;
         _elapsed.value = now > _max ? _max : now;
@@ -84,6 +106,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField> {
     } catch (e) {
       Log.w('VoiceIntro', 'record failed: $e');
       _recording.value = false;
+      _breathe(false);
       CToast.show('hostflow:voice.failed', variant: CToastVariant.error);
     } finally {
       _busy = false;
@@ -95,6 +118,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField> {
     _ticker?.cancel();
     _clock.stop();
     _recording.value = false;
+    _breathe(false);
     final took = _clock.elapsed;
     String? path;
     try {
@@ -119,6 +143,24 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField> {
       path,
       seconds.ceil().clamp(1, HostVoiceIntro.maxSeconds),
     );
+    unawaited(_uploadEarly(widget.draft, path));
+  }
+
+  /// Uploads [path] in the background, like a picked photo, so the save has
+  /// nothing left to send. Only kept while it is still the draft's recording;
+  /// on failure the save uploads the file itself.
+  static Future<void> _uploadEarly(
+    HostDraftController draft,
+    String path,
+  ) async {
+    try {
+      final id = (await HostVoiceRecorder.upload(path))['id'];
+      final now = draft.voiceIntro.value;
+      if (id == null || draft.isDisposed || now?.path != path) return;
+      draft.voiceIntro.value = now!.withUploaded(id);
+    } catch (e) {
+      Log.w('VoiceIntro', 'background upload failed: $e');
+    }
   }
 
   Future<void> _togglePlayback() async {
@@ -140,6 +182,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField> {
         return;
       }
       _playing.value = true;
+      _breathe(true);
       unawaited(player.play());
     } catch (e) {
       Log.w('VoiceIntro', 'playback failed: $e');
@@ -149,6 +192,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField> {
   }
 
   Future<void> _stopPlayback() async {
+    if (_playing.value) _breathe(false);
     _playing.value = false;
     await _player?.stop();
   }
@@ -159,6 +203,17 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField> {
     final intro = _intro.value;
     if (intro?.path case final path?) _deleteQuietly(path);
     _intro.value = intro?.withoutRecording();
+  }
+
+  /// The big button: record, stop, or listen.
+  void _main() {
+    if (_recording.value) {
+      unawaited(_stop());
+    } else if (_intro.value == null) {
+      unawaited(_start());
+    } else {
+      unawaited(_togglePlayback());
+    }
   }
 
   static void _deleteQuietly(String path) {
@@ -172,6 +227,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField> {
     unawaited(_recorder.dispose());
     unawaited(_playerState?.cancel());
     unawaited(_player?.dispose());
+    _pulse.dispose();
     _recording.dispose();
     _playing.dispose();
     _elapsed.dispose();
@@ -184,92 +240,90 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField> {
   @override
   Widget build(BuildContext context) {
     final p = HostPalette.of(context);
-    return ValueListenableBuilder<bool>(
-      valueListenable: _recording,
-      builder: (_, recording, _) => AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: EdgeInsets.all(16.ms),
-        decoration: BoxDecoration(
-          color: p.card,
-          borderRadius: BorderRadius.circular(20.ms),
-          border: Border.all(
-            width: recording ? 1.5 : 1,
-            color: recording ? p.accent : p.cardBorder,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(LucideIcons.mic, size: 16.ms, color: p.accent),
-                SizedBox(width: 8.ms),
-                Expanded(
-                  child: CText(
-                    'hostflow:voice.title',
-                    size: 14,
-                    weight: FontWeight.w800,
+    return HostCard(
+      padding: EdgeInsets.fromLTRB(20.ms, 24.ms, 20.ms, 20.ms),
+      child: ListenableBuilder(
+        listenable: Listenable.merge([_recording, _playing, _intro]),
+        builder: (context, _) {
+          final recording = _recording.value;
+          final playing = _playing.value;
+          final intro = _intro.value;
+          final (label, icon) = recording
+              ? ('hostflow:voice.stop_label', LucideIcons.square)
+              : intro == null
+              ? ('hostflow:voice.record_label', LucideIcons.mic)
+              : playing
+              ? ('hostflow:voice.stop', LucideIcons.square)
+              : ('hostflow:voice.play', LucideIcons.play);
+          return Column(
+            children: [
+              _RecordDisc(
+                semanticLabel: context.t(label),
+                icon: icon,
+                solid: recording || intro != null,
+                pulse: _pulse,
+                progress: recording ? _elapsed : null,
+                onPressed: _main,
+              ),
+              SizedBox(height: 16.ms),
+              if (recording)
+                ValueListenableBuilder<Duration>(
+                  valueListenable: _elapsed,
+                  builder: (_, d, _) => CText(
+                    'hostflow:voice.timer',
+                    variables: {'time': _time(d), 'max': _time(_max)},
+                    size: 24,
+                    weight: FontWeight.w900,
                     color: p.text,
                   ),
+                )
+              else
+                CText(
+                  intro == null
+                      ? 'hostflow:voice.tap_record'
+                      : (playing
+                            ? 'hostflow:voice.playing'
+                            : 'hostflow:voice.tap_listen'),
+                  size: 18,
+                  weight: FontWeight.w800,
+                  color: p.text,
                 ),
-              ],
-            ),
-            SizedBox(height: 6.ms),
-            CText(
-              'hostflow:voice.hint',
-              size: 12,
-              height: 17,
-              weight: FontWeight.w500,
-              color: p.muted,
-            ),
-            SizedBox(height: 14.ms),
-            if (recording) ...[
-              ValueListenableBuilder<Duration>(
-                valueListenable: _elapsed,
-                builder: (_, elapsed, _) => ClipRRect(
-                  borderRadius: BorderRadius.circular(4.ms),
-                  child: LinearProgressIndicator(
-                    value: elapsed.inMilliseconds / _max.inMilliseconds,
-                    minHeight: 4.ms,
-                    color: p.accent,
-                    backgroundColor: p.track,
-                  ),
-                ),
+              SizedBox(height: 4.ms),
+              CText(
+                recording
+                    ? 'hostflow:voice.tap_stop'
+                    : intro == null
+                    ? 'hostflow:voice.limit'
+                    : (intro.isNew
+                          ? 'hostflow:voice.recorded'
+                          : 'hostflow:voice.saved'),
+                variables: {
+                  'time': _time(Duration(seconds: intro?.seconds ?? 0)),
+                },
+                size: 12.5,
+                weight: FontWeight.w600,
+                color: p.muted,
+                align: TextAlign.center,
               ),
-              SizedBox(height: 12.ms),
-            ],
-            ValueListenableBuilder<HostVoiceIntro?>(
-              valueListenable: _intro,
-              builder: (_, intro, _) => Row(
-                children: [
-                  Expanded(
-                    child: _RecordButton(
-                      recording: recording,
-                      hasIntro: intro != null,
-                      elapsed: _elapsed,
-                      onPressed: recording ? _stop : _start,
-                    ),
-                  ),
-                  if (intro != null && !recording) ...[
-                    SizedBox(width: 10.ms),
-                    ValueListenableBuilder<bool>(
-                      valueListenable: _playing,
-                      builder: (_, playing, _) => _SquareButton(
-                        icon: playing ? LucideIcons.square : LucideIcons.play,
-                        label: playing
-                            ? 'hostflow:voice.stop'
-                            : 'hostflow:voice.play',
-                        color: p.text,
-                        background: p.soft,
-                        border: p.cardBorder,
-                        onPressed: _togglePlayback,
-                      ),
+              if (intro != null && !recording) ...[
+                SizedBox(height: 16.ms),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 10.ms,
+                  runSpacing: 8.ms,
+                  children: [
+                    _Pill(
+                      icon: LucideIcons.rotateCcw,
+                      label: 'hostflow:voice.rerecord',
+                      color: p.accent,
+                      background: p.tint,
+                      border: p.tintBorder,
+                      onPressed: _start,
                     ),
                     // Only a new recording can be dropped: the saved intro
                     // stays until a new one replaces it.
-                    if (intro.isNew) ...[
-                      SizedBox(width: 10.ms),
-                      _SquareButton(
+                    if (intro.isNew)
+                      _Pill(
                         icon: LucideIcons.trash2,
                         label: 'hostflow:voice.delete',
                         color: p.danger,
@@ -277,119 +331,159 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField> {
                         border: p.danger.withValues(alpha: 0.25),
                         onPressed: _discard,
                       ),
-                    ],
                   ],
-                ],
-              ),
-            ),
-            ValueListenableBuilder<HostVoiceIntro?>(
-              valueListenable: _intro,
-              builder: (_, intro, _) => intro == null || recording
-                  ? const SizedBox.shrink()
-                  : Padding(
-                      padding: EdgeInsets.only(top: 10.ms),
-                      child: CText(
-                        intro.isNew
-                            ? 'hostflow:voice.recorded'
-                            : 'hostflow:voice.saved',
-                        variables: {
-                          'time': _time(Duration(seconds: intro.seconds)),
-                        },
-                        size: 11.5,
-                        weight: FontWeight.w600,
-                        color: p.muted,
-                      ),
-                    ),
-            ),
-          ],
-        ),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-/// Record / re-record, or stop with the running time while recording.
-class _RecordButton extends StatelessWidget {
-  const _RecordButton({
-    required this.recording,
-    required this.hasIntro,
-    required this.elapsed,
+/// The round button: a soft halo breathes around it while it records or
+/// plays, and while recording a ring fills toward the 30 s limit.
+class _RecordDisc extends StatelessWidget {
+  const _RecordDisc({
+    required this.semanticLabel,
+    required this.icon,
+    required this.solid,
+    required this.pulse,
+    required this.progress,
     required this.onPressed,
   });
 
-  final bool recording;
-  final bool hasIntro;
-  final ValueListenable<Duration> elapsed;
+  final String semanticLabel;
+  final IconData icon;
+
+  /// Accent-filled (recording / has a recording); tinted otherwise.
+  final bool solid;
+  final Animation<double> pulse;
+  final ValueListenable<Duration>? progress;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final p = HostPalette.of(context);
-    final fg = recording ? p.onAccent : p.accent;
-    return Pressable(
-      activeOpacity: 0.85,
-      onPressed: onPressed,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        height: 52.ms,
-        alignment: Alignment.center,
-        padding: EdgeInsets.symmetric(horizontal: 12.ms),
-        decoration: BoxDecoration(
-          color: recording ? p.accent : p.tint,
-          borderRadius: BorderRadius.circular(16.ms),
-          border: Border.all(
-            width: 1.5,
-            color: recording ? Colors.transparent : p.tintBorder,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              recording ? LucideIcons.square : LucideIcons.mic,
-              size: 18.ms,
-              color: fg,
-            ),
-            SizedBox(width: 8.ms),
-            Flexible(
-              child: recording
-                  ? ValueListenableBuilder<Duration>(
-                      valueListenable: elapsed,
-                      builder: (_, d, _) => CText(
-                        'hostflow:voice.recording',
-                        variables: {
-                          'time': _HostVoiceIntroFieldState._time(d),
-                          'max': _HostVoiceIntroFieldState._time(
-                            _HostVoiceIntroFieldState._max,
-                          ),
-                        },
-                        size: 13,
-                        weight: FontWeight.w900,
-                        letterSpacing: 0.5,
-                        color: fg,
-                        maxLines: 1,
+    final size = 124.ms;
+    final disc = 88.ms;
+    // Its own node: a screen reader announces the button, not it merged
+    // with the line under it.
+    return Semantics(
+      container: true,
+      child: Pressable(
+        activeOpacity: 0.85,
+        semanticLabel: semanticLabel,
+        onPressed: onPressed,
+        child: SizedBox.square(
+          dimension: size,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: pulse,
+                  builder: (_, _) => Container(
+                    width: disc + (size - disc) * (0.55 + 0.45 * pulse.value),
+                    height: disc + (size - disc) * (0.55 + 0.45 * pulse.value),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: p.accent.withValues(
+                        alpha: solid ? 0.10 + 0.10 * pulse.value : 0.08,
                       ),
-                    )
-                  : CText(
-                      hasIntro
-                          ? 'hostflow:voice.rerecord'
-                          : 'hostflow:voice.record',
-                      size: 13,
-                      weight: FontWeight.w900,
-                      letterSpacing: 0.5,
-                      color: fg,
-                      maxLines: 1,
                     ),
-            ),
-          ],
+                  ),
+                ),
+              ),
+              if (progress case final elapsed?)
+                RepaintBoundary(
+                  child: ValueListenableBuilder<Duration>(
+                    valueListenable: elapsed,
+                    builder: (_, d, _) => SizedBox.square(
+                      dimension: disc + 18.ms,
+                      child: CustomPaint(
+                        painter: _RingPainter(
+                          value: math.min(
+                            1,
+                            d.inMilliseconds /
+                                (HostVoiceIntro.maxSeconds * 1000),
+                          ),
+                          color: p.accent,
+                          track: p.track,
+                          width: 4.ms,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: disc,
+                height: disc,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: solid ? p.accent : p.tint,
+                  border: solid ? null : Border.all(color: p.tintBorder),
+                ),
+                child: Icon(
+                  icon,
+                  size: 34.ms,
+                  color: solid ? p.onAccent : p.accent,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _SquareButton extends StatelessWidget {
-  const _SquareButton({
+class _RingPainter extends CustomPainter {
+  const _RingPainter({
+    required this.value,
+    required this.color,
+    required this.track,
+    required this.width,
+  });
+
+  final double value;
+  final Color color;
+  final Color track;
+  final double width;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width
+      ..strokeCap = StrokeCap.round;
+    canvas
+      ..drawArc(
+        rect.deflate(width / 2),
+        0,
+        2 * math.pi,
+        false,
+        ring..color = track,
+      )
+      ..drawArc(
+        rect.deflate(width / 2),
+        -math.pi / 2,
+        2 * math.pi * value,
+        false,
+        ring..color = color,
+      );
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) =>
+      old.value != value || old.color != color || old.track != track;
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill({
     required this.icon,
     required this.label,
     required this.color,
@@ -400,7 +494,7 @@ class _SquareButton extends StatelessWidget {
 
   final IconData icon;
 
-  /// i18n key, for screen readers.
+  /// i18n key.
   final String label;
   final Color color;
   final Color background;
@@ -410,18 +504,35 @@ class _SquareButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Pressable(
     activeOpacity: 0.85,
-    semanticLabel: context.t(label),
     onPressed: onPressed,
     child: Container(
-      width: 52.ms,
-      height: 52.ms,
-      alignment: Alignment.center,
+      height: 42.ms,
+      padding: EdgeInsets.symmetric(horizontal: 16.ms),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(16.ms),
+        borderRadius: BorderRadius.circular(999),
         border: Border.all(color: border),
       ),
-      child: Icon(icon, size: 20.ms, color: color),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16.ms, color: color),
+          SizedBox(width: 8.ms),
+          // A long label (Hindi, a narrow phone) shrinks, never overflows.
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: CText(
+                label,
+                size: 13.5,
+                weight: FontWeight.w800,
+                color: color,
+                maxLines: 1,
+              ),
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }

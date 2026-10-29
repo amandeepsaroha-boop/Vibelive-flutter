@@ -44,6 +44,7 @@ abstract final class HostValidation {
     HostStep.basic => basic(d),
     HostStep.interests => d.topics.value.isEmpty ? _issue('interests') : null,
     HostStep.photos => photos(d),
+    HostStep.voice => d.voiceIntro.value == null ? _issue('voice') : null,
     HostStep.tagline => tagline(d.tagline.text),
     HostStep.bio => bio(d.bio.text),
     HostStep.rates => rates(d, minVoiceRate, minVideoRate),

@@ -1,4 +1,6 @@
 import '../../../core/router/app_router.dart';
+import '../../hosthub/onboarding/helper/host_steps.dart';
+import 'auth_credentials.dart';
 
 /// A query param a campaign screen accepts. [as] renames it to the param
 /// the screen reads; [aliases] are accepted on the way in.
@@ -27,6 +29,7 @@ class CampaignRoute {
     this.fixed = const {},
     this.hostOnly = false,
     this.public = false,
+    this.hostRoute,
   });
 
   final String path;
@@ -42,6 +45,14 @@ class CampaignRoute {
 
   /// Reachable signed out (login only).
   final bool public;
+
+  /// Where a host goes instead of [route] (Become a Host: the onboarding
+  /// for a client, the profile editor for a host).
+  final String? hostRoute;
+
+  /// The screen for the signed-in user.
+  String routeFor({required bool isHost}) =>
+      isHost && hostRoute != null ? hostRoute! : route;
 
   bool get isWebview => route == AppRoutes.webview;
 }
@@ -63,6 +74,8 @@ abstract final class CampaignLinks {
     AppRoutes.home,
     aliases: ['', 'discover'],
     fixed: {'tab': 'DISCOVER'},
+    // A Discover topic tab (e.g. `topic=dating-advice`).
+    params: [CampaignParam('topic')],
   );
   static const search = CampaignRoute(
     'search',
@@ -72,7 +85,14 @@ abstract final class CampaignLinks {
 
   static const routes = <CampaignRoute>[
     home,
-    CampaignRoute('wallet', AppRoutes.wallet),
+    // `amount`: a pre-filled top-up.
+    CampaignRoute(
+      'wallet',
+      AppRoutes.wallet,
+      params: [
+        CampaignParam('amount', aliases: ['prefillAmount']),
+      ],
+    ),
     search,
     CampaignRoute('history', AppRoutes.explore),
     CampaignRoute(
@@ -120,6 +140,46 @@ abstract final class CampaignLinks {
       AppRoutes.dynamicPage,
       params: [CampaignParam('slug', required: true), CampaignParam('title')],
     ),
+    // Become a Host: the onboarding for a client, the profile editor for a
+    // host. One step of it: `host-step?step=voice`, or `host-voice`
+    // ([hostSteps]).
+    CampaignRoute(
+      'become-host',
+      AppRoutes.hostOnboarding,
+      aliases: ['become-a-host', 'host-onboarding'],
+      hostRoute: AppRoutes.professionalDetails,
+    ),
+    CampaignRoute(
+      'host-step',
+      AppRoutes.hostOnboarding,
+      hostRoute: AppRoutes.professionalDetails,
+      params: [CampaignParam('step', required: true)],
+    ),
+    CampaignRoute(
+      'verification-badge-info',
+      AppRoutes.verificationBadge,
+      aliases: ['badge'],
+      hostOnly: true,
+    ),
+    CampaignRoute(
+      'verification-badge-form',
+      AppRoutes.verificationBadgeForm,
+      aliases: ['badge-form'],
+      hostOnly: true,
+    ),
+    CampaignRoute(
+      'verification-badge-status',
+      AppRoutes.verificationBadgeStatus,
+      aliases: ['badge-status'],
+      hostOnly: true,
+    ),
+    CampaignRoute('categories', AppRoutes.categories, aliases: ['topics']),
+    CampaignRoute(
+      'resources',
+      AppRoutes.categoryMenu,
+      aliases: ['category-menu'],
+      params: [CampaignParam('id', required: true)],
+    ),
     // In-app browser; the url is validated before opening (see [webUrl]).
     CampaignRoute(
       'webview',
@@ -128,10 +188,36 @@ abstract final class CampaignLinks {
     ),
   ];
 
+  /// One link per onboarding step: `host-basic` … `host-guidelines`.
+  static final hostSteps = [
+    for (final s in HostStep.pages)
+      if (s != HostStep.submitted)
+        CampaignRoute(
+          'host-${s.name}',
+          AppRoutes.hostOnboarding,
+          hostRoute: AppRoutes.professionalDetails,
+          fixed: {'step': s.name},
+        ),
+  ];
+
   static final _byPath = {
-    for (final r in routes)
+    for (final r in [...routes, ...hostSteps])
       for (final p in [r.path, ...r.aliases]) p: r,
   };
+
+  static final _appWeb = RegExp(
+    '^(?:https?://(?:www\\.)?|${AuthCredentials.shareScheme}://)'
+    '${RegExp.escape(AuthCredentials.webDomain)}/app/(.*)\$',
+    caseSensitive: false,
+  );
+
+  /// The website form of any screen link: `https://<site>/app/wallet?amount=99`
+  /// → `vibecalling://wallet?amount=99`. Null for every other link (a bare
+  /// `/{slug}` stays a host's share link: handles may be any word).
+  static String? fromWeb(String url) {
+    final rest = _appWeb.firstMatch(url.trim())?[1];
+    return rest == null ? null : '${AuthCredentials.campaignScheme}://$rest';
+  }
 
   /// `vibecalling://wallet?x=1`, `https://x.com/wallet` or `/wallet` → target.
   /// The scheme is never trusted: only the path picks the screen.

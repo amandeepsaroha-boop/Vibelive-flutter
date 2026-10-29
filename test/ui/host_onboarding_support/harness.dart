@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:vibelive/app/hosthub/onboarding/helper/photo_picker.dart';
+import 'package:vibelive/app/hosthub/onboarding/helper/voice_recorder.dart';
 import 'package:vibelive/core/i18n/i18n.dart';
 import 'package:vibelive/core/network/api_client.dart';
 import 'package:vibelive/core/network/strapi.dart';
@@ -169,6 +171,10 @@ class HostBackend implements HttpClientAdapter {
     final q = o.queryParameters;
     final body = o.data is Map ? o.data as Map : const {};
     switch ('${o.method} ${o.path}') {
+      case 'POST /api/upload':
+        return [
+          {'id': 801, 'url': '/uploads/voice_intro.m4a'},
+        ];
       case 'GET /api/public-users/u1':
         return {'data': user};
       case 'PUT /api/public-users/u1':
@@ -285,6 +291,32 @@ class FakePhotoPicker extends HostPhotoPicker {
   Future<JsonMap> upload(String path) async => {'id': nextId++};
 }
 
+/// The microphone, faked: each recording is a small real temp file.
+class FakeVoiceRecorder extends HostVoiceRecorder {
+  static int made = 0;
+  static bool allow = true;
+  String? _path;
+
+  @override
+  Future<bool> hasPermission() async => allow;
+
+  @override
+  Future<String> start() async {
+    final path = '${Directory.systemTemp.path}/host_voice_${made++}.m4a';
+    File(path).writeAsBytesSync([1, 2, 3]);
+    return _path = path;
+  }
+
+  @override
+  Future<String?> stop() async => _path;
+
+  @override
+  Future<void> cancel() async {}
+
+  @override
+  Future<void> dispose() async {}
+}
+
 Future<void> setUpHostHarness() async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -314,6 +346,9 @@ Future<HostBackend> resetHost({JsonMap? user, JsonMap? expert}) async {
   if (expert != null) backend.user = {...backend.user, 'expert': expert};
   ApiClient.dio.httpClientAdapter = backend;
   HostPhotoPicker.instance = FakePhotoPicker();
+  HostVoiceRecorder.create = FakeVoiceRecorder.new;
+  HostVoiceRecorder.upload = (_) async => {'id': 801};
+  FakeVoiceRecorder.allow = true;
   await SessionStore.instance.signIn(
     user: {...backend.user}..remove('expert'),
     expert: expert,

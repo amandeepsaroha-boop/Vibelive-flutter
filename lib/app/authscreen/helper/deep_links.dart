@@ -61,6 +61,8 @@ class DeepLinks {
     if (url.toLowerCase().startsWith('${AuthCredentials.campaignScheme}://')) {
       return queueCampaign(url);
     }
+    // https://<site>/app/<screen>: the same screens as the campaign links.
+    if (CampaignLinks.fromWeb(url) case final app?) return queueCampaign(app);
     final link = LinkParser.parse(url);
     if (link == null) return;
     if (!SessionStore.instance.value.isAuthenticated) {
@@ -206,7 +208,7 @@ class DeepLinks {
     }
     final open = params['openUserId'];
     if (open != null) setOpenUser(open);
-    final path = target.route!.route;
+    final path = target.route!.routeFor(isHost: isHost);
     _go(
       Uri(
         path: path,

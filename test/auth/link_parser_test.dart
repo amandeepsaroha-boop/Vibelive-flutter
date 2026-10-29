@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vibelive/app/authscreen/helper/campaign_links.dart';
 import 'package:vibelive/app/authscreen/helper/link_parser.dart';
+import 'package:vibelive/app/hosthub/onboarding/helper/host_steps.dart';
 import 'package:vibelive/core/router/app_router.dart';
 
 void main() {
@@ -142,6 +143,86 @@ void main() {
     test('missing required params and unknown paths are reported', () {
       expect(CampaignLinks.resolve('vibecalling://page').missing, ['slug']);
       expect(CampaignLinks.resolve('vibecalling://nope').route, isNull);
+    });
+
+    test('every screen has a link; hosts and clients land right', () {
+      for (final (link, route) in [
+        ('vibecalling://categories', AppRoutes.categories),
+        ('vibecalling://badge', AppRoutes.verificationBadge),
+        ('vibecalling://badge-form', AppRoutes.verificationBadgeForm),
+        ('vibecalling://badge-status', AppRoutes.verificationBadgeStatus),
+        ('vibecalling://resources?id=3', AppRoutes.categoryMenu),
+      ]) {
+        expect(CampaignLinks.resolve(link).route?.route, route, reason: link);
+      }
+      expect(CampaignLinks.resolve('vibecalling://resources').missing, ['id']);
+
+      // Become a Host: the flow for a client, the editor for a host.
+      final become = CampaignLinks.resolve('vibecalling://become-host').route!;
+      expect(become.routeFor(isHost: false), AppRoutes.hostOnboarding);
+      expect(become.routeFor(isHost: true), AppRoutes.professionalDetails);
+
+      // A wallet top-up amount and a Discover topic come through.
+      expect(
+        CampaignLinks.resolve('vibecalling://wallet?prefillAmount=99').params,
+        {'amount': '99'},
+      );
+      expect(
+        CampaignLinks.resolve('vibecalling://home?topic=dating-advice').params,
+        {'tab': 'DISCOVER', 'topic': 'dating-advice'},
+      );
+    });
+
+    test('each onboarding step has a link', () {
+      for (final step in HostStep.pages) {
+        if (step == HostStep.submitted) continue;
+        final t = CampaignLinks.resolve('vibecalling://host-${step.name}');
+        expect(t.params, {'step': step.name}, reason: step.name);
+        expect(t.route!.routeFor(isHost: false), AppRoutes.hostOnboarding);
+        expect(t.route!.routeFor(isHost: true), AppRoutes.professionalDetails);
+      }
+      expect(
+        CampaignLinks.resolve('vibecalling://host-submitted').route,
+        isNull,
+      );
+      expect(
+        CampaignLinks.resolve('vibecalling://host-step?step=voice').params,
+        {'step': 'voice'},
+      );
+      expect(CampaignLinks.resolve('vibecalling://host-step').missing, [
+        'step',
+      ]);
+
+      expect(HostStep.linkable('voice'), HostStep.voice);
+      expect(HostStep.linkable('guidelines'), HostStep.guidelines);
+      expect(HostStep.linkable('submitted'), isNull);
+      expect(HostStep.linkable('intro'), isNull);
+      expect(HostStep.linkable('nope'), isNull);
+      expect(HostStep.linkable(null), isNull);
+    });
+
+    test('website /app/<screen> links are screen links; slugs stay shares', () {
+      for (final web in [
+        'https://vibelive.angrymamba.com/app/wallet?amount=99',
+        'https://www.vibelive.angrymamba.com/app/wallet?amount=99',
+        'vibeexpoapp://vibelive.angrymamba.com/app/wallet?amount=99',
+      ]) {
+        expect(
+          CampaignLinks.fromWeb(web),
+          'vibecalling://wallet?amount=99',
+          reason: web,
+        );
+      }
+      expect(
+        CampaignLinks.fromWeb('https://vibelive.angrymamba.com/wallet'),
+        isNull,
+      );
+      expect(CampaignLinks.fromWeb('https://evil.com/app/wallet'), isNull);
+      // `app` is never a host handle.
+      expect(
+        LinkParser.parse('https://vibelive.angrymamba.com/app')?.isExpert,
+        isFalse,
+      );
     });
 
     test('home?q= becomes search', () {

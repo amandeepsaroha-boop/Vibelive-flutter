@@ -153,8 +153,16 @@ HostSaver useHostSectionSave(
   Future<bool> section(HostStep step) async {
     final id = ids();
     if (id == null) return false;
-    // One profile save sends all four profile steps: check them all.
-    if (invalid(profileSteps.contains(step) ? profileSteps : [step]) != null) {
+    // One profile save sends all the profile steps: check them all, except
+    // the voice intro, which only its own step insists on (a live host
+    // without one can still fix their bio).
+    final checks = profileSteps.contains(step)
+        ? [
+            for (final s in profileSteps)
+              if (s != HostStep.voice || step == HostStep.voice) s,
+          ]
+        : [step];
+    if (invalid(checks) != null) {
       return false;
     }
     try {

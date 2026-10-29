@@ -47,24 +47,35 @@ import 'helper/submit_errors.dart';
 /// Nothing is created on the backend before "Submit for review": a host
 /// profile turns the account into a host everywhere in the app.
 class HostOnboardingScreen extends HookWidget {
-  const HostOnboardingScreen({super.key, this.editStep});
+  const HostOnboardingScreen({super.key, this.editStep, this.startStep});
 
   /// An existing host from the Host Hub: open on this step, prefilled from
   /// the saved profile (nothing saved to prefs), with "Save changes" for
   /// that section next to Continue.
   final HostStep? editStep;
 
+  /// The whole flow, opened on this step instead of where the draft was
+  /// left (a link: a push asking for the voice intro, say).
+  final HostStep? startStep;
+
   @override
   Widget build(BuildContext context) {
     final session = useMemoized(() => SessionStore.instance.value);
     final userKey = session.userDocumentId ?? '${session.userId ?? ''}';
-    final draft = useMemoized(
-      () => editStep == null
-          ? HostDraftController.load(userKey)
-          : (HostDraftController('edit', persist: false)
-              ..step.value = editStep!
-              ..started = true),
-    );
+    final draft = useMemoized(() {
+      if (editStep case final step?) {
+        return HostDraftController('edit', persist: false)
+          ..step.value = step
+          ..started = true;
+      }
+      final saved = HostDraftController.load(userKey);
+      if (startStep case final step?) {
+        saved
+          ..step.value = step
+          ..started = true;
+      }
+      return saved;
+    });
     useEffect(() => draft.dispose, [draft]);
     // Entry points precache it already; this covers deep links.
     useEffect(() {

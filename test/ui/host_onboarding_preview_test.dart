@@ -110,7 +110,7 @@ void main() {
   ) async {
     // Available now, one photo, video off.
     await openAt(tester, 'preview', extra: {'videoOn': false});
-    expect(find.text('9 of 11'), findsOneWidget);
+    expect(find.text('10 of 12'), findsOneWidget);
     expect(find.text('Online'), findsOneWidget);
     expect(find.text('Available to take calls now'), findsOneWidget);
     expect(find.text('Audio calls'), findsOneWidget);
@@ -184,10 +184,10 @@ void main() {
   ) async {
     backend.failing.add('POST /api/expert-profiles');
     await openAt(tester, 'guidelines', extra: {'agreed': true});
-    expect(find.text('10 of 11'), findsOneWidget);
+    expect(find.text('11 of 12'), findsOneWidget);
     await tapContinue(tester, settle: 1500);
     expect(find.text('Something went wrong'), findsOneWidget); // the alert
-    expect(find.text('10 of 11'), findsOneWidget);
+    expect(find.text('11 of 12'), findsOneWidget);
     expect(find.text('Your profile is submitted!'), findsNothing);
     expect(savedDraft(), isNotNull); // nothing lost
     await finishHost(tester);

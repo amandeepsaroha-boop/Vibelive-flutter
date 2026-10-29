@@ -216,7 +216,8 @@
     "slot_order": "End time must be after start time.",
     "slot_overlap": "This slot overlaps another slot on this day.",
     "agree": "Please agree to the Host Guidelines to continue.",
-    "server": "{{message}} Please fix this and try again."
+    "server": "{{message}} Please fix this and try again.",
+    "voice": "Record a short voice intro to continue."
   },
   "approved": {
     "title": "You're approved! 🎉",
@@ -439,19 +440,38 @@
   },
   "counter": "{{count}}/{{max}}",
   "voice": {
-    "title": "Voice intro (optional)",
-    "hint": "Record a short voice intro so callers can hear your vibe before they call. Up to 30 seconds.",
-    "record": "RECORD VOICE INTRO",
-    "rerecord": "RE-RECORD",
-    "recording": "STOP  {{time}} / {{max}}",
+    "title": "Voice intro",
+    "record_label": "Record voice intro",
+    "stop_label": "Stop recording",
     "play": "Play voice intro",
     "stop": "Stop",
-    "delete": "Delete recording",
-    "recorded": "New recording, {{time}}. It is saved when you continue.",
+    "tap_record": "Tap to record",
+    "limit": "Up to 30 seconds",
+    "timer": "{{time}} / {{max}}",
+    "tap_stop": "Tap to stop",
+    "tap_listen": "Tap to listen",
+    "playing": "Playing…",
+    "rerecord": "Re-record",
+    "delete": "Delete",
+    "recorded": "New recording · {{time}}. It is saved when you continue.",
     "saved": "Your current voice intro. Record again to replace it.",
     "permission": "Allow microphone access to record your voice intro.",
     "failed": "Could not record. Please try again.",
     "too_short": "Too short. Hold on a little longer.",
     "play_failed": "Could not play the voice intro."
+  },
+  "voice_step": {
+    "title": "Introduce yourself",
+    "subtitle": "Callers love hearing a real voice. Record a short, warm hello so they feel they already know you.",
+    "script_title": "Need a start? Try this",
+    "script": "\"Hi, I'm {{name}}! I love talking about {{topics}}. If you want someone to listen without judging, I'm here for you.\"",
+    "script_plain": "\"Hi, I'm {{name}}! I'm a good listener and I love real conversations. If you want someone to talk to, I'm here for you.\"",
+    "and": "and",
+    "tips_title": "What to say",
+    "tip1": "Say hi and your name",
+    "tip2": "What you love talking about",
+    "tip3": "How you make people feel heard",
+    "tip4": "Speak naturally, from a quiet place",
+    "note": "Callers hear this before they call. You can re-record it as many times as you like."
   }
 }
