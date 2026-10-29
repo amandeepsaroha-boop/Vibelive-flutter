@@ -26,6 +26,7 @@ import '../../app/listingflow/search/search_screen.dart';
 import '../../app/resourcesscreen/categories/categories_screen.dart';
 import '../../app/resourcesscreen/category_menu/category_menu_screen.dart';
 import '../../app/resourcesscreen/dynamic_page/dynamic_page_screen.dart';
+import '../../app/resourcesscreen/support/support_screen.dart';
 import '../../app/resourcesscreen/webview/webview_screen.dart';
 import '../../app/component/vibe_background.dart';
 import '../../app/paymentscreen/wallet/wallet_screen.dart';
@@ -167,7 +168,7 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.support,
-      builder: (context, state) => const DynamicPageScreen.support(),
+      builder: (context, state) => const SupportScreen(),
     ),
     GoRoute(
       path: AppRoutes.categories,

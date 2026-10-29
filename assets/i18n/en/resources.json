@@ -17,7 +17,17 @@
     "fallback_intro": "Support details are available below:",
     "email": "Email",
     "phone": "Phone",
-    "whatsapp": "WhatsApp"
+    "whatsapp": "WhatsApp",
+    "heading": "We're here to help",
+    "body": "Questions about calls, payments or your account? Email us and our team will get back to you.",
+    "email_us": "Email us",
+    "copy": "Copy",
+    "copied": "Email address copied",
+    "no_mail_app": "No email app found. The address is copied, paste it in any mail app.",
+    "tip": "Tell us what happened and when. A screenshot helps us fix it faster.",
+    "mail_subject": "VibeLive support",
+    "mail_account": "Account: {{id}}",
+    "mail_app": "App: VibeLive ({{platform}})"
   },
   "links": {
     "error_title": "Error",

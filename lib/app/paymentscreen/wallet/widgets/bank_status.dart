@@ -29,8 +29,8 @@ class BankStatusView extends HookWidget {
     final p = WalletPalette.of(context);
     final config = useAppConfig(context).data;
     final email = config == null
-        ? null
-        : SupportContact.fromAppConfig(config).email;
+        ? SupportContact.defaultEmail
+        : SupportContact.fromAppConfig(config).emailOrDefault;
     final verified = detail.isVerified;
     final tone = verified ? WalletPalette.success : WalletPalette.pending;
     useEffect(() {
@@ -42,16 +42,6 @@ class BankStatusView extends HookWidget {
     }, const []);
 
     Future<void> contactSupport() async {
-      if (email == null || email.isEmpty) {
-        PaymentEvents.bankSupportTapped(mailOpened: false);
-        unawaited(
-          CAlert.show(
-            title: 'payment:bank.contact_title',
-            message: 'payment:bank.contact_fallback',
-          ),
-        );
-        return;
-      }
       final subject = Uri.encodeComponent(
         context.t('payment:bank.mail_subject'),
       );
@@ -202,10 +192,8 @@ class BankStatusView extends HookWidget {
                       ),
                       SizedBox(height: 2.ms),
                       CText(
-                        email == null || email.isEmpty
-                            ? 'payment:bank.change_hint_no_email'
-                            : 'payment:bank.change_hint',
-                        variables: {'email': email ?? ''},
+                        'payment:bank.change_hint',
+                        variables: {'email': email},
                         size: 11,
                         weight: FontWeight.w700,
                         height: 16,

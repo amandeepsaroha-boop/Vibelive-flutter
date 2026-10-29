@@ -17,7 +17,8 @@ import '../widgets/page_header.dart';
 import '../widgets/rich_content.dart';
 
 /// A CMS page by slug (RN `DynamicPageScreen`): `/me/dynamic-page?slug=…&
-/// title=…`, and About / Support with their fixed slugs.
+/// title=…`, and About with its fixed slug. Support has its own screen
+/// (`SupportScreen`).
 class DynamicPageScreen extends HookWidget {
   const DynamicPageScreen({
     super.key,
@@ -33,13 +34,6 @@ class DynamicPageScreen extends HookWidget {
       title = null,
       fallbackSlug = PageContent.aboutSlug,
       fallbackTitle = 'resources:about.title';
-
-  /// `/me/support`.
-  const DynamicPageScreen.support({super.key})
-    : slug = null,
-      title = null,
-      fallbackSlug = PageContent.supportSlug,
-      fallbackTitle = 'resources:support.title';
 
   /// Route params; empty falls back to [fallbackSlug] / [fallbackTitle].
   final String? slug;

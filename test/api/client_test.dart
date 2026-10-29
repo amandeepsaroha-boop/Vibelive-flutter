@@ -851,6 +851,11 @@ void main() {
       expect(c.phone, '123');
       expect(c.whatsapp, isNull);
       expect(SupportContact.fromAppConfig(const AppConfig({})).isEmpty, isTrue);
+      // No address in app-config: support mail still has somewhere to go.
+      expect(
+        SupportContact.fromAppConfig(const AppConfig({})).emailOrDefault,
+        'developer@vocso.com',
+      );
     });
   });
 

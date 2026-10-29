@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vibelive/app/component/c_back_button.dart';
@@ -97,9 +98,7 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('About shows rich-text blocks; Support falls back to contacts', (
-    tester,
-  ) async {
+  testWidgets('About shows rich-text blocks', (tester) async {
     await openRoute(tester, AppRoutes.aboutApp);
     expect(find.byType(PageSkeleton), findsOneWidget);
     expect(find.text('About App'), findsOneWidget); // until the page loads
@@ -110,18 +109,47 @@ void main() {
       findsOneWidget,
     );
 
-    appRouter.go(AppRoutes.support);
-    await pumpFor(tester, 800);
+    await finish(tester);
+  });
+
+  testWidgets('Support: the email, "Email us" opens the mail app, Copy', (
+    tester,
+  ) async {
+    await openRoute(tester, AppRoutes.support);
+    await pumpFor(tester, 600);
     expect(find.text('Support'), findsOneWidget);
-    expect(find.text('Support details are available below:'), findsOneWidget);
-    expect(
-      find.text('Email: help@vibe.example', findRichText: true),
-      findsOneWidget,
+    expect(find.text("We're here to help"), findsOneWidget);
+    expect(find.text('help@vibe.example'), findsOneWidget);
+
+    await tester.tap(find.text('EMAIL US'));
+    await pumpFor(tester, 100);
+    final mail = opener.opened.single.$1;
+    expect(mail.scheme, 'mailto');
+    expect(mail.path, 'help@vibe.example');
+    expect(mail.queryParameters['subject'], 'VibeLive support');
+
+    // No mail app: the address goes on the clipboard instead.
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      },
     );
-    expect(find.text('WhatsApp: -', findRichText: true), findsOneWidget);
-    await tester.tap(find.text('Email: help@vibe.example', findRichText: true));
-    await tester.pump();
-    expect(opener.opened.single.$1.toString(), 'mailto:help@vibe.example');
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    opener.result = false;
+    await tester.tap(find.text('help@vibe.example'));
+    await pumpFor(tester, 100);
+    expect(opener.opened, hasLength(2));
+    expect(copied, 'help@vibe.example');
     await finish(tester);
   });
 

@@ -134,5 +134,14 @@ class SupportContact {
   final String? phone;
   final String? whatsapp;
 
+  /// Where support mail goes while app-config has no `supportEmail`.
+  static const defaultEmail = 'developer@vocso.com';
+
+  /// [email], else [defaultEmail]: there is always somewhere to write.
+  String get emailOrDefault {
+    final e = email?.trim() ?? '';
+    return e.isEmpty ? defaultEmail : e;
+  }
+
   bool get isEmpty => email == null && phone == null && whatsapp == null;
 }
