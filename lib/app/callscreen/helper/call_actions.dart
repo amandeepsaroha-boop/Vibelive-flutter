@@ -7,6 +7,7 @@ import 'call_runtime.dart';
 import 'call_session.dart';
 import 'flows/end_flow.dart';
 import 'flows/incoming_flow.dart';
+import 'flows/instant_call_flow.dart';
 import 'flows/outgoing_flow.dart';
 import 'flows/safety_flow.dart';
 
@@ -93,6 +94,11 @@ abstract final class CallActions {
       _guard(() => IncomingFlow.declineAndBlock(call: call), false);
   static Future<bool> declineAndReport({CallSession? call}) =>
       _guard(() => IncomingFlow.declineAndReport(call: call), false);
+
+  /// Instant call: one tap, system finds a host. Permission gate,
+  /// `/instant-call/initiate`, then the call screen with cascading ring.
+  static Future<void> talkNow({bool video = false}) =>
+      _guard<void>(() => InstantCallFlow.place(video: video));
 
   /// Call screen hang-up (idempotent; Callend in the background).
   static Future<void> hangup() => _guard(EndFlow.hangup);

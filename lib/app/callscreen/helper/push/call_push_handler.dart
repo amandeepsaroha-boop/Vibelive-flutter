@@ -129,6 +129,12 @@ abstract final class CallPushHandler {
         // routes the request (NotificationTapRouter).
         if (!foreground || background || _isRecentPing(m, now)) return;
         CallSignals.onCallbackRequest(m.raw);
+      case CallPushKind.instantCallHostChanged:
+        if (!background) CallSignals.onInstantCallHostChanged(m.raw);
+      case CallPushKind.instantCallConnected:
+        if (!background) CallSignals.onInstantCallConnected(m.raw);
+      case CallPushKind.instantCallFailed:
+        if (!background) CallSignals.onInstantCallFailed(m.raw);
       case CallPushKind.other:
         // A hint (decision 8): the logic toasts once; teardown still comes
         // from CALL_ENDED. Nothing to do without the UI isolate's call.

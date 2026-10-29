@@ -28,6 +28,7 @@ import '../engine/headless_join.dart';
 import '../state/call_constants.dart';
 import '../state/call_dedup.dart';
 import 'incoming_flow.dart';
+import 'instant_call_flow.dart';
 
 /// Every way a call ends, and leaving the call screens (RN `handleHangup`,
 /// `exitToTabs`; decisions 1, 5, 9).
@@ -107,6 +108,7 @@ abstract final class EndFlow {
       await HeadlessJoin.instance.leave();
     } catch (_) {}
     await request;
+    unawaited(InstantCallFlow.cancel());
     queryCache.invalidateAll(PaymentKeys.walletData);
   }
 

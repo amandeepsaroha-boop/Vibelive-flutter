@@ -68,6 +68,10 @@
     "call_now": "Call Now",
     "city_rating": "{{city}}  •  {{rating}} STAR"
   },
+  "talk_now": {
+    "action": "Talk Now",
+    "subtitle": "We'll find someone for you"
+  },
   "feed": {
     "end": "END OF RESULTS",
     "load_error": "Couldn't load hosts. Check your connection.",

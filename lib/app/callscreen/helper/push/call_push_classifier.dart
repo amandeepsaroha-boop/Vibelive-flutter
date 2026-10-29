@@ -24,6 +24,15 @@ enum CallPushKind {
   /// `PING_CLIENT`: an expert asks this client to call back.
   pingClient,
 
+  /// Instant call: the system is ringing a new host (caller side).
+  instantCallHostChanged,
+
+  /// Instant call: a host accepted, call is connected (caller side).
+  instantCallConnected,
+
+  /// Instant call: no hosts available / timeout (caller side).
+  instantCallFailed,
+
   /// Mentions a call but is not a call event (low balance, documents...).
   other,
 }
@@ -116,6 +125,11 @@ abstract final class CallPushTokens {
     'call_status',
     'status_update',
   };
+  static const instantCall = {
+    'instant_call_host_changed',
+    'instant_call_connected',
+    'instant_call_failed',
+  };
   static const other = {
     'ping_client',
     'low_balance_warning',
@@ -136,10 +150,12 @@ abstract final class CallPushTokens {
       ...ended,
       ...remoteRinging,
       ...ongoing,
+      ...instantCall,
       ...other,
     })
       if (_callSpecific(t)) t,
     'call_ended_low_balance',
+    ...instantCall,
   };
 
   /// Signals that by themselves make a push call-like.
@@ -186,6 +202,15 @@ abstract final class CallPushClassifier {
         m.flag('isOngoing') ||
         any(CallPushTokens.ongoing)) {
       return CallPushKind.ongoing;
+    }
+    if (type == 'instant_call_host_changed') {
+      return CallPushKind.instantCallHostChanged;
+    }
+    if (type == 'instant_call_connected') {
+      return CallPushKind.instantCallConnected;
+    }
+    if (type == 'instant_call_failed') {
+      return CallPushKind.instantCallFailed;
     }
     if (type == 'ping_client') return CallPushKind.pingClient;
     if (isJoinable(d) &&

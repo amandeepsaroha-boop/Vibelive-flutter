@@ -6,7 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/network/api_exception.dart';
-
+import '../../../core/session/session_store.dart';
 import '../../../core/utils/scale.dart';
 import '../../api/authscreen/interests_models.dart';
 import '../../api/authscreen/interests_queries.dart';
@@ -27,6 +27,7 @@ import '../helper/discover_layout.dart';
 import '../helper/home_controller.dart';
 import 'active_filters.dart';
 import 'discover_hero.dart';
+import 'talk_now_button.dart';
 import 'topic_tabs.dart';
 
 /// The Discover tab (RN `VibeScreen`): topic strip, active filters, and the
@@ -204,11 +205,13 @@ class DiscoverView extends HookWidget {
     );
     // Hero, topics and active filters scroll with the feed (mockup); while
     // the first page loads they sit above its skeleton.
+    final isExpert = useValueListenable(SessionStore.instance).isExpert;
     final header = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         DiscoverHero(onExplore: explore),
+        if (!isExpert) const TalkNowButton(),
         TopicTabs(
           tabs: tabs,
           selected: tab.value,

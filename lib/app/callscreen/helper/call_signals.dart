@@ -5,6 +5,7 @@ import 'call_billing.dart';
 import 'call_controller.dart';
 import 'call_identity.dart';
 import 'call_payload.dart';
+import 'flows/instant_call_flow.dart';
 import 'flows/native_flow.dart';
 import 'flows/push_flow.dart';
 import 'state/call_store.dart';
@@ -65,6 +66,18 @@ abstract final class CallSignals {
   /// `CALL_ENDED`.
   static void onLowBalanceWarning(String callId) =>
       _guardSync(() => CallBilling.warnOnce(callId));
+
+  /// Instant call: the system is ringing a different host (caller side).
+  static void onInstantCallHostChanged(Map<String, dynamic> data) =>
+      _guardSync(() => InstantCallFlow.onHostChanged(data));
+
+  /// Instant call: a host accepted (caller side).
+  static void onInstantCallConnected(Map<String, dynamic> data) =>
+      _guardSync(() => InstantCallFlow.onConnected(data));
+
+  /// Instant call: all hosts exhausted / timeout (caller side).
+  static void onInstantCallFailed(Map<String, dynamic> data) =>
+      _guardSync(() => InstantCallFlow.onFailed(data));
 
   /// `PING_CLIENT` (foreground push or notification tap). Never shown to
   /// the expert who sent it (E-73), nor over a call.

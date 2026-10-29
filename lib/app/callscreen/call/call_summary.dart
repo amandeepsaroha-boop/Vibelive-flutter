@@ -24,12 +24,23 @@ class CallSummary extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (name, url, video, phase) = useCallSelect(
-      (s) => (nonEmpty(s.remote.name), s.remote.avatarUrl, s.isVideo, s.phase),
+    final (name, url, video, phase, instant) = useCallSelect(
+      (s) => (
+        nonEmpty(s.remote.name),
+        s.remote.avatarUrl,
+        s.isVideo,
+        s.phase,
+        s.isInstantCall,
+      ),
     );
     final accent = context.colors.accent;
     final size = 128.sw;
-    final statusKey = ended ? 'call:status.ended' : callStatusKey(phase);
+    final statusKey = ended
+        ? 'call:status.ended'
+        : callStatusKey(phase, instant: instant);
+    final nameKey = instant && name == null
+        ? 'call:name.finding'
+        : 'call:name.host';
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -46,8 +57,8 @@ class CallSummary extends HookWidget {
         SizedBox(height: 24.vs),
         // RN wraps without a limit; two lines keep the layout on screen.
         name == null
-            ? const CText(
-                'call:name.host',
+            ? CText(
+                nameKey,
                 color: AppColors.white,
                 weight: FontWeight.w900,
                 size: 30,
@@ -100,19 +111,25 @@ Widget _durationText(String text, Color color) => CText.raw(
   align: TextAlign.center,
 );
 
-/// Final talk time (wall clock) or "Declined".
+/// Final talk time (wall clock), "Declined", or "Everyone's busy" (instant).
 class _Duration extends HookWidget {
   const _Duration();
 
   @override
   Widget build(BuildContext context) {
-    final (connected, seconds) = useCallSelect(
-      (s) => (s.everConnected, s.everConnected ? s.durationSeconds() : 0),
+    final (connected, seconds, instant) = useCallSelect(
+      (s) => (
+        s.everConnected,
+        s.everConnected ? s.durationSeconds() : 0,
+        s.isInstantCall,
+      ),
     );
-    return _durationText(
-      connected ? formatCallTime(seconds) : context.t('call:status.declined'),
-      context.colors.accent,
-    );
+    final label = connected
+        ? formatCallTime(seconds)
+        : context.t(
+            instant ? 'call:status.everyone_busy' : 'call:status.declined',
+          );
+    return _durationText(label, context.colors.accent);
   }
 }
 

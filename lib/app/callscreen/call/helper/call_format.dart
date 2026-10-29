@@ -13,7 +13,8 @@ String formatCallTime(int seconds) {
 
 /// RN `statusLabel` as an i18n key; null where RN shows none (accepted /
 /// ongoing: hidden on purpose for an "instant start").
-String? callStatusKey(CallPhase phase) => switch (phase) {
+String? callStatusKey(CallPhase phase, {bool instant = false}) => switch (phase) {
+  CallPhase.calling || CallPhase.ringing when instant => 'call:status.searching',
   CallPhase.calling => 'call:status.calling',
   CallPhase.ringing => 'call:status.ringing',
   CallPhase.accepted || CallPhase.ongoing => null,

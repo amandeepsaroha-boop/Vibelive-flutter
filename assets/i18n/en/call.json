@@ -95,13 +95,16 @@
     "calling": "CALLING",
     "ringing": "RINGING",
     "ended": "CALL ENDED",
-    "declined": "Declined"
+    "declined": "Declined",
+    "searching": "SEARCHING",
+    "everyone_busy": "Everyone's busy right now"
   },
   "name": {
     "host": "Host",
     "expert": "Expert",
     "user": "User",
-    "you": "You"
+    "you": "You",
+    "finding": "Finding someone for you..."
   },
   "controls": {
     "mute": "Microphone",

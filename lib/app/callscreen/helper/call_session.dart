@@ -97,6 +97,8 @@ class CallSession {
     this.connectedAt,
     this.endedAt,
     this.phaseSince,
+    this.isInstantCall = false,
+    this.instantCallSessionId,
   });
 
   static const idle = CallSession();
@@ -148,6 +150,9 @@ class CallSession {
   /// guard window survives a remount (minimize, then return).
   final DateTime? phaseSince;
 
+  final bool isInstantCall;
+  final String? instantCallSessionId;
+
   bool get isCaller => role == CallRole.caller;
   bool get isReceiver => role == CallRole.receiver;
 
@@ -197,6 +202,8 @@ class CallSession {
     DateTime? connectedAt,
     DateTime? endedAt,
     DateTime? phaseSince,
+    bool? isInstantCall,
+    String? instantCallSessionId,
   }) => CallSession(
     phase: phase ?? this.phase,
     role: role ?? this.role,
@@ -219,6 +226,8 @@ class CallSession {
     connectedAt: connectedAt ?? this.connectedAt,
     endedAt: endedAt ?? this.endedAt,
     phaseSince: phaseSince ?? this.phaseSince,
+    isInstantCall: isInstantCall ?? this.isInstantCall,
+    instantCallSessionId: instantCallSessionId ?? this.instantCallSessionId,
   );
 }
 

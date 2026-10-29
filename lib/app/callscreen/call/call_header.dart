@@ -132,8 +132,10 @@ class _StatusPill extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final phase = useCallSelect((s) => s.phase);
-    if (phase.isPreConnect) return const SizedBox.shrink();
+    final (phase, instant) = useCallSelect(
+      (s) => (s.phase, s.isInstantCall),
+    );
+    if (phase.isPreConnect && !instant) return const SizedBox.shrink();
     const style = (color: AppColors.white, size: 13.0, weight: FontWeight.w900);
     final Widget text;
     if (phase == CallPhase.ongoing) {
@@ -148,7 +150,7 @@ class _StatusPill extends HookWidget {
         ),
       );
     } else {
-      final key = callStatusKey(phase);
+      final key = callStatusKey(phase, instant: instant);
       text = CText.raw(
         '${key == null ? '' : context.t(key)}...',
         color: style.color,
