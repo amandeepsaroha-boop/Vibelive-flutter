@@ -458,7 +458,12 @@
     "permission": "Allow microphone access to record your voice intro.",
     "failed": "Could not record. Please try again.",
     "too_short": "Too short. Hold on a little longer.",
-    "play_failed": "Could not play the voice intro."
+    "play_failed": "Could not play the voice intro.",
+    "play_short": "Play",
+    "listen_hint": "Now listen to it once, to check it sounds right.",
+    "step_record": "Record",
+    "step_listen": "Listen",
+    "step_done": "Done"
   },
   "voice_step": {
     "title": "Introduce yourself",
@@ -473,5 +478,23 @@
     "tip3": "How you make people feel heard",
     "tip4": "Speak naturally, from a quiet place",
     "note": "Callers hear this before they call. You can re-record it as many times as you like."
+  },
+  "fix": {
+    "title": "Please change your {{fields}}",
+    "body": "It didn't meet our guidelines. Edit it, then save to send it for review again.",
+    "needs_change": "Needs a change",
+    "and": "and",
+    "field": {
+      "name": "display name",
+      "handler": "handle",
+      "tagline": "tagline",
+      "descriptions": "bio"
+    },
+    "photo_rejected": "Not approved",
+    "photo_pending": "In review",
+    "photos_title": "A photo wasn't approved",
+    "photos_body": "Remove the photo marked \"Not approved\" (tap ✕), then add a clear photo of yourself.",
+    "voice_title": "Your voice intro wasn't approved",
+    "voice_body": "Tap Re-record and record a new one. It only takes a few seconds."
   }
 }

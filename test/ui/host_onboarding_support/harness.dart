@@ -127,6 +127,9 @@ class HostBackend implements HttpClientAdapter {
   /// `/expert-profile-approvals` rows.
   List<JsonMap> approvals = [];
 
+  /// `/me/moderation-notes`: the team's messages, newest first.
+  List<JsonMap> moderationNotes = [];
+
   /// `'POST /api/expert-profiles'`-style calls that answer 500.
   final failing = <String>{};
 
@@ -247,6 +250,8 @@ class HostBackend implements HttpClientAdapter {
         };
       case 'GET /api/expert-profile-approvals':
         return {'data': approvals};
+      case 'GET /api/me/moderation-notes':
+        return {'results': moderationNotes};
       case 'POST /api/expert-profile-approvals':
         return {
           'data': {'id': 1, 'documentId': 'ap1', 'status': 'pending'},

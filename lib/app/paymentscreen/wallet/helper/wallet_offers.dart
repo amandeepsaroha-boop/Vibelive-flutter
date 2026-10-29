@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/payment_events.dart';
 import '../../../../core/config/runtime_config.dart';
 import '../../../api/paymentscreen/checkout_models.dart';
 import '../../../api/paymentscreen/wallet_models.dart';
@@ -26,7 +26,11 @@ abstract final class WalletOffers {
     if (!FirstTopupOffer.claimShow(enabled: true, percent: percent)) {
       return null;
     }
-    Analytics.log('first_topup_offer_shown', {'percent': percent});
+    final options = FirstTopupOffer.options(config.presetAmounts);
+    PaymentEvents.firstTopupOfferShown(
+      percent: percent,
+      suggested: options.length > 1 ? options[1] : options.firstOrNull,
+    );
     final chosen = await showFirstTopupSheet(
       context,
       percent: percent,
@@ -35,12 +39,10 @@ abstract final class WalletOffers {
     );
     if (chosen == null) {
       FirstTopupOffer.recordDismissal();
+      PaymentEvents.firstTopupOfferDismissed(percent: percent);
       return null;
     }
-    Analytics.log('first_topup_offer_tapped', {
-      'percent': percent,
-      'amount': chosen,
-    });
+    PaymentEvents.firstTopupOfferTapped(percent: percent, amount: chosen);
     return chosen;
   }
 
@@ -58,8 +60,13 @@ abstract final class WalletOffers {
     final offer = BonusPreview.of(amount, percent);
     if (offer.bonus <= 0) return null;
     final orderRef = order.txnId.isNotEmpty ? order.txnId : order.orderId;
-    final params = {'order_id': orderRef, 'amount': amount, 'percent': percent};
-    Analytics.log('abandon_offer_shown', params);
+    void log(String action) => PaymentEvents.abandonOffer(
+      action: action,
+      orderId: orderRef,
+      amount: amount,
+      percent: percent,
+    );
+    log('shown');
     final accepted = await showAbandonOfferSheet(
       context,
       offer: offer,
@@ -67,8 +74,11 @@ abstract final class WalletOffers {
       windowMinutes: bonus.abandonOfferWindowMinutes,
       gstPercent: config.gstPercent,
     );
-    if (!accepted) return null;
-    Analytics.log('abandon_offer_accepted', params);
+    if (!accepted) {
+      log('dismissed');
+      return null;
+    }
+    log('accepted');
     return amount;
   }
 }

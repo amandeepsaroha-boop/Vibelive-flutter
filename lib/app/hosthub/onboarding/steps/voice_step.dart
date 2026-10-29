@@ -1,10 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../component/c_text.dart';
+import '../../common/host_page.dart';
+import '../../common/host_review.dart';
 import '../helper/draft_controller.dart';
+import '../helper/draft_models.dart';
 import '../helper/host_palette.dart';
 import '../widgets/step_body.dart';
 import '../widgets/voice_intro_field.dart';
@@ -24,6 +28,8 @@ class VoiceStep extends StatelessWidget {
       title: 'hostflow:voice_step.title',
       subtitle: 'hostflow:voice_step.subtitle',
       children: [
+        if (HostReviewScope.of(context).audioRejected)
+          _Rejected(intro: draft.voiceIntro),
         HostVoiceIntroField(draft: draft),
         SizedBox(height: 14.ms),
         _Opener(draft: draft),
@@ -90,6 +96,28 @@ class VoiceStep extends StatelessWidget {
       ],
     );
   }
+}
+
+/// "Your voice intro wasn't approved": until a new one is recorded.
+class _Rejected extends StatelessWidget {
+  const _Rejected({required this.intro});
+  final ValueListenable<HostVoiceIntro?> intro;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<HostVoiceIntro?>(
+    valueListenable: intro,
+    builder: (_, value, _) => value?.isNew ?? false
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: EdgeInsets.only(bottom: 14.ms),
+            child: const HostToneCard(
+              tone: HostTone.danger,
+              icon: LucideIcons.micOff,
+              title: 'hostflow:fix.voice_title',
+              message: 'hostflow:fix.voice_body',
+            ),
+          ),
+  );
 }
 
 /// "Need a start? Try this": an opener with the host's first name and up to

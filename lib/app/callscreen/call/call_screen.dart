@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/analytics/events/call_ui_events.dart';
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/scale.dart';
 import '../../component/status_bar_style.dart';
@@ -19,6 +21,7 @@ import 'feedback_sheet.dart';
 import 'helper/call_format.dart';
 import 'helper/call_nav.dart';
 import 'helper/call_select.dart';
+import 'helper/call_track.dart';
 import 'helper/call_ui_state.dart';
 import 'helper/post_call.dart';
 
@@ -74,7 +77,7 @@ class CallScreen extends HookWidget {
                   right: 0,
                   child: CallHeader(
                     onBack: () => _back(callKey),
-                    onFlag: () => ui.safetyOpen.value = !ui.safetyOpen.value,
+                    onFlag: () => _toggleSafety(ui),
                   ),
                 ),
                 const _PermissionLayer(),
@@ -94,10 +97,28 @@ class CallScreen extends HookWidget {
   }
 
   /// Decision 1: back never drops a live call.
-  static void _back(String? callId) =>
-      CallController.instance.value.phase.isActive
-      ? CallActions.minimize()
-      : CallActions.exitToHome(callId: callId);
+  static void _back(String? callId) {
+    final s = CallController.instance.value;
+    if (s.phase.isActive) {
+      CallUiEvents.minimized(callInfoOf(s));
+      CallActions.minimize();
+    } else {
+      CallActions.exitToHome(callId: callId);
+    }
+  }
+
+  /// Header flag: the "Something wrong?" panel.
+  static void _toggleSafety(CallUiState ui) {
+    final open = !ui.safetyOpen.value;
+    ui.safetyOpen.value = open;
+    final call = currentCallInfo();
+    if (open) {
+      CallUiEvents.safetyPanelOpened(call);
+      ScreenTracker.view('call_safety_panel');
+    } else {
+      CallUiEvents.safetyPanelClosed(call);
+    }
+  }
 
   /// RN `FeedBackModal` for the caller; every way out of it leaves (unless
   /// something else already took the user away from the call screen).

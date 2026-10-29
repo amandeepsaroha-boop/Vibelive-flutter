@@ -5,12 +5,15 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../component/c_text.dart';
 import '../../../component/pressable.dart';
+import '../../common/host_review.dart';
 import '../helper/draft_controller.dart';
 import '../helper/draft_models.dart';
 import '../helper/host_palette.dart';
+import '../helper/host_steps.dart';
 import '../helper/photo_picker.dart';
 import '../helper/photo_uploads.dart';
 import '../helper/validation.dart';
+import '../widgets/fix_notice.dart';
 import '../widgets/photo_tile.dart';
 import '../widgets/sheet_frame.dart';
 import '../widgets/step_body.dart';
@@ -24,6 +27,7 @@ class PhotosStep extends HookWidget {
   Widget build(BuildContext context) {
     final uploads = useMemoized(() => HostPhotoUploads(draft), [draft]);
     final p = HostPalette.of(context);
+    final review = HostReviewScope.of(context);
 
     Future<void> add() async {
       final origin = await showHostSheet<HostPhotoOrigin>(
@@ -38,6 +42,7 @@ class PhotosStep extends HookWidget {
       title: 'hostflow:photos.title',
       subtitle: 'hostflow:photos.subtitle',
       children: [
+        const HostFixNotice(step: HostStep.photos),
         LayoutBuilder(
           builder: (_, box) {
             final gap = 10.ms;
@@ -58,6 +63,7 @@ class PhotosStep extends HookWidget {
                                 photo: photos[i],
                                 width: w,
                                 primary: i == 0,
+                                review: review.photoStatus(photos[i].mediaId),
                                 onRemove: () => uploads.remove(photos[i]),
                                 onTap: () {
                                   final ph = photos[i];

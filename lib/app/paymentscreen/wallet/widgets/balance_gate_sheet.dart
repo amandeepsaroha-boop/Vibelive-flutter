@@ -19,6 +19,7 @@ Future<BalanceGateAction?> showBalanceGateSheet(
 }) => showOfferSheet<BalanceGateAction>(
   context,
   (_) => _BalanceGateSheet(gate: gate, hostName: hostName),
+  name: 'balance_gate_sheet',
 );
 
 class _BalanceGateSheet extends StatelessWidget {

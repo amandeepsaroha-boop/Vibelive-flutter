@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/analytics/analytics.dart';
+import '../../../../core/analytics/events/payment_events.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/session/session_store.dart';
 import '../../../api/paymentscreen/billing_models.dart';
@@ -124,6 +125,11 @@ class TopUpCheckout {
     final order = checkout as RazorpayCheckout;
     final options = order.toOptions(image: await CheckoutLogo.dataUri());
     final gateway = _gateway ?? RazorpayGateway.instance;
+    PaymentEvents.checkoutOpened(
+      gateway: 'razorpay_native',
+      amount: order.baseAmount,
+      orderId: _orderRef(order),
+    );
     final outcome = await gateway.open(options);
     final (
       CheckoutEnd? end,
@@ -146,6 +152,11 @@ class TopUpCheckout {
     // RN classifies first, then branches on the class (not on the code).
     switch (end) {
       case null: // paid in an external wallet: the wallet catches up
+        PaymentEvents.externalWallet(
+          orderId: _orderRef(order),
+          amount: order.baseAmount,
+          wallet: outcome is CheckoutCancelled ? outcome.externalWallet : null,
+        );
         return null;
       case CheckoutEnd.userDismissed:
         _logEnd(order, end, code, description);
@@ -161,6 +172,11 @@ class TopUpCheckout {
             messageKey: 'payment:errors.recharge_failed',
           );
         }
+        PaymentEvents.checkoutOpened(
+          gateway: 'razorpay_web',
+          amount: order.baseAmount,
+          orderId: _orderRef(order),
+        );
         return _fromWeb(
           order,
           payer,
@@ -186,6 +202,11 @@ class TopUpCheckout {
         messageKey: 'payment:errors.gateway_unavailable',
       );
     }
+    PaymentEvents.checkoutOpened(
+      gateway: 'payu_web',
+      amount: checkout.baseAmount,
+      orderId: checkout.txnId,
+    );
     final end = await web(
       WebCheckoutRequest(
         html: WebCheckoutPages.payu(checkout.payuUrl!, checkout.payuData),
@@ -239,26 +260,22 @@ class TopUpCheckout {
       RazorpayCheckout(:final orderId) when orderId.isNotEmpty => orderId,
       _ => checkout.txnId,
     };
-    final method = checkout.gateway == PaymentGateway.payu
-        ? 'payu'
-        : 'razorpay';
-    Analytics.meta('fb_mobile_add_payment_info', {
-      'payment_method': method,
-      'currency': 'INR',
-      'amount': amount,
-    });
-    Analytics.meta('fb_mobile_initiated_checkout', {
-      'content_id': orderId,
-      'content_type': 'wallet_recharge',
-      'currency': 'INR',
-      'amount': amount,
-    }, valueToSum: amount);
-    Analytics.log('initiate_payment', {
-      'amount': amount > 0 ? amount : null,
-      'payment_method': method,
-      'order_id': orderId,
-    });
+    PaymentEvents.initiatePayment(
+      amount: amount,
+      paymentMethod: _method(checkout),
+      orderId: orderId,
+    );
   }
+
+  /// RN's `payment_method` value: the gateway.
+  static String _method(RechargeCheckout checkout) =>
+      checkout.gateway == PaymentGateway.payu ? 'payu' : 'razorpay';
+
+  /// Transaction id, else the order id (analytics `order_id`).
+  static String _orderRef(RechargeCheckout checkout) =>
+      checkout.txnId.isNotEmpty || checkout is! RazorpayCheckout
+      ? checkout.txnId
+      : checkout.orderId;
 
   /// RN recorded nothing when checkout closed unpaid, so a lost sale could
   /// not be told from a checkout that never opened. A failure to open is
@@ -269,16 +286,15 @@ class TopUpCheckout {
     int? code,
     String? description,
   ) {
-    final orderRef = checkout.txnId.isNotEmpty
-        ? checkout.txnId
-        : checkout.orderId;
+    final orderRef = _orderRef(checkout);
     final dismissed = end == CheckoutEnd.userDismissed;
-    Analytics.log(dismissed ? 'payment_abandoned' : 'checkout_failed_to_open', {
-      'order_id': orderRef,
-      'amount': checkout.baseAmount,
-      'error_code': code,
-      'description': description,
-    });
+    PaymentEvents.checkoutEnded(
+      dismissed: dismissed,
+      orderId: orderRef,
+      amount: checkout.baseAmount,
+      errorCode: code,
+      description: description,
+    );
     if (!dismissed) return;
     unawaited(
       _reportAbandoned(
@@ -311,8 +327,18 @@ class TopUpCheckout {
             transactionId: checkout.txnId,
           ),
         );
+        PaymentEvents.verificationResult(
+          result: result.outcome.name,
+          orderId: _orderRef(checkout),
+          amount: checkout.baseAmount,
+        );
         switch (result.outcome) {
           case VerificationOutcome.pending:
+            PaymentEvents.paymentPending(
+              orderId: _orderRef(checkout),
+              amount: checkout.baseAmount,
+              reason: 'verification_pending',
+            );
             return const TopUpStatus(
               TopUpResult.pending,
               messageKey: 'payment:verification.pending',
@@ -345,6 +371,19 @@ class TopUpCheckout {
     } on ApiException catch (e) {
       // With a payment id the money is most likely taken: never a false
       // failure (RN).
+      if (paymentId.isNotEmpty) {
+        PaymentEvents.verificationResult(
+          result: 'error',
+          orderId: _orderRef(checkout),
+          amount: checkout.baseAmount,
+          error: Analytics.errorCode(e),
+        );
+        PaymentEvents.paymentPending(
+          orderId: _orderRef(checkout),
+          amount: checkout.baseAmount,
+          reason: Analytics.errorCode(e),
+        );
+      }
       return paymentId.isNotEmpty
           ? const TopUpStatus(
               TopUpResult.pending,
@@ -376,18 +415,13 @@ class TopUpCheckout {
   /// transaction.
   void _logSuccess(RechargeCheckout checkout, String paymentId) {
     final id = paymentId.isNotEmpty ? paymentId : checkout.txnId;
-    final method = checkout.gateway == PaymentGateway.payu
-        ? 'payu'
-        : 'razorpay';
-    Analytics.metaPurchase(checkout.baseAmount, {
-      'transaction_id': id,
-      'payment_method': method,
-    });
-    Analytics.logOnce('payment_success_$id', 'payment_success', {
-      'amount': checkout.baseAmount,
-      'payment_method': method,
-      'currency': 'INR',
-    });
+    final session = SessionStore.instance.value;
+    PaymentEvents.paymentSuccess(
+      transactionId: id,
+      amount: checkout.baseAmount,
+      paymentMethod: _method(checkout),
+      userKey: session.userDocumentId ?? session.userId?.toString(),
+    );
   }
 
   TopUpStatus _fail(
@@ -398,12 +432,12 @@ class TopUpCheckout {
   }) {
     final reason = message ?? _reasonText[messageKey] ?? 'Payment failed';
     // RN `logPaymentFailed`, once per transaction.
-    Analytics.logOnce('payment_failed_${checkout.txnId}', 'payment_failed', {
-      'reason': reason,
-      'payment_method': checkout.gateway == PaymentGateway.payu
-          ? 'payu'
-          : 'razorpay',
-    });
+    PaymentEvents.paymentFailed(
+      transactionId: checkout.txnId,
+      reason: reason,
+      paymentMethod: _method(checkout),
+      amount: checkout.baseAmount,
+    );
     unawaited(
       _reportFailure(
         RechargeReport(

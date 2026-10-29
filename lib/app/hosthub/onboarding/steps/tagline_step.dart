@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/utils/scale.dart';
+import '../../common/host_review.dart';
 import '../helper/draft_controller.dart';
+import '../helper/host_steps.dart';
 import '../helper/suggestions.dart';
 import '../helper/validation.dart';
 import '../widgets/enhance_field.dart';
+import '../widgets/fix_notice.dart';
 import '../widgets/prompt_suggestions.dart';
 import '../widgets/step_body.dart';
 
@@ -18,6 +21,7 @@ class TaglineStep extends StatelessWidget {
     title: 'hostflow:tagline.title',
     subtitle: 'hostflow:tagline.subtitle',
     children: [
+      const HostFixNotice(step: HostStep.tagline),
       HostEnhanceField(
         controller: draft.tagline,
         hint: 'hostflow:tagline.hint',
@@ -27,6 +31,7 @@ class TaglineStep extends StatelessWidget {
         maxLines: 3,
         textInputAction: TextInputAction.done,
         fieldKey: const ValueKey('hostflow-tagline'),
+        flagged: HostReviewScope.of(context).flagged('tagline'),
       ),
       SizedBox(height: 14.ms),
       HostPromptSuggestions(

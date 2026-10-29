@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/discover_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/network/strapi.dart';
 import '../../../core/router/app_router.dart';
@@ -33,6 +34,7 @@ class DiscoverTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     void openWallet() {
+      DiscoverEvents.topBarTapped(button: 'wallet', tab: 'discover');
       prefetchWalletTransactions();
       context.push(AppRoutes.wallet);
     }
@@ -57,7 +59,10 @@ class DiscoverTopBar extends StatelessWidget {
           _RoundIcon(
             icon: LucideIcons.search,
             semanticLabel: context.t('home:header.search'),
-            onPressed: () => context.push(AppRoutes.search),
+            onPressed: () {
+              DiscoverEvents.topBarTapped(button: 'search', tab: 'discover');
+              context.push(AppRoutes.search);
+            },
           ),
           ValueListenableBuilder<HostFilter>(
             valueListenable: home.filter,
@@ -67,6 +72,7 @@ class DiscoverTopBar extends StatelessWidget {
               badge: filter.languages.length + (filter.hasTopic ? 1 : 0),
               semanticLabel: context.t('home:header.filter'),
               onPressed: () async {
+                DiscoverEvents.topBarTapped(button: 'filter', tab: 'discover');
                 final next = await showFilterSheet(context, current: filter);
                 if (next != null) home.filter.value = next;
               },
@@ -244,7 +250,10 @@ class MeTopBar extends StatelessWidget {
           TopBarButton(
             icon: LucideIcons.chevronLeft,
             semanticLabel: context.t('actions.back'),
-            onPressed: () => home.select(HomeTab.discover),
+            onPressed: () {
+              DiscoverEvents.topBarTapped(button: 'back', tab: 'me');
+              home.select(HomeTab.discover);
+            },
           ),
           Expanded(
             child: ValueListenableBuilder<SessionState>(
@@ -264,7 +273,10 @@ class MeTopBar extends StatelessWidget {
           TopBarButton(
             icon: LucideIcons.ellipsisVertical,
             semanticLabel: context.t('home:me.menu'),
-            onPressed: () => showMeMenu(context),
+            onPressed: () {
+              DiscoverEvents.topBarTapped(button: 'me_menu', tab: 'me');
+              showMeMenu(context);
+            },
           ),
         ],
       ),
@@ -288,7 +300,10 @@ class HistoryTopBar extends StatelessWidget {
           TopBarButton(
             icon: LucideIcons.chevronLeft,
             semanticLabel: context.t('actions.back'),
-            onPressed: () => home.select(HomeTab.discover),
+            onPressed: () {
+              DiscoverEvents.topBarTapped(button: 'back', tab: 'history');
+              home.select(HomeTab.discover);
+            },
           ),
           Expanded(
             child: CText(

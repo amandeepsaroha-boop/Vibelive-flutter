@@ -7,6 +7,7 @@ import '../../../core/query/query_client.dart';
 import '../../../core/utils/log.dart';
 import '../../api/callscreen/call_keys.dart';
 import '../../api/paymentscreen/payment_keys.dart';
+import 'call_analytics.dart';
 import 'call_billing.dart';
 import 'call_controller.dart';
 import 'call_navigator.dart';
@@ -133,12 +134,19 @@ abstract final class CallRuntime {
       timers.arm(CallTimers.remoteDrop, CallTimings.remoteDropGrace, () {
         final now = CallController.instance.value;
         if (now.isSameCall(callId) && !CallEngine.instance.hasRemote) {
-          unawaited(EndFlow.hangup());
+          unawaited(EndFlow.hangup(reason: CallEndReason.peerNeverJoined));
         }
       });
     }
     unawaited(CallPlatform.instance.markConnected(s));
-    unawaited(CallBilling.arm(s, onLimit: () => unawaited(EndFlow.hangup())));
+    unawaited(
+      CallBilling.arm(
+        s,
+        onLimit: () => unawaited(
+          EndFlow.hangup(reason: CallEndReason.balanceExhausted),
+        ),
+      ),
+    );
   }
 
   /// Once per call, whatever ended it.
@@ -232,32 +240,34 @@ abstract final class CallRuntime {
           unawaited(IncomingFlow.reportOngoing(s, answering: true));
         }
       case EngineRemoteLeft(quit: true):
-        unawaited(EndFlow.hangup()); // RN C12 / R13
+        // RN C12 / R13
+        unawaited(EndFlow.hangup(reason: CallEndReason.remoteHangup));
       case EngineRemoteLeft(quit: false):
         // Dropped: the call goes on for a grace period (decision 7).
         timers.arm(CallTimers.remoteDrop, CallTimings.remoteDropGrace, () {
           final now = CallController.instance.value;
           if (now.isSameCall(callId) && !CallEngine.instance.hasRemote) {
-            unawaited(EndFlow.hangup());
+            unawaited(EndFlow.hangup(reason: CallEndReason.remoteDropped));
           }
         });
       case EngineReconnecting(reconnecting: true):
         timers.arm(CallTimers.reconnecting, CallTimings.reconnecting, () {
           if (CallController.instance.value.isSameCall(callId)) {
-            unawaited(EndFlow.hangup());
+            unawaited(EndFlow.hangup(reason: CallEndReason.networkLost));
           }
         });
       case EngineReconnecting(reconnecting: false):
         timers.cancel(CallTimers.reconnecting);
       case EngineTokenExpiring():
-        unawaited(EndFlow.hangup()); // E-88: no renew endpoint
+        // E-88: no renew endpoint
+        unawaited(EndFlow.hangup(reason: CallEndReason.tokenExpired));
       case EngineJoinFailed(:final reason):
         Log.w('CallFlow', 'Agora join failed $callId: $reason');
         unawaited(EndFlow.joinFailed());
       case EngineConnectionLost():
         // Same uid joined elsewhere (another device of ours answered too):
         // the other device owns the call and its Callend (A7).
-        EndFlow.endLocally(callId);
+        EndFlow.endLocally(callId, reason: CallEndReason.otherDevice);
     }
   }
 

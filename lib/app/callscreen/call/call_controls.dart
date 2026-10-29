@@ -5,16 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/call_ui_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/scale.dart';
 import '../../component/pressable.dart';
 import '../helper/call_actions.dart';
+import '../helper/call_controller.dart';
 import '../helper/call_session.dart';
 import '../helper/engine/call_engine.dart';
 import 'helper/call_format.dart';
 import 'helper/call_guard.dart';
 import 'helper/call_select.dart';
+import 'helper/call_track.dart';
 import 'incoming/incoming_actions.dart';
 
 /// RN `CallControls`: floating bar with mic · (camera) · speaker · (flip) ·
@@ -44,6 +47,16 @@ class CallControls extends HookWidget {
     final b = (video ? 50 : 58).sw;
     final i = (video ? 23 : 26).ms;
     final engine = CallEngine.instance;
+    CallMedia media() => engine.media.value;
+
+    /// [toggle], then the new state to analytics.
+    Future<void> Function() tracked(
+      Future<void> Function() toggle,
+      void Function(CallInfo call, CallMedia m) log,
+    ) => () async {
+      await toggle();
+      log(callInfoOf(CallController.instance.value), media());
+    };
     return Positioned(
       left: 14.sw,
       right: 14.sw,
@@ -68,7 +81,10 @@ class CallControls extends HookWidget {
             _Toggle(
               size: b,
               label: 'call:controls.mute',
-              onPressed: engine.toggleMute,
+              onPressed: tracked(
+                engine.toggleMute,
+                (c, m) => CallUiEvents.muteToggled(c, muted: m.muted),
+              ),
               select: (m) => m.muted,
               icon: (on) => on ? LucideIcons.micOff : LucideIcons.mic,
               iconSize: i,
@@ -78,7 +94,10 @@ class CallControls extends HookWidget {
               _Toggle(
                 size: b,
                 label: 'call:controls.camera',
-                onPressed: engine.toggleVideo,
+                onPressed: tracked(
+                  engine.toggleVideo,
+                  (c, m) => CallUiEvents.cameraToggled(c, on: !m.localVideoOff),
+                ),
                 select: (m) => m.localVideoOff,
                 icon: (off) => off ? LucideIcons.videoOff : LucideIcons.video,
                 iconSize: i,
@@ -86,7 +105,10 @@ class CallControls extends HookWidget {
             _Toggle(
               size: b,
               label: 'call:controls.speaker',
-              onPressed: engine.toggleSpeaker,
+              onPressed: tracked(
+                engine.toggleSpeaker,
+                (c, m) => CallUiEvents.speakerToggled(c, on: m.speakerOn),
+              ),
               select: (m) => m.speakerOn,
               icon: (_) => LucideIcons.volume2,
               iconSize: i,
@@ -96,7 +118,12 @@ class CallControls extends HookWidget {
               _Round(
                 size: b,
                 label: 'call:controls.flip',
-                onPressed: () => unawaited(engine.flipCamera()),
+                onPressed: () => unawaited(
+                  tracked(
+                    engine.flipCamera,
+                    (c, m) => CallUiEvents.cameraFlipped(c, front: m.frontCamera),
+                  )(),
+                ),
                 child: Icon(
                   LucideIcons.refreshCw,
                   size: i - 2,
@@ -107,7 +134,7 @@ class CallControls extends HookWidget {
             _Round(
               size: b,
               label: 'call:controls.hangup',
-              onPressed: armed ? () => unawaited(CallActions.hangup()) : null,
+              onPressed: armed ? () => _hangup() : null,
               color: AppColors.red,
               shadow: AppColors.red.withValues(alpha: 0.4),
               child: HangupGlyph(size: i + 2),
@@ -117,6 +144,16 @@ class CallControls extends HookWidget {
       ),
     );
   }
+}
+
+/// The red button: analytics, then the hang-up.
+void _hangup() {
+  final s = CallController.instance.value;
+  CallUiEvents.hangupTapped(
+    callInfoOf(s),
+    elapsedSeconds: s.everConnected ? s.durationSeconds() : null,
+  );
+  unawaited(CallActions.hangup());
 }
 
 /// A control that shows one media flag; rebuilds only when that flag

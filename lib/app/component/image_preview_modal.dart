@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/analytics/events/me_events.dart';
+import '../../core/analytics/screen_tracker.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/scale.dart';
@@ -29,10 +31,22 @@ abstract final class ImagePreviewModal {
     VoidCallback? onShare,
     VoidCallback? onCopyLink,
     VoidCallback? onShowQR,
+
+    /// Analytics name (screen + `image_preview_*` events).
+    String analyticsName = 'image_preview',
   }) async {
     VoidCallback? pending;
+    UiEvents.imagePreviewOpened(analyticsName);
+    // Share / copy / QR run after the close: logged when they run.
+    VoidCallback? tracked(String action, VoidCallback? run) => run == null
+        ? null
+        : () {
+            UiEvents.imagePreviewAction(name: analyticsName, action: action);
+            run();
+          };
     await showGeneralDialog<void>(
       context: context,
+      routeSettings: ScreenTracker.sheet(analyticsName),
       barrierDismissible: true,
       barrierLabel: 'preview',
       barrierColor: AppColors.blackA(0.6),
@@ -45,14 +59,22 @@ abstract final class ImagePreviewModal {
         handle: handle,
         isFavorite: isFavorite,
         favorite: favorite,
-        onToggleFavorite: onToggleFavorite,
+        onToggleFavorite: onToggleFavorite == null
+            ? null
+            : () {
+                UiEvents.imagePreviewAction(
+                  name: analyticsName,
+                  action: 'favorite',
+                );
+                onToggleFavorite();
+              },
         onAfterClose: (action) {
           pending = action;
           Navigator.of(ctx).pop();
         },
-        onShare: onShare,
-        onCopyLink: onCopyLink,
-        onShowQR: onShowQR,
+        onShare: tracked('share', onShare),
+        onCopyLink: tracked('copy_link', onCopyLink),
+        onShowQR: tracked('qr', onShowQR),
       ),
     );
     final action = pending;

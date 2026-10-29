@@ -7,6 +7,7 @@ import '../../../../core/utils/log.dart';
 import '../../../api/callscreen/call_api.dart';
 import '../../../api/callscreen/call_models.dart';
 import '../../../api/callscreen/call_queries.dart';
+import '../call_analytics.dart';
 import '../call_controller.dart';
 import '../call_device.dart';
 import '../call_identity.dart';
@@ -164,7 +165,7 @@ abstract final class IncomingFlow {
         if (now.isSameCall(callId) &&
             now.phase == CallPhase.accepted &&
             !CallEngine.instance.hasRemote) {
-          unawaited(EndFlow.hangup());
+          unawaited(EndFlow.hangup(reason: CallEndReason.peerNeverJoined));
         }
       },
     );
@@ -269,6 +270,7 @@ abstract final class IncomingFlow {
     if (onlyCallId != null && !s.isSameCall(onlyCallId)) return null;
     if (_acting && !force) return null;
     _acting = true;
+    CallAnalytics.reason(callId, CallEndReason.declined);
     try {
       CallDedup.instance
         ..markEnded(callId)

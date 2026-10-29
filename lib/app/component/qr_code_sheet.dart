@@ -2,20 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../core/analytics/events/me_events.dart';
+import '../../core/analytics/screen_tracker.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/vibe_colors.dart';
 import '../../core/utils/scale.dart';
 import 'c_text.dart';
 import 'pressable.dart';
 
-/// A profile link as a QR code (RN profile QR modal).
+/// A profile link as a QR code (RN profile QR modal). [source]: where it
+/// was opened, for analytics.
 Future<void> showQrCodeSheet(
   BuildContext context, {
   required String url,
   required String name,
   String handle = '',
+  String? source,
+}) {
+  UiEvents.qrShown(source: source);
+  return _showQr(context, url: url, name: name, handle: handle);
+}
+
+Future<void> _showQr(
+  BuildContext context, {
+  required String url,
+  required String name,
+  required String handle,
 }) => showGeneralDialog<void>(
   context: context,
+  routeSettings: ScreenTracker.sheet('qr_code_sheet'),
   barrierDismissible: true,
   barrierLabel: 'qr',
   barrierColor: const Color(0xEB050508),

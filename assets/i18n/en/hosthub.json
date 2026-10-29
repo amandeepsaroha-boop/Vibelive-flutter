@@ -29,5 +29,15 @@
       "single_only": "Choose only one option.",
       "required": "This question is required."
     }
+  },
+  "messages": {
+    "title": "Messages from the moderation team",
+    "open": "Open",
+    "fix": "Fix it",
+    "more": "Show {{count}} more",
+    "less": "Show less",
+    "fields": "To change: {{fields}}",
+    "photo": "This photo",
+    "empty_note": "The moderation team sent you a message."
   }
 }

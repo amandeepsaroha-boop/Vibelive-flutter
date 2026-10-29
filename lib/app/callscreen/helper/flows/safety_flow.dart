@@ -11,6 +11,7 @@ import '../../../api/component/report_api.dart';
 import '../../../api/homescreen/home_keys.dart';
 import '../../../api/listingflow/listing_keys.dart';
 import '../call_actions.dart';
+import '../call_analytics.dart';
 import '../call_controller.dart';
 import '../call_identity.dart';
 import '../call_runtime.dart';
@@ -56,7 +57,9 @@ abstract final class SafetyFlow {
           : await report(target, CallWire.reportedDuringCall);
       outcome = ok ? CallSafetyOutcome.done : CallSafetyOutcome.failed;
     }
-    await EndFlow.hangup();
+    await EndFlow.hangup(
+      reason: block ? CallEndReason.safetyBlock : CallEndReason.safetyReport,
+    );
     return outcome;
   }
 

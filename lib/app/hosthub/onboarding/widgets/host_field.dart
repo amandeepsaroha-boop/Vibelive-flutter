@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/utils/scale.dart';
@@ -27,6 +28,7 @@ class HostField extends StatefulWidget {
     this.fieldKey,
     this.readOnly = false,
     this.counterLeading,
+    this.flagged = false,
   });
 
   final TextEditingController controller;
@@ -52,12 +54,27 @@ class HostField extends StatefulWidget {
   /// Sits on the counter's row, before "n/max" (e.g. "Enhance with AI").
   final Widget? counterLeading;
 
+  /// Review turned this text down: a red outline and "Needs a change",
+  /// until the host changes the text.
+  final bool flagged;
+
   @override
   State<HostField> createState() => _HostFieldState();
 }
 
 class _HostFieldState extends State<HostField> {
   final _focus = FocusNode();
+
+  /// The rejected text, seen once it is filled in; any change clears the
+  /// flag (prefill may land after the first frame, so not at mount).
+  String? _rejected;
+
+  bool get _flagged {
+    if (!widget.flagged) return false;
+    final text = widget.controller.text;
+    if (_rejected == null && text.trim().isNotEmpty) _rejected = text;
+    return _rejected == null || text == _rejected;
+  }
 
   @override
   void dispose() {
@@ -105,9 +122,12 @@ class _HostFieldState extends State<HostField> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Only the outline repaints on focus; the field is reused.
+          // Only the outline repaints on focus (and, while flagged, on
+          // typing); the field is reused.
           ListenableBuilder(
-            listenable: _focus,
+            listenable: widget.flagged
+                ? Listenable.merge([_focus, widget.controller])
+                : _focus,
             builder: (_, child) => Container(
               constraints: BoxConstraints(minHeight: 48.ms),
               padding: EdgeInsets.symmetric(
@@ -119,8 +139,12 @@ class _HostFieldState extends State<HostField> {
                 color: p.field,
                 borderRadius: BorderRadius.circular(12.ms),
                 border: Border.all(
-                  width: _focus.hasFocus ? 1.4 : 1,
-                  color: _focus.hasFocus ? p.accent : p.fieldBorder,
+                  width: _focus.hasFocus || _flagged ? 1.4 : 1,
+                  color: _flagged
+                      ? p.danger
+                      : _focus.hasFocus
+                      ? p.accent
+                      : p.fieldBorder,
                 ),
               ),
               child: child,
@@ -138,6 +162,33 @@ class _HostFieldState extends State<HostField> {
               ],
             ),
           ),
+          if (widget.flagged)
+            ListenableBuilder(
+              listenable: widget.controller,
+              builder: (_, _) => !_flagged
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: EdgeInsets.only(top: 6.ms),
+                      child: Row(
+                        children: [
+                          Icon(
+                            LucideIcons.circleAlert,
+                            size: 14.ms,
+                            color: p.danger,
+                          ),
+                          SizedBox(width: 6.ms),
+                          Expanded(
+                            child: CText(
+                              'hostflow:fix.needs_change',
+                              size: 12.5,
+                              weight: FontWeight.w700,
+                              color: p.danger,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
           if (widget.maxLength != null)
             Padding(
               padding: EdgeInsets.only(

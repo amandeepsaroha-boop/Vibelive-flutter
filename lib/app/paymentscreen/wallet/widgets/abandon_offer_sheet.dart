@@ -31,6 +31,7 @@ Future<bool> showAbandonOfferSheet(
         windowMinutes: windowMinutes,
         gstPercent: gstPercent,
       ),
+      name: 'abandon_offer_sheet',
     ) ??
     false;
 

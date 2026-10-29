@@ -42,10 +42,14 @@ class HostHandleField extends HookWidget {
     super.key,
     required this.controller,
     this.ownExpertId,
+    this.flagged = false,
   });
 
   final TextEditingController controller;
   final String? ownExpertId;
+
+  /// Review turned the handle down ([HostField.flagged]).
+  final bool flagged;
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +114,7 @@ class HostHandleField extends HookWidget {
           textInputAction: TextInputAction.next,
           fieldKey: const ValueKey('hostflow-handle'),
           trailing: status == null ? null : settledOnly(status),
+          flagged: flagged,
         ),
         SizedBox(height: 8.ms),
         ValueListenableBuilder<TextEditingValue>(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/call_ui_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/scale.dart';
@@ -16,6 +17,7 @@ import 'call_avatar.dart';
 import 'call_safety_row.dart';
 import 'helper/call_format.dart';
 import 'helper/call_select.dart';
+import 'helper/call_track.dart';
 import 'helper/call_ui_state.dart';
 
 enum _Kind { report, block }
@@ -43,9 +45,20 @@ class CallSafetyPanel extends HookWidget {
       final read = Completer<void>();
       onHold(read.future);
       busy.value = kind;
+      final call = currentCallInfo();
       final outcome = kind == _Kind.report
           ? await CallActions.reportDuringCall()
           : await CallActions.blockDuringCall();
+      CallUiEvents.safetyAction(
+        action: kind.name,
+        source: 'in_call',
+        outcome: switch (outcome) {
+          CallSafetyOutcome.done => 'done',
+          CallSafetyOutcome.noTarget => 'no_target',
+          CallSafetyOutcome.failed => 'failed',
+        },
+        call: call,
+      );
       if (context.mounted) {
         busy.value = null;
         ui.safetyOpen.value = false;
@@ -137,7 +150,10 @@ class CallSafetyPanel extends HookWidget {
             top: 14.ms - _slop,
             right: 16.ms - _slop,
             child: Pressable(
-              onPressed: () => ui.safetyOpen.value = false,
+              onPressed: () {
+                ui.safetyOpen.value = false;
+                CallUiEvents.safetyPanelClosed(currentCallInfo());
+              },
               hitPadding: const EdgeInsets.all(_slop),
               semanticLabel: context.t('actions.close'),
               child: Icon(

@@ -11,6 +11,7 @@ import '../../../api/callscreen/call_queries.dart';
 import '../../../api/listingflow/listing_models.dart';
 import '../call_actions.dart';
 import '../call_alerts.dart';
+import '../call_analytics.dart';
 import '../call_billing.dart';
 import '../call_controller.dart';
 import '../call_identity.dart';
@@ -182,7 +183,8 @@ abstract final class OutgoingFlow {
     CallTimers.instance.arm(CallTimers.noAnswer, CallTimings.noAnswer, () {
       final now = CallController.instance.value;
       if (now.isSameCall(started.callId) && now.phase.isPreConnect) {
-        unawaited(EndFlow.hangup()); // decision 7: a normal caller cancel
+        // decision 7: a normal caller cancel
+        unawaited(EndFlow.hangup(reason: CallEndReason.noAnswer));
       }
     });
     CallNavigator.toCall();

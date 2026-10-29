@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/screen_tracker.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/scale.dart';
@@ -10,9 +11,14 @@ import 'wallet_header.dart';
 
 /// Slide-up sheet shared by the balance gate, first-top-up and exit-intent
 /// offers (RN AuthSheet pattern: grabber, close X, safe-area padding).
-Future<T?> showOfferSheet<T>(BuildContext context, WidgetBuilder builder) =>
-    showModalBottomSheet<T>(
+/// [name]: the analytics screen name of the sheet.
+Future<T?> showOfferSheet<T>(
+  BuildContext context,
+  WidgetBuilder builder, {
+  String? name,
+}) => showModalBottomSheet<T>(
       context: context,
+      routeSettings: name == null ? null : ScreenTracker.sheet(name),
       isScrollControlled: true,
       useSafeArea: true,
       useRootNavigator: true,

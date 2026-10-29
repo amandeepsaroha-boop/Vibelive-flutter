@@ -30,6 +30,7 @@ class HostEnhanceField extends HookWidget {
     required this.maxLines,
     this.textInputAction,
     this.fieldKey,
+    this.flagged = false,
   });
 
   final TextEditingController controller;
@@ -44,6 +45,9 @@ class HostEnhanceField extends HookWidget {
   final int maxLines;
   final TextInputAction? textInputAction;
   final Key? fieldKey;
+
+  /// Review turned this text down ([HostField.flagged]).
+  final bool flagged;
 
   /// Shortest text worth enhancing.
   static const minChars = 3;
@@ -132,6 +136,7 @@ class HostEnhanceField extends HookWidget {
       textInputAction: textInputAction,
       fieldKey: fieldKey,
       readOnly: busy.value,
+      flagged: flagged,
       // Same row as "n/max", before it.
       counterLeading: !showButton
           ? null

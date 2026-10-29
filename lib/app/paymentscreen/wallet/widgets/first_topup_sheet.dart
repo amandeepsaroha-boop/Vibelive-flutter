@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/analytics/events/payment_events.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../component/c_button.dart';
 import '../../../component/c_text.dart';
@@ -26,6 +27,7 @@ Future<int?> showFirstTopupSheet(
     options: FirstTopupOffer.options(presets),
     voiceRate: voiceRate,
   ),
+  name: 'first_topup_offer_sheet',
 );
 
 class _FirstTopupSheet extends HookWidget {
@@ -71,7 +73,13 @@ class _FirstTopupSheet extends HookWidget {
                   amount: value,
                   bonus: BonusPreview.of(value, percent).bonus,
                   active: value == chosen,
-                  onTap: () => selected.value = value,
+                  onTap: () {
+                    selected.value = value;
+                    PaymentEvents.firstTopupOfferOption(
+                      amount: value,
+                      percent: percent,
+                    );
+                  },
                 ),
               ),
             ],

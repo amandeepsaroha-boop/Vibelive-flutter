@@ -6,6 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/events/discover_events.dart';
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/session/session_store.dart';
@@ -37,7 +40,13 @@ import 'safety_prompt.dart';
 /// down (or flung) to close. Opens in the same frame, never after a request:
 /// [host] renders at once (upgraded from the session's host index when it
 /// is a summary); only what a summary lacks loads, behind section skeletons.
-Future<void> showHostProfile(BuildContext context, HostCard host) {
+/// [source]: where it was opened from, for analytics (`discover`, `search`,
+/// `deeplink`, `history`, `favourites`, `callback`…).
+Future<void> showHostProfile(
+  BuildContext context,
+  HostCard host, {
+  String source = 'other',
+}) {
   // Reviews start now, in parallel with the sheet (and any detail read).
   prefetchExpertReviews(host.expertProfileDocumentId);
   final navigator = Navigator.of(context, rootNavigator: true);
@@ -53,9 +62,11 @@ Future<void> showHostProfile(BuildContext context, HostCard host) {
     origin: context,
     route: route,
     topInset: topInset,
+    source: source,
   );
   route = ModalBottomSheetRoute<void>(
     builder: (_) => sheet,
+    settings: ScreenTracker.sheet('host_profile_sheet'),
     capturedThemes: InheritedTheme.capture(
       from: context,
       to: navigator.context,
@@ -83,12 +94,14 @@ class _HostProfileSheet extends StatelessWidget {
     required this.origin,
     required this.route,
     required this.topInset,
+    required this.source,
   });
 
   final HostCard host;
   final BuildContext origin;
   final ModalRoute<void> route;
   final double topInset;
+  final String source;
 
   static const _closeAt = 0.4;
 
@@ -109,6 +122,7 @@ class _HostProfileSheet extends StatelessWidget {
           route: route,
           scroll: scroll,
           topInset: topInset,
+          source: source,
         ),
       ),
     ),
@@ -122,6 +136,7 @@ class _ProfileView extends HookWidget {
     required this.route,
     required this.scroll,
     required this.topInset,
+    required this.source,
   });
 
   final HostCard host;
@@ -133,6 +148,9 @@ class _ProfileView extends HookWidget {
   final ModalRoute<void> route;
   final ScrollController scroll;
   final double topInset;
+
+  /// Where the sheet was opened from (analytics).
+  final String source;
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +184,7 @@ class _ProfileView extends HookWidget {
     final router = GoRouter.maybeOf(context);
     final controller = useMemoized(
       () => HostProfileController(
+        source: source,
         close: () => _close(route),
         navigate: (path) {
           if (router != null) unawaited(router.push(path));
@@ -181,8 +200,51 @@ class _ProfileView extends HookWidget {
     );
     useEffect(() => controller.dispose, [controller]);
 
+    // Analytics: `view_expert` once the full profile is known (or failed),
+    // and on close how long it stayed open and how many photos were seen.
+    final latest = useRef(profile)..value = profile;
+    final viewed = useRef(false);
+    useEffect(() {
+      if (viewed.value || waiting) return null;
+      viewed.value = true;
+      final p = profile;
+      DiscoverEvents.viewExpert(
+        expertId: HostProfileRules.expertKey(p),
+        source: source,
+        category: p.specialization.isEmpty ? null : p.specialization,
+        price: p.aPrice > 0 ? p.aPrice : null,
+        videoPrice: p.vPrice > 0 ? p.vPrice : null,
+        isOnline: p.isAvailable,
+        rating: p.rating > 0 ? p.rating : null,
+        verified: p.verified,
+        isOwn: isMe,
+      );
+      return null;
+    }, [waiting]);
+    useEffect(() {
+      final opened = DateTime.now();
+      final seen = <int>{0};
+      void onImage() => seen.add(controller.activeImage.value);
+      controller.activeImage.addListener(onImage);
+      // No removeListener: the controller (disposed first) drops it.
+      return () {
+        final p = latest.value;
+        DiscoverEvents.profileClosed(
+          hostId: HostProfileRules.expertKey(p),
+          source: source,
+          secondsOpen: DateTime.now().difference(opened).inSeconds,
+          photosViewed: p.images.isEmpty ? 0 : seen.length,
+          photoCount: p.images.length,
+        );
+      };
+    }, [controller]);
+
     final block = useBlockUser(
       onSuccess: () {
+        DiscoverEvents.block(
+          hostId: HostProfileRules.expertKey(latest.value),
+          step: 'success',
+        );
         controller.close();
         CAlert.show(
           title: 'host:block.success_title',
@@ -190,11 +252,20 @@ class _ProfileView extends HookWidget {
           variant: CAlertVariant.success,
         );
       },
-      onError: (e) => CAlert.error(e, title: 'host:block.failed_title'),
+      onError: (e) {
+        DiscoverEvents.block(
+          hostId: HostProfileRules.expertKey(latest.value),
+          step: 'failed',
+          error: Analytics.errorCode(e),
+        );
+        CAlert.error(e, title: 'host:block.failed_title');
+      },
     );
 
     Future<void> openMenu() async {
+      final hostId = HostProfileRules.expertKey(profile);
       final action = await showProfileMenu(context);
+      DiscoverEvents.profileMenuChoice(hostId: hostId, action: action?.name);
       if (action == null || !context.mounted) return;
       switch (action) {
         case ProfileMenuAction.report:
@@ -202,6 +273,7 @@ class _ProfileView extends HookWidget {
         case ProfileMenuAction.block:
           final target = HostProfileRules.blockTarget(profile);
           if (target == null) {
+            DiscoverEvents.block(hostId: hostId, step: 'no_target');
             await CAlert.show(
               title: 'errors.title',
               message: 'host:block.missing',
@@ -214,6 +286,10 @@ class _ProfileView extends HookWidget {
             message: 'host:block.message',
             confirmLabel: 'host:block.confirm',
             variant: CAlertVariant.error,
+          );
+          DiscoverEvents.block(
+            hostId: hostId,
+            step: confirmed ? 'confirmed' : 'cancelled',
           );
           if (confirmed && context.mounted) {
             await block.mutate(BlockUserInput(target));
@@ -242,7 +318,12 @@ class _ProfileView extends HookWidget {
         ProfileHeader(
           host: profile,
           showCompany: isMe && isCompany,
-          onInfluencer: () => showInfluencerSheet(context, profile),
+          onInfluencer: () {
+            DiscoverEvents.influencerOpened(
+              hostId: HostProfileRules.expertKey(profile),
+            );
+            showInfluencerSheet(context, profile);
+          },
         ),
         if (waiting)
           const ProfileBodySkeleton()
@@ -283,6 +364,7 @@ class _ProfileView extends HookWidget {
             child: ProfileReviews(
               query: reviews,
               waiting: reviewsKey == null && waiting,
+              hostId: reviewsKey,
             ),
           ),
           const SliverToBoxAdapter(child: _ListEnd()),
@@ -313,20 +395,31 @@ class _ProfileView extends HookWidget {
                 right: 16.ms,
                 child: ProfileTopBar(
                   onBack: controller.close,
-                  onShare: () => showShareSheet(
-                    context,
-                    url: HostProfileRules.shareUrl(profile),
-                    onShareVia: () => controller.share(context, profile),
-                    onCopy: () => controller.copyLink(profile),
-                    onShowQr: () => showQrCodeSheet(
+                  onShare: () {
+                    DiscoverEvents.shareOpened(
+                      hostId: HostProfileRules.expertKey(profile),
+                    );
+                    showShareSheet(
                       context,
                       url: HostProfileRules.shareUrl(profile),
-                      name: profile.name.isEmpty
-                          ? context.t(HostCard.unknownNameKey)
-                          : profile.name,
-                      handle: profile.handler,
-                    ),
-                  ),
+                      onShareVia: () => controller.share(context, profile),
+                      onCopy: () => controller.copyLink(profile),
+                      onShowQr: () {
+                        DiscoverEvents.profileShared(
+                          hostId: HostProfileRules.expertKey(profile),
+                          method: 'qr',
+                        );
+                        showQrCodeSheet(
+                          context,
+                          url: HostProfileRules.shareUrl(profile),
+                          name: profile.name.isEmpty
+                              ? context.t(HostCard.unknownNameKey)
+                              : profile.name,
+                          handle: profile.handler,
+                        );
+                      },
+                    );
+                  },
                   onMenu: isMe ? null : () => unawaited(openMenu()),
                 ),
               ),

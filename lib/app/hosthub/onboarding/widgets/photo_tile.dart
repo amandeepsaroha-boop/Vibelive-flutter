@@ -13,7 +13,8 @@ import '../helper/draft_models.dart';
 import '../helper/host_palette.dart';
 
 /// One profile photo: the picked file while it uploads, then the uploaded
-/// image (decoded at tile size). Slot 1 wears the "Primary" badge.
+/// image (decoded at tile size). Slot 1 wears the "Primary" badge. A saved
+/// photo shows its review: a red frame and "Not approved", or "In review".
 class HostPhotoTile extends StatelessWidget {
   const HostPhotoTile({
     super.key,
@@ -22,9 +23,14 @@ class HostPhotoTile extends StatelessWidget {
     required this.primary,
     required this.onRemove,
     required this.onTap,
+    this.review,
   });
 
   final HostDraftPhoto photo;
+
+  /// The saved photo's review state (pending / approved / rejected); null
+  /// for a new upload.
+  final String? review;
   final double width;
   final bool primary;
   final VoidCallback onRemove;
@@ -60,6 +66,16 @@ class HostPhotoTile extends StatelessWidget {
           )
         : placeholder;
 
+    final rejected = review == 'rejected';
+    final badge = switch (review) {
+      'rejected' => ('hostflow:fix.photo_rejected', p.danger, LucideIcons.ban),
+      'pending' => (
+        'hostflow:fix.photo_pending',
+        p.warning,
+        LucideIcons.clock3,
+      ),
+      _ => null,
+    };
     return Pressable(
       activeOpacity: 0.9,
       onPressed: onTap,
@@ -69,6 +85,51 @@ class HostPhotoTile extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             image,
+            if (rejected) ColoredBox(color: AppColors.blackA(0.35)),
+            if (badge case (final label, final color, final icon))
+              Positioned(
+                left: 6.ms,
+                right: 6.ms,
+                bottom: 6.ms,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 6.ms,
+                    vertical: 4.ms,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(8.ms),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon, size: 12.ms, color: AppColors.white),
+                      SizedBox(width: 4.ms),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: CText(
+                            label,
+                            size: 11.5,
+                            weight: FontWeight.w800,
+                            color: AppColors.white,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (rejected)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(radius),
+                    border: Border.all(color: p.danger, width: 2.5),
+                  ),
+                ),
+              ),
             if (photo.uploading || photo.failed)
               ColoredBox(
                 color: AppColors.blackA(0.35),

@@ -7,12 +7,12 @@ import '../../api/hosthub/approval_models.dart';
 import '../../api/hosthub/hosthub_queries.dart';
 import '../../api/hosthub/profile_models.dart';
 import '../common/moderation_banners.dart';
+import 'widgets/moderation_messages_card.dart';
 import 'widgets/review_status_card.dart';
 
 /// The host's onboarding state on the ME tab, above the host dashboard:
 /// moderation news, then under review / changes needed / finish setup until
-/// approved. An approved host gets nothing here (the dashboard and Settings
-/// tabs cover it).
+/// approved, then the moderation team's messages (any host).
 class HostStatusSection extends StatelessWidget {
   const HostStatusSection({super.key, required this.host, required this.open});
 
@@ -28,17 +28,24 @@ class HostStatusSection extends StatelessWidget {
         ? null
         : _ReviewStatus(host: host, open: open);
     final hasNews = hostModerationNotices(host).isNotEmpty;
-    if (child == null && !hasNews) return const SizedBox.shrink();
-    return Padding(
-      padding: EdgeInsets.only(top: 12.ms),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // RN MeModule: moderation news above everything else.
-          if (hasNews) HostModerationBanners(host: host),
-          ?child,
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (child != null || hasNews)
+          Padding(
+            padding: EdgeInsets.only(top: 12.ms),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // RN MeModule: moderation news above everything else.
+                if (hasNews) HostModerationBanners(host: host),
+                ?child,
+              ],
+            ),
+          ),
+        // Its own padding; nothing when there are no messages.
+        HostModerationMessagesCard(open: open),
+      ],
     );
   }
 }

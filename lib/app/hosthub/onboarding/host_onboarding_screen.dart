@@ -26,6 +26,7 @@ import 'helper/section_save.dart';
 import 'helper/submit_plan.dart';
 import 'helper/topic_catalog.dart';
 import '../common/host_page.dart';
+import '../common/host_review.dart';
 import 'steps/availability_step.dart';
 import 'steps/basic_profile_step.dart';
 import 'steps/bio_step.dart';
@@ -86,6 +87,12 @@ class HostOnboardingScreen extends HookWidget {
       return null;
     }, const []);
     final (me, ready, host) = _usePrefill(context, draft, session);
+    // What review asked to change: marked on the steps it is about.
+    final messages = useHostModerationMessages(context, enabled: host != null);
+    final review = useMemoized(
+      () => HostReview.from(host, messages.data ?? const []),
+      [host, messages.data],
+    );
     // An approved / live host, or one whose review is pending, saves on the
     // last step instead of filing (another) approval request.
     final latest = useLatestApproval(
@@ -163,34 +170,37 @@ class HostOnboardingScreen extends HookWidget {
         ),
       );
     }
-    return ThemedStatusBar(
-      darkBackground: onIntro ? true : null,
-      child: Scaffold(
-        backgroundColor: onIntro ? IntroStep.deep : p.bg,
-        resizeToAvoidBottomInset: false,
-        body: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 260),
-          child: onIntro
-              ? IntroStep(
-                  key: const ValueKey('intro'),
-                  resuming: draft.started,
-                  onStart: () {
-                    draft.started = true;
-                    draft.step.value = HostStep.basic;
-                  },
-                )
-              : _Flow(
-                  key: const ValueKey('flow'),
-                  draft: draft,
-                  submit: runSubmit,
-                  save: editStep == null ? null : save.section,
-                  saveAll: save.all,
-                  existingHost: existingHost,
-                  exit: exit,
-                  explore: () => context.go('${AppRoutes.home}?tab=discover'),
-                  rateFloors: () =>
-                      (pricing.minimumVoiceRate, pricing.minimumVideoRate),
-                ),
+    return HostReviewScope(
+      review: review,
+      child: ThemedStatusBar(
+        darkBackground: onIntro ? true : null,
+        child: Scaffold(
+          backgroundColor: onIntro ? IntroStep.deep : p.bg,
+          resizeToAvoidBottomInset: false,
+          body: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            child: onIntro
+                ? IntroStep(
+                    key: const ValueKey('intro'),
+                    resuming: draft.started,
+                    onStart: () {
+                      draft.started = true;
+                      draft.step.value = HostStep.basic;
+                    },
+                  )
+                : _Flow(
+                    key: const ValueKey('flow'),
+                    draft: draft,
+                    submit: runSubmit,
+                    save: editStep == null ? null : save.section,
+                    saveAll: save.all,
+                    existingHost: existingHost,
+                    exit: exit,
+                    explore: () => context.go('${AppRoutes.home}?tab=discover'),
+                    rateFloors: () =>
+                        (pricing.minimumVoiceRate, pricing.minimumVideoRate),
+                  ),
+          ),
         ),
       ),
     );

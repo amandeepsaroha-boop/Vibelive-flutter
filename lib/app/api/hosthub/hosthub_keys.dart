@@ -36,6 +36,10 @@ abstract final class HostHubKeys {
     platform,
   ];
 
+  /// The host's messages from the moderation team. Under [profileAll]: a
+  /// profile save (which may answer a rejection) refreshes them too.
+  static const moderationMessages = ['hosthub', 'profile', 'moderation'];
+
   static const imagesAll = ['hosthub', 'profile-images'];
   static RawQueryKey profileImages(String expertId) => [
     'hosthub',

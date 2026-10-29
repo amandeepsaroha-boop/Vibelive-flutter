@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/analytics/events/call_ui_events.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/scale.dart';
 import '../../component/app_logo.dart';
@@ -23,6 +24,17 @@ class _CaptureShieldState extends State<CaptureShield> {
   void initState() {
     super.initState();
     ScreenCaptureGuard.attach();
+    ScreenCaptureGuard.shielded.addListener(_onShield);
+  }
+
+  @override
+  void dispose() {
+    ScreenCaptureGuard.shielded.removeListener(_onShield);
+    super.dispose();
+  }
+
+  void _onShield() {
+    if (ScreenCaptureGuard.shielded.value) CallUiEvents.captureShielded();
   }
 
   @override

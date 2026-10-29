@@ -4,6 +4,7 @@ import 'package:facebook_app_events/facebook_app_events.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 
+import '../network/api_exception.dart';
 import '../storage/app_prefs.dart';
 import '../utils/log.dart';
 
@@ -239,6 +240,22 @@ abstract final class Analytics {
           : (value.length > 36 ? value.substring(0, 36) : value),
     ),
   );
+
+  /// A short, PII-free code for a failure, for an `error` parameter:
+  /// `rejected:auth:login.errors.invalid_otp`, `network`, `422`…
+  static String errorCode(Object? error) {
+    if (error is ApiException) {
+      final key = error.messageKey;
+      final status = error.statusCode;
+      return [
+        error.type.name,
+        ?status?.toString(),
+        ?key,
+      ].join(':');
+    }
+    if (error == null) return 'unknown';
+    return error.runtimeType.toString();
+  }
 
   // ── Plumbing ───────────────────────────────────────────────────────────
 

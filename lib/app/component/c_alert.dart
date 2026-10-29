@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/analytics/events/me_events.dart';
+import '../../core/analytics/screen_tracker.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/app_router.dart';
@@ -40,6 +42,9 @@ abstract final class CAlert {
     /// false = [title]/[message] are literal text (e.g. server messages).
     bool translate = true,
     bool dismissible = true,
+
+    /// Analytics screen name; defaults to one derived from the title key.
+    String? analyticsName,
   }) async {
     final ctx = context ?? rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) {
@@ -48,10 +53,12 @@ abstract final class CAlert {
     }
     final id = '$variant|$title|$message';
     if (!_open.add(id)) return null;
+    final name = analyticsName ?? nameFor(title, translate: translate);
     try {
-      return await showGeneralDialog<bool>(
+      final result = await showGeneralDialog<bool>(
         context: ctx,
         useRootNavigator: true,
+        routeSettings: ScreenTracker.sheet(name),
         barrierDismissible: dismissible,
         barrierLabel: 'alert',
         barrierColor: ctx.colors.modalBackdrop,
@@ -71,9 +78,32 @@ abstract final class CAlert {
           ),
         ),
       );
+      UiEvents.dialogAction(
+        dialog: name,
+        action: switch (result) {
+          true => 'primary',
+          false => 'secondary',
+          null => 'dismissed',
+        },
+      );
+      return result;
     } finally {
       _open.remove(id);
     }
+  }
+
+  /// Analytics name of an alert: `alert_<title key>` (`alert_resources_
+  /// logout_title`), or `alert` for literal text.
+  @visibleForTesting
+  static String nameFor(String? title, {bool translate = true}) {
+    if (!translate || title == null || title.isEmpty) return 'alert';
+    final slug = title
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '')
+        .toLowerCase();
+    if (slug.isEmpty) return 'alert';
+    final name = 'alert_$slug';
+    return name.length > 90 ? name.substring(0, 90) : name;
   }
 
   /// Primary + Cancel. Resolves to `true` only when confirmed.
@@ -85,6 +115,7 @@ abstract final class CAlert {
     String confirmLabel = 'actions.confirm',
     String cancelLabel = 'actions.cancel',
     CAlertVariant variant = CAlertVariant.warning,
+    String? analyticsName,
   }) async =>
       await show(
         context: context,
@@ -94,6 +125,7 @@ abstract final class CAlert {
         variant: variant,
         primaryLabel: confirmLabel,
         secondaryLabel: cancelLabel,
+        analyticsName: analyticsName,
       ) ==
       true;
 
@@ -110,12 +142,14 @@ abstract final class CAlert {
     }
     final ctx = context ?? rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return;
+    UiEvents.errorAlert(e);
     await show(
       context: ctx,
       title: ctx.t(title),
       message: e.localizedMessage(ctx),
       variant: CAlertVariant.error,
       translate: false,
+      analyticsName: 'error_alert',
     );
   }
 }

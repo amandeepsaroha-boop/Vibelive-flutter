@@ -16,6 +16,7 @@ import '../../../api/listingflow/listing_models.dart';
 import '../../../api/listingflow/listing_queries.dart';
 import '../../../api/paymentscreen/payment_keys.dart';
 import '../../../authscreen/helper/deep_links.dart';
+import '../call_analytics.dart';
 import '../call_controller.dart';
 import '../call_identity.dart';
 import '../call_navigator.dart';
@@ -59,11 +60,15 @@ abstract final class EndFlow {
 
   /// Hang up (button, remote quit, timers, safety actions). Idempotent.
   /// The screen flips to ended at once; Callend runs in the background.
-  static Future<void> hangup() async {
+  /// [reason]: why, for analytics ([CallEndReason]).
+  static Future<void> hangup({
+    String reason = CallEndReason.userHangup,
+  }) async {
     CallRuntime.ensureStarted();
     var s = _calls.value;
     final callId = s.callId;
     if (callId == null || !s.phase.isActive || _ending == callId) return;
+    CallAnalytics.reason(callId, reason);
     _ending = callId;
     // The remote joined but the 500 ms connect delay (RN C8) has not run:
     // the call did connect. Stamp it, so the summary, the rating sheet and
@@ -146,10 +151,11 @@ abstract final class EndFlow {
     final callId = s.callId;
     if (callId == null) return;
     Future<void>? request;
+    CallAnalytics.reason(callId, CallEndReason.signOut);
     if (s.isReceiver && s.phase == CallPhase.ringing) {
       request = IncomingFlow.declineCall(s);
     } else if (s.phase.isActive) {
-      await hangup();
+      await hangup(reason: CallEndReason.signOut);
       request = _lastEnd;
     }
     try {
@@ -203,9 +209,13 @@ abstract final class EndFlow {
 
   /// Ended elsewhere (end push, native UI, server): the ended phase without
   /// any API call.
-  static void endLocally(String callId) {
+  static void endLocally(
+    String callId, {
+    String reason = CallEndReason.remoteEnded,
+  }) {
     final s = _calls.value;
     if (!s.isSameCall(callId) || !s.phase.isActive) return;
+    CallAnalytics.reason(s.callId ?? callId, reason);
     _ending = callId;
     _calls.end();
     endNativeOnce(callId);
@@ -214,9 +224,13 @@ abstract final class EndFlow {
 
   /// A receiver's ring goes away without a summary or an API call (caller
   /// cancelled, answered elsewhere, ring timeout).
-  static void dismissRinging(String callId) {
+  static void dismissRinging(
+    String callId, {
+    String reason = CallEndReason.callerCancelled,
+  }) {
     final s = _calls.value;
     if (!s.isSameCall(callId) || s.phase != CallPhase.ringing) return;
+    CallAnalytics.reason(s.callId ?? callId, reason);
     CallDedup.instance
       ..markEnded(callId)
       ..releaseClaims(callId);
@@ -230,8 +244,11 @@ abstract final class EndFlow {
     final s = _calls.value;
     final callId = s.callId;
     if (callId == null || !s.phase.isActive) return;
-    if (s.isCaller && !s.everConnected) return hangup();
-    endLocally(callId);
+    CallAnalytics.reason(callId, CallEndReason.joinFailed);
+    if (s.isCaller && !s.everConnected) {
+      return hangup(reason: CallEndReason.joinFailed);
+    }
+    endLocally(callId, reason: CallEndReason.joinFailed);
   }
 
   /// Leave the call screens for Home, once per call (decision 5): the

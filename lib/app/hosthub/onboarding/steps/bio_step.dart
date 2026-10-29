@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/utils/scale.dart';
+import '../../common/host_review.dart';
 import '../helper/draft_controller.dart';
+import '../helper/host_steps.dart';
 import '../helper/suggestions.dart';
 import '../helper/validation.dart';
 import '../widgets/enhance_field.dart';
+import '../widgets/fix_notice.dart';
 import '../widgets/prompt_suggestions.dart';
 import '../widgets/step_body.dart';
 
@@ -18,6 +21,7 @@ class BioStep extends StatelessWidget {
     title: 'hostflow:bio.title',
     subtitle: 'hostflow:bio.subtitle',
     children: [
+      const HostFixNotice(step: HostStep.bio),
       HostEnhanceField(
         controller: draft.bio,
         hint: 'hostflow:bio.hint',
@@ -26,6 +30,7 @@ class BioStep extends StatelessWidget {
         minLines: 5,
         maxLines: 8,
         fieldKey: const ValueKey('hostflow-bio'),
+        flagged: HostReviewScope.of(context).flagged('descriptions'),
       ),
       SizedBox(height: 14.ms),
       HostPromptSuggestions(

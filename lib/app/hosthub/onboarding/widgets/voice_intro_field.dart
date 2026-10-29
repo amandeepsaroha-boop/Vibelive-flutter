@@ -22,11 +22,12 @@ import '../helper/host_palette.dart';
 import '../helper/voice_recorder.dart';
 import 'step_body.dart';
 
-/// The Voice step's recorder (RN ProfessionalDetails "Voice Intro"): one big
-/// round button records (a ring fills toward [HostVoiceIntro.maxSeconds],
-/// where it stops on its own), stops, then plays it back. Re-record and
-/// Delete sit below. The draft keeps the file; the save uploads it as the
-/// profile's `audio_intro`.
+/// The Voice step's recorder (RN ProfessionalDetails "Voice Intro"): a
+/// "1 Record · 2 Listen · 3 Done" guide on top, then one big round button
+/// that records (a ring fills toward [HostVoiceIntro.maxSeconds], where it
+/// stops on its own), stops, then plays it back. Once there is a recording,
+/// Play / Stop, Re-record and Delete sit below as plain buttons. The draft
+/// keeps the file; the save uploads it as the profile's `audio_intro`.
 ///
 /// Leaving the step mid-recording discards it; the player and the recorder
 /// live only while this is on screen.
@@ -50,6 +51,9 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
 
   final _recording = ValueNotifier(false);
   final _playing = ValueNotifier(false);
+
+  /// The new recording was played back at least once (the guide's "Listen").
+  final _listened = ValueNotifier(false);
   final _elapsed = ValueNotifier(Duration.zero);
 
   /// `package:clock`: real time in the app, test time in tests.
@@ -143,6 +147,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
       path,
       seconds.ceil().clamp(1, HostVoiceIntro.maxSeconds),
     );
+    _listened.value = false;
     unawaited(_uploadEarly(widget.draft, path));
   }
 
@@ -182,6 +187,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
         return;
       }
       _playing.value = true;
+      _listened.value = true;
       _breathe(true);
       unawaited(player.play());
     } catch (e) {
@@ -203,6 +209,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
     final intro = _intro.value;
     if (intro?.path case final path?) _deleteQuietly(path);
     _intro.value = intro?.withoutRecording();
+    _listened.value = false;
   }
 
   /// The big button: record, stop, or listen.
@@ -230,6 +237,7 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
     _pulse.dispose();
     _recording.dispose();
     _playing.dispose();
+    _listened.dispose();
     _elapsed.dispose();
     super.dispose();
   }
@@ -243,11 +251,14 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
     return HostCard(
       padding: EdgeInsets.fromLTRB(20.ms, 24.ms, 20.ms, 20.ms),
       child: ListenableBuilder(
-        listenable: Listenable.merge([_recording, _playing, _intro]),
+        listenable: Listenable.merge([_recording, _playing, _intro, _listened]),
         builder: (context, _) {
           final recording = _recording.value;
           final playing = _playing.value;
           final intro = _intro.value;
+          // A new recording wants one listen; a saved one is done already.
+          final heard = intro != null && (!intro.isNew || _listened.value);
+          final stage = recording || intro == null ? 0 : (heard ? 2 : 1);
           final (label, icon) = recording
               ? ('hostflow:voice.stop_label', LucideIcons.square)
               : intro == null
@@ -257,6 +268,8 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
               : ('hostflow:voice.play', LucideIcons.play);
           return Column(
             children: [
+              _Guide(stage: stage),
+              SizedBox(height: 18.ms),
               _RecordDisc(
                 semanticLabel: context.t(label),
                 icon: icon,
@@ -294,9 +307,11 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
                     ? 'hostflow:voice.tap_stop'
                     : intro == null
                     ? 'hostflow:voice.limit'
-                    : (intro.isNew
-                          ? 'hostflow:voice.recorded'
-                          : 'hostflow:voice.saved'),
+                    : !intro.isNew
+                    ? 'hostflow:voice.saved'
+                    : heard
+                    ? 'hostflow:voice.recorded'
+                    : 'hostflow:voice.listen_hint',
                 variables: {
                   'time': _time(Duration(seconds: intro?.seconds ?? 0)),
                 },
@@ -312,6 +327,16 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
                   spacing: 10.ms,
                   runSpacing: 8.ms,
                   children: [
+                    _Pill(
+                      icon: playing ? LucideIcons.square : LucideIcons.play,
+                      label: playing
+                          ? 'hostflow:voice.stop'
+                          : 'hostflow:voice.play_short',
+                      color: p.onAccent,
+                      background: p.accent,
+                      border: p.accent,
+                      onPressed: _togglePlayback,
+                    ),
                     _Pill(
                       icon: LucideIcons.rotateCcw,
                       label: 'hostflow:voice.rerecord',
@@ -337,6 +362,82 @@ class _HostVoiceIntroFieldState extends State<HostVoiceIntroField>
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// "1 Record — 2 Listen — 3 Done": where the host is, at a glance. [stage]
+/// is the current one (0–2); the ones before it are ticked, and so is Done
+/// once reached.
+class _Guide extends StatelessWidget {
+  const _Guide({required this.stage});
+  final int stage;
+
+  static const _labels = [
+    'hostflow:voice.step_record',
+    'hostflow:voice.step_listen',
+    'hostflow:voice.step_done',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final p = HostPalette.of(context);
+    Widget dot(int i) {
+      final done = i < stage || (i == 2 && stage == 2);
+      final active = i == stage;
+      final on = done || active;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 22.ms,
+            height: 22.ms,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: on ? p.accent : p.tint,
+              border: on ? null : Border.all(color: p.tintBorder),
+            ),
+            child: done
+                ? Icon(LucideIcons.check, size: 13.ms, color: p.onAccent)
+                : CText.raw(
+                    '${i + 1}',
+                    size: 12,
+                    weight: FontWeight.w800,
+                    color: on ? p.onAccent : p.muted,
+                  ),
+          ),
+          SizedBox(width: 6.ms),
+          CText(
+            _labels[i],
+            size: 13,
+            weight: active ? FontWeight.w800 : FontWeight.w600,
+            color: on ? p.text : p.muted,
+            maxLines: 1,
+          ),
+        ],
+      );
+    }
+
+    Widget line(int i) => Expanded(
+      child: Container(
+        height: 2,
+        margin: EdgeInsets.symmetric(horizontal: 8.ms),
+        decoration: BoxDecoration(
+          color: i < stage ? p.accent : p.track,
+          borderRadius: BorderRadius.circular(1),
+        ),
+      ),
+    );
+
+    // Scales down rather than overflow on a narrow phone in Hindi.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: SizedBox(
+        width: 300.ms,
+        child: Row(children: [dot(0), line(0), dot(1), line(1), dot(2)]),
       ),
     );
   }

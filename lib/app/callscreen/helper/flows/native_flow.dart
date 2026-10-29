@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/utils/log.dart';
 import '../../../api/callscreen/call_queries.dart';
+import '../call_analytics.dart';
 import '../call_controller.dart';
 import '../call_device.dart';
 import '../call_identity.dart';
@@ -198,11 +199,17 @@ abstract final class NativeFlow {
       ..releaseClaims(callId);
     final live = _calls.value;
     final same = live.isSameCall(callId);
-    if (same && live.phase == CallPhase.ringing) _calls.reset();
-    if (apiDone) return;
     final parsed = payload == null
         ? null
         : CallPayload.parse(payload, selfId: CallIdentity.userId)?.session;
+    if (same && live.phase == CallPhase.ringing) {
+      CallAnalytics.reason(live.callId ?? callId, CallEndReason.declined);
+      _calls.reset();
+    } else if (!same) {
+      // Declined on the system UI before the app showed the ring.
+      CallAnalytics.declinedUnseen(callId, video: parsed?.isVideo ?? false);
+    }
+    if (apiDone) return;
     final call =
         (same ? live : parsed) ??
         CallSession(
@@ -227,7 +234,7 @@ abstract final class NativeFlow {
     CallDedup.instance.markEnded(callId);
     final s = _calls.value;
     if (!s.isSameCall(callId) || !s.phase.isActive) return;
-    EndFlow.endLocally(callId);
+    EndFlow.endLocally(callId, reason: CallEndReason.systemUi);
     await HeadlessJoin.instance.leave(); // E-44
   }
 
@@ -238,7 +245,7 @@ abstract final class NativeFlow {
     IncomingFlow.clearNativeRinging(callId);
     final s = _calls.value;
     if (s.isSameCall(callId) && s.phase == CallPhase.ringing) {
-      EndFlow.dismissRinging(callId);
+      EndFlow.dismissRinging(callId, reason: CallEndReason.ringTimeout);
     }
   }
 

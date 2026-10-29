@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../core/analytics/screen_tracker.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/theme/vibe_colors.dart';
 import '../api/listingflow/listing_queries.dart';
@@ -39,6 +40,17 @@ class HomeScreen extends HookWidget {
       home.select(initialTab); // `/home?tab=` changed while mounted
       return null;
     }, [initialTab]);
+    // Each tab is its own analytics screen (home_discover / _history / _me).
+    useEffect(() {
+      void track() =>
+          ScreenTracker.setSubScreen('/home', 'home_${home.tab.value.name}');
+      track();
+      home.tab.addListener(track);
+      return () {
+        home.tab.removeListener(track);
+        ScreenTracker.clearSubScreen('/home');
+      };
+    }, [home]);
     // Hosts: fresh review state for the top bar.
     useOwnHostRefresh(home);
 
@@ -51,12 +63,14 @@ class HomeScreen extends HookWidget {
         if (id == null) return;
         final known = peekHostLink(id);
         if (known != null) {
-          await showHostProfile(context, known);
+          await showHostProfile(context, known, source: 'deeplink');
           return;
         }
         try {
           final host = await ensureHostByLink(id);
-          if (context.mounted) await showHostProfile(context, host);
+          if (context.mounted) {
+            await showHostProfile(context, host, source: 'deeplink');
+          }
         } on ApiException catch (e) {
           CToast.error(e);
         }

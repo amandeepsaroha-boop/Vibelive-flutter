@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../../core/analytics/events/call_ui_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/scale.dart';
@@ -9,6 +10,7 @@ import 'call_avatar.dart';
 import 'call_video_view.dart';
 import 'helper/call_format.dart';
 import 'helper/call_select.dart';
+import 'helper/call_track.dart';
 import 'helper/call_ui_state.dart';
 import 'helper/pip_clamp.dart';
 
@@ -89,7 +91,9 @@ class _DragState extends State<_Drag> {
     _pointer = null;
     final quick = e.timeStamp - _downAt < PipLayout.tapTime;
     if (quick && _moved < PipLayout.tapSlop) {
-      widget.ui.swapped.value = !widget.ui.swapped.value;
+      final swapped = !widget.ui.swapped.value;
+      widget.ui.swapped.value = swapped;
+      CallUiEvents.videoSwapped(currentCallInfo(), swapped: swapped);
     }
   }
 

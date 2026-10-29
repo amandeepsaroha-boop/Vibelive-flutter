@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/analytics_identity.dart';
+import '../../../core/analytics/events/auth_events.dart';
+import '../../../core/analytics/screen_tracker.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/strapi.dart';
 import '../../../core/session/session_store.dart';
@@ -106,6 +110,24 @@ class LoginController {
   bool get _isEmail => method.value == OtpChannel.email;
   OtpChannel get _channel => method.value ?? OtpChannel.sms;
 
+  /// Analytics `method` of the open sheet: `email` or `phone`.
+  String get _method => _isEmail ? 'email' : 'phone';
+
+  /// The social provider whose user must verify a mobile: the OTP that
+  /// follows completes THAT sign-in (analytics method = the provider).
+  SocialProvider? _socialPending;
+
+  /// The sheet's current step as a screen (login_mobile, login_otp_email…).
+  void _viewStep() {
+    final m = method.value;
+    if (m == null) return ScreenTracker.view('login');
+    final channel = m == OtpChannel.email ? 'email' : 'mobile';
+    if (otpSent.value) return ScreenTracker.view('login_otp_$channel');
+    ScreenTracker.view(
+      phoneRequired.value ? 'login_phone_required' : 'login_$channel',
+    );
+  }
+
   String get _identifier => _isEmail
       ? email.text.trim().toLowerCase()
       : IndianMobileFormatter.normalize(phone.text);
@@ -122,20 +144,30 @@ class LoginController {
   void toggleTerms() {
     termsAccepted.value = !termsAccepted.value;
     termsNudge.value = false;
+    AuthEvents.termsToggled(accepted: termsAccepted.value);
   }
 
   // ── Options ⇄ sheet ────────────────────────────────────────────────────
 
   /// Typed values are kept, so closing and reopening (or switching) is free.
-  void openMethod(OtpChannel channel) {
+  /// [source]: analytics, `options` or `switch` (the link in the sheet).
+  void openMethod(OtpChannel channel, {String source = 'options'}) {
     method.value = channel;
     clearError();
     termsNudge.value = false;
+    AuthEvents.methodSelected(
+      channel == OtpChannel.email ? 'email' : 'phone',
+      source: source,
+    );
+    _viewStep();
   }
 
   /// Closes the sheet. A pending code is dropped; asking again for the same
   /// number inside the cooldown lands straight back on it (see [sendOtp]).
   void closeSheet() {
+    if (method.value != null) {
+      AuthEvents.sheetClosed(method: _method, otpSent: otpSent.value);
+    }
     FocusManager.instance.primaryFocus?.unfocus();
     _stopSmsAutofill();
     otpSent.value = false;
@@ -143,6 +175,7 @@ class LoginController {
     method.value = null;
     clearError();
     termsNudge.value = false;
+    _viewStep();
   }
 
   /// Android back: code step → form → closed; the options page itself is
@@ -159,10 +192,12 @@ class LoginController {
 
   /// "Change" / Back on the code step: back to the email / mobile form.
   void editIdentifier() {
+    AuthEvents.otpChangeIdentifier(method: _method);
     _stopSmsAutofill();
     otpSent.value = false;
     otp.clear();
     clearError();
+    _viewStep();
   }
 
   // ── OTP ────────────────────────────────────────────────────────────────
@@ -174,6 +209,7 @@ class LoginController {
         ? LoginFormat.isValidEmail(identifier)
         : LoginFormat.isValidIndianMobile(identifier);
     if (!valid) {
+      AuthEvents.inputInvalid(method: _method, field: _isEmail ? 'email' : 'phone');
       return _set(
         error,
         UiText(
@@ -183,7 +219,10 @@ class LoginController {
         ),
       );
     }
-    if (!termsAccepted.value) return _set(termsNudge, true);
+    if (!termsAccepted.value) {
+      AuthEvents.termsRequired(method: _method);
+      return _set(termsNudge, true);
+    }
 
     _lock();
     FocusManager.instance.primaryFocus?.unfocus();
@@ -198,18 +237,24 @@ class LoginController {
       if (bypass != null) {
         _stopSmsAutofill();
         handedOff = true;
-        await _completeSignIn(() => signInWithBypass(bypass));
+        await _completeSignIn(() => signInWithBypass(bypass), bypass: true);
         return;
       }
       _lastSent = identifier;
+      AuthEvents.otpRequested(method: _method);
       _showCodeStep(LoginFormat.resendSeconds);
     } on ApiException catch (e) {
       final retryAfter = AuthErrors.retryAfterSeconds(e);
       // Still in the cooldown for the number that already got a code (e.g.
       // "Change" and straight back): that code is still valid, go to it.
       if (retryAfter > 0 && identifier == _lastSent) {
+        AuthEvents.otpRequested(method: _method, cooldownResume: true);
         return _showCodeStep(retryAfter);
       }
+      AuthEvents.otpRequestFailed(
+        method: _method,
+        error: Analytics.errorCode(e),
+      );
       _stopSmsAutofill();
       _set(error, UiText.of(e));
     } finally {
@@ -222,6 +267,7 @@ class LoginController {
     _otpLength = 0;
     _set(otpSent, true);
     _startResendTimer(resendSeconds);
+    if (!_disposed) _viewStep();
   }
 
   /// Every change of the hidden code field. All four digits at once (the
@@ -229,7 +275,10 @@ class LoginController {
   /// verify straight away (RN).
   void onOtpChanged(String value) {
     final code = value.replaceAll(RegExp(r'\D'), '');
-    if (code.length == otpLength && _otpLength == 0) _flashAutoFilled();
+    if (code.length == otpLength && _otpLength == 0) {
+      AuthEvents.otpAutofilled(method: _method, source: 'keyboard');
+      _flashAutoFilled();
+    }
     _otpLength = code.length;
     clearError();
     if (code.length == otpLength) verifyOtp();
@@ -242,6 +291,7 @@ class LoginController {
         ? digits.substring(0, otpLength)
         : digits;
     if (code.length < otpLength) {
+      AuthEvents.inputInvalid(method: _method, field: 'code');
       return _set(error, const UiText('auth:login.errors.enter_code'));
     }
     final signedIn = await _completeSignIn(
@@ -277,8 +327,13 @@ class LoginController {
       otp.clear();
       _otpLength = 0;
       _startResendTimer(LoginFormat.resendSeconds);
+      AuthEvents.otpResent(method: _method);
       if (!_disposed) otpFocus.requestFocus();
     } on ApiException catch (e) {
+      AuthEvents.otpResendFailed(
+        method: _method,
+        error: Analytics.errorCode(e),
+      );
       final retryAfter = AuthErrors.retryAfterSeconds(e);
       if (retryAfter > 0) _startResendTimer(retryAfter);
       _set(
@@ -302,19 +357,62 @@ class LoginController {
   }
 
   /// Session from [run], then on to the next route. Owns the submit lock;
-  /// stays busy on success while the screen navigates away.
-  Future<bool> _completeSignIn(Future<LoginResult> Function() run) async {
+  /// stays busy on success while the screen navigates away. [bypass]: a
+  /// whitelisted number signed in by `/otp/request` itself (analytics).
+  Future<bool> _completeSignIn(
+    Future<LoginResult> Function() run, {
+    bool bypass = false,
+  }) async {
     _lock();
+    final social = _socialPending;
+    final method = social?.name ?? _method;
     try {
-      await run();
+      final result = await run();
+      _socialPending = null;
+      _logSignedIn(
+        result,
+        method: method,
+        otpBypass: bypass,
+        phoneVerified: social != null,
+      );
       _stopSmsAutofill();
       await _leave();
       return true;
     } on ApiException catch (e) {
+      final code = Analytics.errorCode(e);
+      if (bypass) {
+        AuthEvents.loginFailed(method: method, error: code, otpBypass: true);
+      } else {
+        AuthEvents.otpVerifyFailed(method: _method, error: code);
+      }
       _set(error, UiText.of(e));
       _unlock(const Duration(milliseconds: 200));
       return false;
     }
+  }
+
+  /// `auth_success` + `sign_up` (new account) or `login` (RN
+  /// `logAuthSuccess`), with how the user signed in.
+  void _logSignedIn(
+    LoginResult result, {
+    required String method,
+    bool otpBypass = false,
+    bool phoneVerified = false,
+  }) {
+    final session = SessionStore.instance.value;
+    final user = result.user;
+    AuthEvents.authSuccess(
+      userKey:
+          session.userDocumentId ??
+          session.userId?.toString() ??
+          J.str(user?['documentId']) ??
+          J.str(user?['id']),
+      method: method,
+      isNewUser: result.isNewUser,
+      source: referral.backendCode() != null ? 'referral' : 'app',
+      otpBypass: otpBypass,
+      phoneVerified: phoneVerified,
+    );
   }
 
   // ── Auto-fill (Android SMS Retriever; iOS uses the keyboard) ───────────
@@ -324,6 +422,7 @@ class LoginController {
     _stopSms = SmsOtpAutofill.instance.listen((code) {
       _stopSms = null;
       if (_disposed) return;
+      AuthEvents.otpAutofilled(method: _method, source: 'sms_retriever');
       otp.text = code;
       _otpLength = code.length;
       _flashAutoFilled();
@@ -355,6 +454,7 @@ class LoginController {
     }
     _phoneHintAsked = true;
     final picked = await autofill.requestPhoneHint();
+    AuthEvents.phoneHint(picked: picked != null);
     if (picked == null || _disposed) return;
     final number = IndianMobileFormatter.normalize(picked);
     phone.value = TextEditingValue(
@@ -370,6 +470,9 @@ class LoginController {
     if (_submitting || busy.value || socialBusy.value != null) return;
     _set(socialBusy, provider);
     clearError();
+    final name = provider.name;
+    AuthEvents.methodSelected(name);
+    AuthEvents.socialStarted(name);
 
     final String? idToken;
     try {
@@ -378,10 +481,18 @@ class LoginController {
           : await SocialSignIn.google();
     } catch (e, st) {
       Log.e('Login', e, st);
+      AuthEvents.socialFailed(
+        name,
+        error: Analytics.errorCode(e),
+        stage: 'provider',
+      );
       _set(socialBusy, null);
       return _set(error, const UiText(AuthErrorKeys.socialLoginFailed));
     }
-    if (idToken == null) return _set(socialBusy, null); // closed the sheet
+    if (idToken == null) {
+      AuthEvents.socialCancelled(name);
+      return _set(socialBusy, null); // closed the sheet
+    }
 
     _lock();
     try {
@@ -395,10 +506,14 @@ class LoginController {
       unawaited(SocialSignIn.signOut());
 
       if (result.requiresPhoneVerification) {
+        _socialPending = provider;
+        AuthEvents.socialPhoneRequired(name);
+        AuthEvents.methodSelected('phone', source: 'phone_required');
         _set(phoneRequired, true);
         _set(method, OtpChannel.sms);
         _set(otpSent, false);
         _set(error, const UiText('auth:login.errors.phone_required'));
+        if (!_disposed) _viewStep();
         return _unlock(Duration.zero);
       }
 
@@ -408,17 +523,27 @@ class LoginController {
       if (TermsConsent.needed(userId, provider.name)) {
         _set(busy, false); // the page must be usable
         _set(socialBusy, null);
+        AuthEvents.termsConsentShown(name);
         if (!await askConsent(provider.name)) {
+          AuthEvents.termsConsentDeclined(name);
           // Declined: the stored session must not survive to the next launch.
+          AnalyticsIdentity.markSignOut('terms_declined');
           await SessionStore.instance.signOut();
           _set(error, const UiText('auth:login.errors.terms_required'));
           return _unlock(Duration.zero);
         }
+        AuthEvents.termsConsentAccepted(name);
         await TermsConsent.accept(userId, provider.name);
         _set(busy, true);
       }
+      _logSignedIn(result, method: name);
       return _leave();
     } on ApiException catch (e) {
+      AuthEvents.socialFailed(
+        name,
+        error: Analytics.errorCode(e),
+        stage: 'server',
+      );
       _set(error, UiText.of(e));
     }
     _unlock(const Duration(milliseconds: 200));

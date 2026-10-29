@@ -6,6 +6,7 @@ import '../../../api/callscreen/call_keys.dart';
 import '../../../api/callscreen/call_models.dart';
 import '../../../api/callscreen/call_queries.dart';
 import '../../../api/paymentscreen/payment_keys.dart';
+import '../call_analytics.dart';
 import '../call_controller.dart';
 import '../call_identity.dart';
 import '../call_navigator.dart';
@@ -129,7 +130,7 @@ abstract final class PushFlow {
         await _isNativeRinging(callId)) {
       return;
     }
-    EndFlow.dismissRinging(callId);
+    EndFlow.dismissRinging(callId, reason: CallEndReason.ringTimeout);
   }
 
   /// Ringing ack once per call; never blocks, never throws (E-25).
@@ -228,7 +229,7 @@ abstract final class PushFlow {
         EndFlow.dismissRinging(id);
       case CallPhase.ongoing:
         if (CallStatus.parse(status) == CallStatus.forceCompleteByAdmin) {
-          EndFlow.endLocally(id);
+          EndFlow.endLocally(id, reason: CallEndReason.adminEnded);
         } else {
           CallTimers.instance.arm(
             CallTimers.endedPush,
@@ -253,7 +254,7 @@ abstract final class PushFlow {
     }
     IncomingFlow.clearNativeRinging(callId);
     if (s.isSameCall(callId) && s.phase == CallPhase.ringing) {
-      EndFlow.dismissRinging(callId);
+      EndFlow.dismissRinging(callId, reason: CallEndReason.answeredElsewhere);
     } else {
       CallDedup.instance.markEnded(callId);
     }

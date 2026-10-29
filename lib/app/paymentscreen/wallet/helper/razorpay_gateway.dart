@@ -28,6 +28,7 @@ class CheckoutCancelled extends CheckoutOutcome {
     this.code,
     this.description,
     this.end = CheckoutEnd.userDismissed,
+    this.externalWallet,
   });
 
   final int? code;
@@ -35,6 +36,9 @@ class CheckoutCancelled extends CheckoutOutcome {
 
   /// Why it ended; null when it is not a lost payment (external wallet).
   final CheckoutEnd? end;
+
+  /// The external wallet app picked (analytics), when [end] is null.
+  final String? externalWallet;
 }
 
 /// The gateway reported an error. [description] is Razorpay's own text.
@@ -110,8 +114,8 @@ class NativeRazorpayGateway implements RazorpayGateway {
         );
       })
       // Paid in another app: the wallet catches up on refresh.
-      ..on(Razorpay.EVENT_EXTERNAL_WALLET, (ExternalWalletResponse _) {
-        finish(const CheckoutCancelled(end: null));
+      ..on(Razorpay.EVENT_EXTERNAL_WALLET, (ExternalWalletResponse r) {
+        finish(CheckoutCancelled(end: null, externalWallet: r.walletName));
       });
     try {
       razorpay.open(options);

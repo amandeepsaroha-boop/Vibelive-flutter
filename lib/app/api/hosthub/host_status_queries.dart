@@ -72,6 +72,22 @@ QueryResult<List<String>, ApiException> useEducationLevels(
   staleDuration: StaleTime.static,
 );
 
+// ── Moderation ──────────────────────────────────────────────────────────────
+
+/// The signed-in host's messages from the moderation team, newest first
+/// (notes, and what a rejection was about). Hosts only.
+QueryResult<List<HostModerationMessage>, ApiException>
+useHostModerationMessages(BuildContext context, {bool enabled = true}) {
+  final session = useValueListenable(SessionStore.instance);
+  return useApiQuery<List<HostModerationMessage>>(
+    HostHubKeys.moderationMessages,
+    HostModerationApi.fetchMine,
+    context: context,
+    enabled: enabled && session.isExpert,
+    staleDuration: StaleTime.short,
+  );
+}
+
 // ── Approval ────────────────────────────────────────────────────────────────
 
 /// Latest approval request; combine with the profile through

@@ -10,8 +10,11 @@ import '../../../api/hosthub/catalog_models.dart';
 import '../../../api/hosthub/hosthub_queries.dart';
 import '../../../client/personal_info/helper/location_autofill.dart';
 import '../../../client/personal_info/widgets/use_location_button.dart';
+import '../../common/host_review.dart';
 import '../helper/draft_controller.dart';
+import '../helper/host_steps.dart';
 import '../helper/prefill.dart';
+import '../widgets/fix_notice.dart';
 import '../widgets/handle_field.dart';
 import '../widgets/host_chip.dart';
 import '../widgets/host_field.dart';
@@ -28,10 +31,12 @@ class BasicProfileStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = draft;
+    final review = HostReviewScope.of(context);
     return HostStepBody(
       title: 'hostflow:basic.title',
       subtitle: 'hostflow:basic.subtitle',
       children: [
+        const HostFixNotice(step: HostStep.basic),
         const HostLabel('hostflow:basic.name', top: 0),
         HostField(
           controller: d.name,
@@ -40,9 +45,14 @@ class BasicProfileStep extends StatelessWidget {
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.name],
           fieldKey: const ValueKey('hostflow-name'),
+          flagged: review.flagged('name'),
         ),
         const HostLabel('hostflow:basic.handle'),
-        HostHandleField(controller: d.handle, ownExpertId: d.expertId),
+        HostHandleField(
+          controller: d.handle,
+          ownExpertId: d.expertId,
+          flagged: review.flagged('handler'),
+        ),
         const HostLabel('hostflow:basic.gender'),
         _GenderRow(gender: d.gender),
         const HostLabel('hostflow:basic.languages'),

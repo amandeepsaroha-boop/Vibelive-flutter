@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/analytics/events/discover_events.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/vibe_colors.dart';
@@ -98,7 +99,13 @@ class BottomNavbar extends StatelessWidget {
                                         icon: icon,
                                         label: 'home:nav.${tab.name}',
                                         active: active == tab,
-                                        onPressed: () => home.select(tab),
+                                        onPressed: () {
+                                          DiscoverEvents.navTabTapped(
+                                            tab: tab.name,
+                                            reselect: active == tab,
+                                          );
+                                          home.select(tab);
+                                        },
                                         // Profile shows who is signed in.
                                         avatar: tab == HomeTab.me
                                             ? (
