@@ -158,30 +158,17 @@ void main() {
     await tester.pump();
     await tapContinue(tester, settle: 900);
 
-    // Rates: at least one format, defaults ₹25 / ₹35.
+    // Rates: both formats off until turned on; on starts at the backend
+    // minimum (₹7 voice here), "+" goes to round numbers.
     expect(find.text('How would you like to connect?'), findsOneWidget);
-    expect(find.text('₹ 25'), findsOneWidget);
-    expect(find.text('₹ 35'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('Increase rate').first);
-    await tester.pump();
-    expect(find.text('₹ 30'), findsOneWidget);
-    // Video off, then audio off: refused.
     final videoSwitch = find.byKey(
       const ValueKey('hostflow-switch-hostflow:rates.video'),
     );
     final audioSwitch = find.byKey(
       const ValueKey('hostflow-switch-hostflow:rates.audio'),
     );
-    // Below the audio card's earnings panel: scroll to it first.
-    await tester.ensureVisible(videoSwitch);
-    await tester.pump();
-    await tester.tap(videoSwitch);
-    await pumpFor(tester, 300);
-    expect(find.text('₹ 35'), findsNothing);
-    await tester.ensureVisible(audioSwitch);
-    await tester.pump();
-    await tester.tap(audioSwitch);
-    await pumpFor(tester, 300);
+    expect(find.bySemanticsLabel('Increase rate'), findsNothing);
+    // Nothing on: refused.
     await tapContinue(tester);
     expect(
       find.text('Turn on audio calls, video calls or both.'),
@@ -189,7 +176,21 @@ void main() {
     );
     await tester.tap(audioSwitch);
     await pumpFor(tester, 300);
-    expect(find.text('₹ 30'), findsOneWidget); // kept while switched off
+    expect(find.text('₹ 7'), findsOneWidget);
+    for (var i = 0; i < 5; i++) {
+      await tester.tap(find.bySemanticsLabel('Increase rate').first);
+      await tester.pump();
+    }
+    expect(find.text('₹ 30'), findsOneWidget); // 7 → 10 → 15 … 30
+    // Video on, then off again: only audio is offered.
+    await tester.ensureVisible(videoSwitch);
+    await tester.pump();
+    await tester.tap(videoSwitch);
+    await pumpFor(tester, 300);
+    expect(find.text('₹ 12'), findsOneWidget);
+    await tester.tap(videoSwitch);
+    await pumpFor(tester, 300);
+    expect(find.text('₹ 12'), findsNothing);
     await tapContinue(tester, settle: 900);
 
     // Availability: "Call any time" by default, so no schedule (RN).

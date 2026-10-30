@@ -87,8 +87,9 @@ class HostDraftController {
   final topics = ValueNotifier<List<HostTopic>>(const []);
   final photos = ValueNotifier<List<HostDraftPhoto>>(const []);
   final voiceIntro = ValueNotifier<HostVoiceIntro?>(null);
-  final audioOn = ValueNotifier(true);
-  final videoOn = ValueNotifier(true);
+  /// Off until the host turns a format on (then at the backend minimum).
+  final audioOn = ValueNotifier(false);
+  final videoOn = ValueNotifier(false);
   final audioRate = ValueNotifier(defaultAudioRate);
   final videoRate = ValueNotifier(defaultVideoRate);
 
@@ -162,8 +163,8 @@ class HostDraftController {
       final p? when !File(p).existsSync() => voice!.withoutRecording(),
       _ => voice,
     };
-    audioOn.value = json['audioOn'] != false;
-    videoOn.value = json['videoOn'] != false;
+    audioOn.value = json['audioOn'] == true;
+    videoOn.value = json['videoOn'] == true;
     audioRate.value = _int(json['audioRate']) ?? defaultAudioRate;
     videoRate.value = _int(json['videoRate']) ?? defaultVideoRate;
     availableNow.value = json['availableNow'] != false;

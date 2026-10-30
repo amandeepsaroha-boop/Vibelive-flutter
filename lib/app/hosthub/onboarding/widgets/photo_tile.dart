@@ -29,7 +29,7 @@ class HostPhotoTile extends StatelessWidget {
   final HostDraftPhoto photo;
 
   /// The saved photo's review state (pending / approved / rejected); null
-  /// for a new upload.
+  /// for a new upload. An approved photo has no remove button.
   final String? review;
   final double width;
   final bool primary;
@@ -170,29 +170,33 @@ class HostPhotoTile extends StatelessWidget {
                   ),
                 ),
               ),
-            Positioned(
-              right: 4.ms,
-              top: 4.ms,
-              child: Pressable(
-                onPressed: onRemove,
-                semanticLabel: context.t('hostflow:photos.remove'),
-                hitPadding: EdgeInsets.all(4.ms),
-                child: Container(
-                  width: 24.ms,
-                  height: 24.ms,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.blackA(0.55),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    LucideIcons.x,
-                    size: 14.ms,
-                    color: AppColors.white,
+            // An approved photo can't be deleted (the backend keeps the
+            // approval record): no ✕ on it. New, in-review and rejected
+            // photos keep theirs.
+            if (review != 'approved')
+              Positioned(
+                right: 4.ms,
+                top: 4.ms,
+                child: Pressable(
+                  onPressed: onRemove,
+                  semanticLabel: context.t('hostflow:photos.remove'),
+                  hitPadding: EdgeInsets.all(4.ms),
+                  child: Container(
+                    width: 24.ms,
+                    height: 24.ms,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.blackA(0.55),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      LucideIcons.x,
+                      size: 14.ms,
+                      color: AppColors.white,
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),

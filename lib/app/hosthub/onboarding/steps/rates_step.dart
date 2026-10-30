@@ -1,10 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/analytics/events/host_events.dart';
 import '../../../../core/config/runtime_config.dart';
+import '../../../../core/i18n/i18n.dart';
+import '../../../../core/router/app_router.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../api/paymentscreen/billing_models.dart';
 import '../../../api/paymentscreen/payment_queries.dart';
@@ -15,17 +19,19 @@ import '../helper/draft_controller.dart';
 import '../helper/host_palette.dart';
 import '../helper/host_payout.dart';
 import '../helper/validation.dart';
+import '../widgets/coin_stack.dart';
 import '../widgets/continue_bar.dart';
 import '../widgets/host_switch.dart';
 import '../widgets/rate_stepper.dart';
 import '../widgets/sheet_frame.dart';
 import '../widgets/step_body.dart';
 
-/// Rates: audio and/or video, each with its per-minute rate (the pricing
-/// config sets the floor) and, live under it, what the host earns at that
-/// rate: from app callers and from callers who joined with their invite
-/// link (RN CallRatesScreen "Estimated earnings payout"), worked out the way
-/// the backend bills a call ([HostPayoutTerms]).
+/// Rates: audio and/or video, both off until the host turns one on (it
+/// then starts at the backend's minimum). Under each rate, live: what the
+/// host earns per minute (big), what the caller pays and the platform fee,
+/// and what callers who joined with their invite link bring (RN
+/// CallRatesScreen "Estimated earnings payout"), worked out the way the
+/// backend bills a call ([HostPayoutTerms]).
 class RatesStep extends HookWidget {
   const RatesStep({super.key, required this.draft});
   final HostDraftController draft;
@@ -38,13 +44,29 @@ class RatesStep extends HookWidget {
     final videoPayout = HostRatePayout.from(runtime, pricing, video: true);
     final voiceMin = HostValidation.minRate(pricing.minimumVoiceRate);
     final videoMin = HostValidation.minRate(pricing.minimumVideoRate);
-    // A floor above the default lifts the rate once the config is known.
+    // A floor above the current rate lifts it once the config is known.
     useEffect(() {
       if (draft.audioRate.value < voiceMin) draft.audioRate.value = voiceMin;
       if (draft.videoRate.value < videoMin) draft.videoRate.value = videoMin;
       return null;
     }, [voiceMin, videoMin]);
     final p = HostPalette.of(context);
+
+    void showEarnings() {
+      HostEvents.earningsViewed(
+        audioRate: draft.audioOn.value ? draft.audioRate.value : null,
+        videoRate: draft.videoOn.value ? draft.videoRate.value : null,
+      );
+      _showEarnings(
+        context,
+        draft,
+        voice: voicePayout,
+        video: videoPayout,
+        runtime: runtime,
+      );
+    }
+
+    void openInvite() => context.push<void>(AppRoutes.referral);
 
     return HostStepBody(
       title: 'hostflow:rates.title',
@@ -53,36 +75,30 @@ class RatesStep extends HookWidget {
         RateFormatCard(
           icon: LucideIcons.headphones,
           title: 'hostflow:rates.audio',
+          subtitle: 'hostflow:rates.audio_sub',
           on: draft.audioOn,
           rate: draft.audioRate,
           min: voiceMin,
           payout: voicePayout,
+          onInfo: showEarnings,
+          onInvite: openInvite,
         ),
         SizedBox(height: 12.ms),
         RateFormatCard(
           icon: LucideIcons.video,
           title: 'hostflow:rates.video',
+          subtitle: 'hostflow:rates.video_sub',
           on: draft.videoOn,
           rate: draft.videoRate,
           min: videoMin,
           payout: videoPayout,
+          onInfo: showEarnings,
+          onInvite: openInvite,
         ),
-        SizedBox(height: 12.ms),
+        SizedBox(height: 6.ms),
         // The full breakdown (call lengths, fees, invite link, payouts).
         Pressable(
-          onPressed: () {
-            HostEvents.earningsViewed(
-              audioRate: draft.audioOn.value ? draft.audioRate.value : null,
-              videoRate: draft.videoOn.value ? draft.videoRate.value : null,
-            );
-            _showEarnings(
-              context,
-              draft,
-              voice: voicePayout,
-              video: videoPayout,
-              runtime: runtime,
-            );
-          },
+          onPressed: showEarnings,
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: 10.ms),
             child: Row(
@@ -109,7 +125,8 @@ class RatesStep extends HookWidget {
   }
 }
 
-/// One call format: icon, title, switch and its rate stepper.
+/// One call format: icon, title, what it is and its switch; once on, the
+/// rate and what it earns.
 class RateFormatCard extends StatelessWidget {
   const RateFormatCard({
     super.key,
@@ -118,24 +135,37 @@ class RateFormatCard extends StatelessWidget {
     required this.on,
     required this.rate,
     required this.min,
+    this.subtitle,
     this.payout,
+    this.onInfo,
+    this.onInvite,
   });
 
   final IconData icon;
 
-  /// i18n key.
+  /// i18n keys.
   final String title;
+  final String? subtitle;
   final ValueNotifier<bool> on;
   final ValueNotifier<int> rate;
+
+  /// The backend's minimum (₹/min): where the rate starts when turned on.
   final int min;
 
-  /// What the host earns at [rate]; shown under the stepper.
+  /// What the host earns at [rate]; shown under it.
   final HostRatePayout? payout;
+
+  /// "How earnings work".
+  final VoidCallback? onInfo;
+
+  /// The invite link (Refer & earn).
+  final VoidCallback? onInvite;
 
   @override
   Widget build(BuildContext context) {
     final p = HostPalette.of(context);
     return HostCard(
+      padding: EdgeInsets.all(14.ms),
       child: ValueListenableBuilder<bool>(
         valueListenable: on,
         builder: (_, enabled, _) => Column(
@@ -144,28 +174,45 @@ class RateFormatCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 52.ms,
-                  height: 52.ms,
+                  width: 48.ms,
+                  height: 48.ms,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     gradient: p.buttonGradient,
-                    borderRadius: BorderRadius.circular(12.ms),
+                    borderRadius: BorderRadius.circular(13.ms),
                   ),
-                  child: Icon(icon, size: 26.ms, color: p.onAccent),
+                  child: Icon(icon, size: 24.ms, color: p.onAccent),
                 ),
                 SizedBox(width: 12.ms),
                 Expanded(
-                  child: CText(
-                    title,
-                    size: 18,
-                    weight: FontWeight.w700,
-                    color: p.text,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CText(
+                        title,
+                        size: 17,
+                        weight: FontWeight.w800,
+                        color: p.text,
+                      ),
+                      if (subtitle != null) ...[
+                        SizedBox(height: 2.ms),
+                        CText(
+                          subtitle!,
+                          size: 13,
+                          weight: FontWeight.w500,
+                          color: p.muted,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
+                SizedBox(width: 8.ms),
                 HostSwitch(
                   key: ValueKey('hostflow-switch-$title'),
                   value: enabled,
                   onChanged: (v) {
+                    // Turned on: starts at the backend's minimum.
+                    if (v) rate.value = min;
                     on.value = v;
                     HostEvents.callTypeToggled(
                       callType: title.contains('video') ? 'video' : 'audio',
@@ -176,26 +223,46 @@ class RateFormatCard extends StatelessWidget {
               ],
             ),
             AnimatedSize(
-              duration: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 220),
               curve: Curves.easeOut,
               alignment: Alignment.topCenter,
               child: enabled
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Under the title, as in the design.
-                        Padding(
-                          padding: EdgeInsets.only(top: 12.ms, left: 64.ms),
-                          child: HostRateStepper(
-                            rate: rate,
-                            min: min,
-                            max: HostValidation.rateCeiling,
-                            step: HostValidation.rateStep,
+                  ? Padding(
+                      padding: EdgeInsets.only(top: 14.ms),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Label left, stepper right; the stepper wraps
+                          // under the label on a narrow phone.
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            runSpacing: 8.ms,
+                            spacing: 8.ms,
+                            children: [
+                              CText(
+                                'hostflow:rates.your_rate',
+                                size: 14,
+                                weight: FontWeight.w500,
+                                color: p.muted,
+                              ),
+                              HostRateStepper(
+                                rate: rate,
+                                min: min,
+                                max: HostValidation.rateCeiling,
+                                step: HostValidation.rateStep,
+                              ),
+                            ],
                           ),
-                        ),
-                        if (payout case final payout?)
-                          _EarningsPanel(rate: rate, payout: payout),
-                      ],
+                          if (payout case final payout?)
+                            _Earnings(
+                              rate: rate,
+                              payout: payout,
+                              onInfo: onInfo,
+                              onInvite: onInvite,
+                            ),
+                        ],
+                      ),
                     )
                   : const SizedBox(width: double.infinity),
             ),
@@ -206,109 +273,318 @@ class RateFormatCard extends StatelessWidget {
   }
 }
 
-/// What the host gets per minute at the rate being set, big, with the
-/// fee under it; one line for invite-link callers when they pay more. The
-/// full breakdown is in "How earnings work". Follows the stepper.
-class _EarningsPanel extends StatelessWidget {
-  const _EarningsPanel({required this.rate, required this.payout});
+/// The earnings cards' own colors: money green and invite purple, in both
+/// themes (the app's accent is lime in dark, purple in light).
+@immutable
+class _RateColors {
+  const _RateColors({
+    required this.earnBg,
+    required this.earnBorder,
+    required this.earnLabel,
+    required this.earnAmount,
+    required this.earnText,
+    required this.coinFace,
+    required this.coinSide,
+    required this.coinRing,
+    required this.coinGlyph,
+    required this.inviteBg,
+    required this.inviteBorder,
+    required this.inviteAccent,
+    required this.inviteAmount,
+    required this.inviteText,
+    required this.inviteIconBg,
+  });
+
+  static const dark = _RateColors(
+    earnBg: [Color(0xFF1F3D10), Color(0xFF0F1A0A)],
+    earnBorder: Color(0x99A8EC4A),
+    earnLabel: Color(0xFFD9F5B8),
+    earnAmount: BrandColors.lime,
+    earnText: Color(0xCCFFFFFF),
+    coinFace: Color(0xFFB9F25C),
+    coinSide: Color(0xFF4F8A17),
+    coinRing: Color(0xFFE2FFB0),
+    coinGlyph: Color(0xFF1F3A0B),
+    inviteBg: [Color(0xFF2C1554), Color(0xFF170B2E)],
+    inviteBorder: Color(0x998F5EFE),
+    inviteAccent: Color(0xFFC9A6FF),
+    inviteAmount: Color(0xFFE2CCFF),
+    inviteText: Color(0xFFC9A6FF),
+    inviteIconBg: Color(0x478F5EFE),
+  );
+
+  static const light = _RateColors(
+    earnBg: [Color(0xFFF2FBE7), Color(0xFFE0F4C8)],
+    earnBorder: Color(0xFF9BD65A),
+    earnLabel: Color(0xFF3D6B17),
+    earnAmount: Color(0xFF2F7A0E),
+    earnText: Color(0xFF4A5D3A),
+    coinFace: Color(0xFF9ADB48),
+    coinSide: Color(0xFF4F8A17),
+    coinRing: Color(0xFFD8F7A8),
+    coinGlyph: Color(0xFF1F3A0B),
+    inviteBg: [Color(0xFFF7F1FF), Color(0xFFECDFFF)],
+    inviteBorder: Color(0xFFC6A8FF),
+    inviteAccent: BrandColors.purple,
+    inviteAmount: Color(0xFF4A12C0),
+    inviteText: Color(0xFF6B4BB0),
+    inviteIconBg: Color(0x245E17EB),
+  );
+
+  static _RateColors of(BuildContext context) =>
+      HostPalette.of(context).isDark ? dark : light;
+
+  final List<Color> earnBg;
+  final Color earnBorder;
+  final Color earnLabel;
+  final Color earnAmount;
+  final Color earnText;
+  final Color coinFace;
+  final Color coinSide;
+  final Color coinRing;
+  final Color coinGlyph;
+  final List<Color> inviteBg;
+  final Color inviteBorder;
+  final Color inviteAccent;
+  final Color inviteAmount;
+  final Color inviteText;
+  final Color inviteIconBg;
+}
+
+/// "YOU EARN ₹15 / min" with the coins; "Customer pays · Platform fee"
+/// under it; the invite-link card when invite callers pay more. Follows the
+/// stepper.
+class _Earnings extends StatelessWidget {
+  const _Earnings({
+    required this.rate,
+    required this.payout,
+    this.onInfo,
+    this.onInvite,
+  });
+
   final ValueListenable<int> rate;
   final HostRatePayout payout;
+  final VoidCallback? onInfo;
+  final VoidCallback? onInvite;
 
   @override
   Widget build(BuildContext context) {
     final p = HostPalette.of(context);
+    final c = _RateColors.of(context);
     return ValueListenableBuilder<int>(
       valueListenable: rate,
-      builder: (_, r, _) => Container(
-        margin: EdgeInsets.only(top: 10.ms),
-        padding: EdgeInsets.fromLTRB(12.ms, 9.ms, 12.ms, 9.ms),
-        decoration: BoxDecoration(
-          color: p.successTint,
-          borderRadius: BorderRadius.circular(12.ms),
-        ),
-        child: Column(
+      builder: (_, r, _) {
+        final std = payout.standard;
+        final earns = std.perMinute(r);
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CText(
-                        'hostflow:rates.you_get',
-                        size: 13.5,
-                        weight: FontWeight.w700,
-                        color: p.text,
-                      ),
-                      CText(
-                        'hostflow:rates.after_fee',
-                        variables: {'percent': rupees(payout.standard.percent)},
-                        size: 11.5,
-                        weight: FontWeight.w500,
-                        color: p.muted,
-                      ),
-                    ],
-                  ),
+            SizedBox(height: 12.ms),
+            Container(
+              padding: EdgeInsets.fromLTRB(14.ms, 12.ms, 10.ms, 12.ms),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: c.earnBg,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                SizedBox(width: 8.ms),
-                // The number a host decides on: the boldest thing here.
-                // Shrinks rather than overflow on a narrow phone.
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
+                borderRadius: BorderRadius.circular(16.ms),
+                border: Border.all(color: c.earnBorder),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        CText(
-                          'hostflow:rates.amount_plain',
-                          variables: {
-                            'amount': rupees(payout.standard.perMinute(r)),
-                          },
-                          size: 22,
-                          weight: FontWeight.w900,
-                          color: p.success,
-                          maxLines: 1,
+                        _Caption(
+                          text: 'hostflow:rates.you_earn',
+                          color: c.earnLabel,
+                          onInfo: onInfo,
                         ),
-                        SizedBox(width: 2.ms),
+                        SizedBox(height: 2.ms),
+                        _Amount(amount: earns, color: c.earnAmount, size: 32),
+                        SizedBox(height: 4.ms),
                         CText(
-                          'hostflow:rates.per_min_short',
-                          size: 12.5,
-                          weight: FontWeight.w700,
-                          color: p.success,
-                          maxLines: 1,
+                          'hostflow:rates.earn_desc',
+                          size: 12,
+                          height: 17,
+                          weight: FontWeight.w500,
+                          color: c.earnText,
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
-            ),
-            if (payout.inviteIsBetter) ...[
-              SizedBox(height: 6.ms),
-              Row(
-                children: [
-                  Icon(LucideIcons.link, size: 13.ms, color: p.success),
-                  SizedBox(width: 5.ms),
-                  Expanded(
-                    child: CText(
-                      'hostflow:rates.invite_line',
-                      variables: {'amount': rupees(payout.invite.perMinute(r))},
-                      size: 12,
-                      weight: FontWeight.w600,
-                      color: p.success,
-                    ),
+                  SizedBox(width: 6.ms),
+                  CoinStack(
+                    size: 62.ms,
+                    face: c.coinFace,
+                    side: c.coinSide,
+                    ring: c.coinRing,
+                    glyph: c.coinGlyph,
                   ),
                 ],
               ),
+            ),
+            SizedBox(height: 8.ms),
+            CText(
+              'hostflow:rates.fee_line',
+              variables: {
+                'pays': rupees(r.toDouble()),
+                'percent': rupees(std.percent),
+                'fee': rupees(r - earns),
+              },
+              size: 12,
+              weight: FontWeight.w500,
+              color: p.muted,
+            ),
+            if (payout.inviteIsBetter) ...[
+              SizedBox(height: 10.ms),
+              Pressable(
+                onPressed: onInvite,
+                activeOpacity: 0.85,
+                child: Container(
+                  padding: EdgeInsets.fromLTRB(12.ms, 10.ms, 10.ms, 10.ms),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: c.inviteBg,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16.ms),
+                    border: Border.all(color: c.inviteBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40.ms,
+                        height: 40.ms,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: c.inviteIconBg,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          LucideIcons.link,
+                          size: 18.ms,
+                          color: c.inviteAccent,
+                        ),
+                      ),
+                      SizedBox(width: 12.ms),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _Caption(
+                              text: 'hostflow:rates.invite_title',
+                              color: c.inviteAccent,
+                            ),
+                            _Amount(
+                              amount: payout.invite.perMinute(r),
+                              color: c.inviteAmount,
+                              size: 22,
+                            ),
+                            CText(
+                              'hostflow:rates.invite_desc',
+                              size: 12,
+                              weight: FontWeight.w500,
+                              color: c.inviteText,
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: 6.ms),
+                      Icon(
+                        LucideIcons.chevronRight,
+                        size: 20.ms,
+                        color: c.inviteAccent,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ],
-        ),
-      ),
+        );
+      },
     );
   }
+}
+
+/// "YOU EARN ⓘ": small caps; the ⓘ opens "How earnings work".
+class _Caption extends StatelessWidget {
+  const _Caption({required this.text, required this.color, this.onInfo});
+
+  /// i18n key.
+  final String text;
+  final Color color;
+  final VoidCallback? onInfo;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Flexible(
+        child: CText(
+          text,
+          size: 12,
+          weight: FontWeight.w800,
+          letterSpacing: 0.8,
+          color: color,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      SizedBox(width: 5.ms),
+      Pressable(
+        onPressed: onInfo,
+        semanticLabel: context.t('hostflow:rates.earn_title'),
+        hitPadding: EdgeInsets.all(8.ms),
+        child: Icon(LucideIcons.info, size: 13.ms, color: color),
+      ),
+    ],
+  );
+}
+
+/// "₹15 / min": the amount large, "/ min" smaller on its baseline. Shrinks
+/// rather than overflow.
+class _Amount extends StatelessWidget {
+  const _Amount({
+    required this.amount,
+    required this.color,
+    required this.size,
+  });
+
+  final double amount;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => FittedBox(
+    fit: BoxFit.scaleDown,
+    alignment: Alignment.centerLeft,
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        CText(
+          'hostflow:rates.amount_plain',
+          variables: {'amount': rupees(amount)},
+          size: size,
+          weight: FontWeight.w900,
+          color: color,
+          maxLines: 1,
+        ),
+        SizedBox(width: 4.ms),
+        CText(
+          'hostflow:rates.per_min_short',
+          size: size * 0.5,
+          weight: FontWeight.w800,
+          color: color,
+          maxLines: 1,
+        ),
+      ],
+    ),
+  );
 }
 
 /// "How earnings work": for each format on offer, what a 1, 5, 10 and 30

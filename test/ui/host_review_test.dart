@@ -203,7 +203,31 @@ void main() {
       );
       expect(find.text('Not approved'), findsOneWidget);
       expect(find.text('In review'), findsOneWidget);
+      // An approved photo can't be deleted: no ✕ on it (rejected and in
+      // review keep theirs).
+      expect(find.bySemanticsLabel('Remove photo'), findsNWidgets(2));
       expect(tester.takeException(), isNull);
+      await finishHost(tester);
+    });
+
+    testWidgets('a new photo (not reviewed yet) can be removed', (
+      tester,
+    ) async {
+      await open(
+        tester,
+        SizedBox(
+          width: 110,
+          height: 160,
+          child: HostPhotoTile(
+            photo: const HostDraftPhoto(key: 'm2', mediaId: 2),
+            width: 110,
+            primary: true,
+            onRemove: () {},
+            onTap: () {},
+          ),
+        ),
+      );
+      expect(find.bySemanticsLabel('Remove photo'), findsOneWidget);
       await finishHost(tester);
     });
 

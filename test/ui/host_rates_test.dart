@@ -102,29 +102,55 @@ void main() {
       await pumpFor(tester, 400);
     }
 
-    testWidgets('under each rate: what the host gets, big, live', (
-      tester,
-    ) async {
+    testWidgets('under each rate: what the host earns, live', (tester) async {
       await open(tester);
-      expect(find.text('You get'), findsNWidgets(2));
-      expect(find.text('after 40% platform fee'), findsNWidgets(2));
+      expect(find.text('YOU EARN'), findsNWidgets(2));
       // Audio ₹10: 40% fee → ₹6/min; invite link 30% → ₹7/min.
       expect(find.text('₹6'), findsOneWidget);
       expect(
-        find.text('₹7/min from people who join with your invite link'),
+        find.text('Customer pays ₹10/min  •  Platform fee (40%) ₹4/min'),
         findsOneWidget,
       );
+      expect(find.text('₹7'), findsOneWidget);
+      expect(find.text('INVITE LINK EARNINGS'), findsNWidgets(2));
       // Video ₹20: ₹12/min, ₹14/min by invite.
       expect(find.text('₹12'), findsOneWidget);
-      expect(
-        find.text('₹14/min from people who join with your invite link'),
-        findsOneWidget,
-      );
+      expect(find.text('₹14'), findsOneWidget);
 
       draft.audioRate.value = 15;
       await tester.pump();
       expect(find.text('₹9'), findsOneWidget);
       expect(tester.takeException(), isNull);
+      await finishHost(tester);
+    });
+
+    testWidgets('off by default; on starts at the backend minimum', (
+      tester,
+    ) async {
+      draft
+        ..audioOn.value = false
+        ..videoOn.value = false;
+      await open(tester);
+      expect(find.text('YOU EARN'), findsNothing);
+      await tester.tap(
+        find.byKey(const ValueKey('hostflow-switch-hostflow:rates.audio')),
+      );
+      await pumpFor(tester, 300);
+      expect(draft.audioRate.value, 7); // pricing config minimum
+      expect(find.text('₹ 7'), findsOneWidget);
+      // "−" stops at the minimum; "+" goes to round numbers.
+      await tester.tap(find.bySemanticsLabel('Decrease rate').first);
+      await tester.pump();
+      expect(draft.audioRate.value, 7);
+      await tester.tap(find.bySemanticsLabel('Increase rate').first);
+      await tester.pump();
+      expect(draft.audioRate.value, 10);
+      await tester.tap(find.bySemanticsLabel('Increase rate').first);
+      await tester.pump();
+      expect(draft.audioRate.value, 15);
+      await tester.tap(find.bySemanticsLabel('Decrease rate').first);
+      await tester.pump();
+      expect(draft.audioRate.value, 10);
       await finishHost(tester);
     });
 
@@ -152,7 +178,7 @@ void main() {
         size: const Size(320, 700),
         locale: const Locale('hi'),
       );
-      expect(find.text('आपको मिलेंगे'), findsNWidgets(2));
+      expect(find.text('आपकी कमाई'), findsNWidgets(2));
       expect(tester.takeException(), isNull);
       await finishHost(tester);
     });

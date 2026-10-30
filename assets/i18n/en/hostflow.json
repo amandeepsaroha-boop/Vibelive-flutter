@@ -112,7 +112,6 @@
     "audio": "Audio calls",
     "video": "Video calls",
     "amount": "₹ {{amount}}",
-    "per_minute": "/ minute",
     "decrease": "Decrease rate",
     "increase": "Increase rate",
     "earnings_link": "See how earnings work",
@@ -132,10 +131,15 @@
     "earn_short": "On very short calls the per-call minimum fee applies, so the first minute can pay a little less.",
     "earn_bonus": "Minutes a caller pays with free bonus credit are not paid out.",
     "earn_note": "Your earnings go to your Earnings wallet after each call. You can withdraw them to your bank once you have ₹{{min}}.",
-    "you_get": "You get",
-    "per_min_short": "/min",
-    "after_fee": "after {{percent}}% platform fee",
-    "invite_line": "₹{{amount}}/min from people who join with your invite link"
+    "per_min_short": "/ min",
+    "audio_sub": "Talk and connect with your audience",
+    "video_sub": "Face to face conversations",
+    "your_rate": "Your rate per minute",
+    "you_earn": "YOU EARN",
+    "earn_desc": "You receive this amount for every minute of a completed call.",
+    "fee_line": "Customer pays ₹{{pays}}/min  •  Platform fee ({{percent}}%) ₹{{fee}}/min",
+    "invite_title": "INVITE LINK EARNINGS",
+    "invite_desc": "From people who join with your invite link"
   },
   "availability": {
     "title": "When can people call you?",

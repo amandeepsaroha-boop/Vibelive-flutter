@@ -51,6 +51,9 @@ HostDraftController _complete() {
   d.district.value = const GeoOption({'id': 9, 'name': 'Baksa'});
   d.topics.value = const [HostTopic(value: 'topic_a', label: 'Dating advice')];
   d.photos.value = const [HostDraftPhoto(key: 'm1', mediaId: 1)];
+  // Both formats start off; this host turned both on.
+  d.audioOn.value = true;
+  d.videoOn.value = true;
   return d;
 }
 
@@ -117,7 +120,7 @@ void main() {
       d.audioRate.value = 5;
       final issue = HostValidation.rates(d, 7, 12)!;
       expect(issue.key, 'hostflow:errors.rate_audio_min');
-      expect(issue.variables, {'min': 10}); // 7 rounded up to a ₹5 step
+      expect(issue.variables, {'min': 7}); // the backend's own minimum
       d.audioRate.value = 10;
       expect(HostValidation.rates(d, 7, 12), isNull);
       expect(HostValidation.ratesOf(d).toJson(), {

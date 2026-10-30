@@ -27,12 +27,13 @@ abstract final class HostValidation {
   static HostIssue _issue(String key, [Map<String, dynamic>? variables]) =>
       (key: 'hostflow:errors.$key', variables: variables);
 
-  /// Smallest rate the stepper allows: the pricing floor rounded up to a
-  /// step, never below [rateFloor].
+  /// Smallest rate the stepper allows: the pricing config's minimum as it
+  /// is, [rateFloor] without one.
   static int minRate(double pricingMinimum) {
+    // The backend's own minimum (₹7 stays ₹7); the stepper then goes in
+    // steps of [rateStep]. No config: [rateFloor].
     final m = pricingMinimum.isFinite ? pricingMinimum.ceil() : 0;
-    final stepped = ((m + rateStep - 1) ~/ rateStep) * rateStep;
-    return stepped < rateFloor ? rateFloor : stepped;
+    return m < 1 ? rateFloor : m;
   }
 
   static HostIssue? check(
