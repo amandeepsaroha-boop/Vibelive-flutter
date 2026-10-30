@@ -7,6 +7,7 @@ import '../../../../core/utils/log.dart';
 import '../../../api/instant_call/instant_call_api.dart';
 import '../../../api/instant_call/instant_call_models.dart';
 import '../call_alerts.dart';
+import '../call_billing.dart';
 import '../call_analytics.dart';
 import '../call_controller.dart';
 import '../call_identity.dart';
@@ -17,7 +18,10 @@ import '../call_platform.dart';
 import '../call_ringtone.dart';
 import '../call_runtime.dart';
 import '../call_session.dart';
+import '../call_timers.dart';
 import '../engine/call_engine.dart';
+import '../native/native_call_marks.dart';
+import 'end_flow.dart';
 import 'outgoing_flow.dart';
 
 abstract final class InstantCallFlow {
@@ -26,7 +30,12 @@ abstract final class InstantCallFlow {
   /// Hosts the current instant call has rung so far (analytics).
   static int _attempts = 0;
 
-  static Future<bool> place({bool video = false}) async {
+  /// The server searches this long by default (`max_total_ring_seconds`).
+  static const defaultSearchSeconds = 120;
+
+  /// [maxRingSeconds]: the server's search window (`/instant-call/config`);
+  /// the caller waits that long, then a margin, for a host.
+  static Future<bool> place({bool video = false, int? maxRingSeconds}) async {
     CallRuntime.ensureStarted();
     if (_placing) return false;
     final now = CallController.instance.value;
@@ -38,7 +47,7 @@ abstract final class InstantCallFlow {
     _placing = true;
     CallUiEvents.instantRequested(video: video);
     try {
-      return await _place(video);
+      return await _place(video, maxRingSeconds);
     } catch (e) {
       Log.w('InstantCallFlow', 'place: $e');
       CallUiEvents.instantFailed(
@@ -52,7 +61,7 @@ abstract final class InstantCallFlow {
     }
   }
 
-  static Future<bool> _place(bool video) async {
+  static Future<bool> _place(bool video, int? maxRingSeconds) async {
     final callerId = CallIdentity.userId;
     if (callerId == null) {
       CallUiEvents.instantFailed(video: video, reason: 'missing_participants');
@@ -104,8 +113,25 @@ abstract final class InstantCallFlow {
       isInstantCall: true,
       instantCallSessionId: started.sessionId,
     );
+    // The balance cap (hang up before the wallet runs out) needs the rate
+    // the caller pays: Talk Now's own.
+    final rate = started.callerRate;
+    if (rate != null && rate > 0) {
+      CallBilling.rememberRate(started.sessionId, rate);
+    }
     CallController.instance.startOutgoing(call);
     unawaited(_markOutgoing(CallController.instance.value));
+    // The server says when its search failed (`INSTANT_CALL_FAILED`); if
+    // that push is lost, give up once its window is surely over.
+    final window = Duration(
+      seconds: (maxRingSeconds ?? defaultSearchSeconds) + 15,
+    );
+    CallTimers.instance.arm(CallTimers.noAnswer, window, () {
+      final now = CallController.instance.value;
+      if (now.isSameCall(started.sessionId) && now.phase.isPreConnect) {
+        unawaited(EndFlow.hangup(reason: CallEndReason.noAnswer));
+      }
+    });
     CallNavigator.toCall();
     unawaited(_joinAndRing(call));
     return true;
@@ -151,13 +177,15 @@ abstract final class InstantCallFlow {
         attempt: _attempts,
       );
     }
-    CallController.instance.update((s) => s.copyWith(
-      remote: CallPeer(
-        id: host.userId,
-        name: host.name,
-        avatarUrl: host.profilePic,
+    CallController.instance.update(
+      (s) => s.copyWith(
+        remote: CallPeer(
+          id: host.userId,
+          name: host.name,
+          avatarUrl: host.profilePic,
+        ),
       ),
-    ));
+    );
   }
 
   static void onConnected(Map<String, dynamic> data) {
@@ -168,17 +196,26 @@ abstract final class InstantCallFlow {
     final hostId = data['hostUserId']?.toString();
     final hostName = data['hostName']?.toString();
     final hostPic = data['hostProfilePic']?.toString();
-    CallUiEvents.instantMatched(callId: session.callId, hostUserId: hostId);
-    if (hostId != null) {
-      CallController.instance.update((s) => s.copyWith(
-        receiverId: hostId,
-        remote: CallPeer(
-          id: hostId,
-          name: hostName ?? s.remote.name,
-          avatarUrl: hostPic ?? s.remote.avatarUrl,
-        ),
-      ));
+    // The call record the backend created: Callend bills it.
+    final record = CallPayload.read(data, const ['callId']);
+    final ring = session.callId;
+    if (record != null && ring != null) {
+      unawaited(NativeCallMarks.saveServerCallId(ring, record));
     }
+    CallUiEvents.instantMatched(callId: session.callId, hostUserId: hostId);
+    CallController.instance.update(
+      (s) => s.copyWith(
+        receiverId: hostId,
+        serverCallId: record,
+        remote: hostId == null
+            ? null
+            : CallPeer(
+                id: hostId,
+                name: hostName ?? s.remote.name,
+                avatarUrl: hostPic ?? s.remote.avatarUrl,
+              ),
+      ),
+    );
   }
 
   static void onFailed(Map<String, dynamic> data) {
@@ -186,15 +223,20 @@ abstract final class InstantCallFlow {
     if (!session.isInstantCall) return;
     final sessionId = data['instantCallSessionId']?.toString();
     if (sessionId != session.instantCallSessionId) return;
+    // Only a search can fail: a call a host already answered goes on.
+    if (!session.phase.isPreConnect) return;
     CallUiEvents.instantNoHost(callId: session.callId, attempts: _attempts);
     // Nobody picked up: CallAnalytics files it as not answered.
     CallAnalytics.reason(session.callId, CallEndReason.noAnswer);
     CallController.instance.end();
   }
 
-  static Future<void> cancel() async {
-    final session = CallController.instance.value;
-    if (!session.isInstantCall) return;
+  /// Ends the caller's search (`/instant-call/cancel`). [call]: the call
+  /// that just ended (the live slot may already be reset by then).
+  static Future<void> cancel([CallSession? call]) async {
+    final session = call ?? CallController.instance.value;
+    // The caller's search only (the server refuses anyone else's cancel).
+    if (!session.isInstantCall || !session.isCaller) return;
     final sessionId = session.instantCallSessionId;
     if (sessionId == null) return;
     // Every hang-up comes through here; only one before an answer counts.

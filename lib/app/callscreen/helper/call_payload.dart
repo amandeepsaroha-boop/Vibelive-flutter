@@ -102,6 +102,11 @@ class CallPayload {
         sentAt: sentAt(_pick(d, const ['timestamp', 'ts'])),
         autoAccept: _anyTrue(d, const ['__autoAccept', 'autoAccept']),
         openedLocked: _anyTrue(d, const ['__unlock']),
+        // Talk Now: `callId` is the session id; accept / decline go to
+        // `/instant-call/*` (the server ringing the next host).
+        isInstantCall: _anyTrue(d, const ['isInstantCall']),
+        instantCallSessionId: _pick(d, const ['instantCallSessionId']),
+        serverCallId: _pick(d, const ['serverCallId']),
       ),
     );
   }

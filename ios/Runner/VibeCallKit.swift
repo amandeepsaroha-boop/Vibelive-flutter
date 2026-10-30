@@ -74,6 +74,9 @@ final class VibeCallKit {
   private var handled: [String: Date] = [:]  // RN ghost protection
   private var appEnding = Set<String>()
   private var pushSeq = 0
+  /// Talk Now: ring id (the instant-call session) → the call record the host-accept created.
+  /// A CallKit-UI end bills the record, never the ring id.
+  private var instantRecords: [String: String] = [:]
 
   // MARK: - PushKit entry
 
@@ -334,6 +337,29 @@ final class VibeCallKit {
     answeredAt = Date()
     if let id = liveCallId { markHandled(id) }
     savePendingAccept(payload)  // cold accept before Dart listened: Dart consumes it once
+    // Talk Now: the ring is an instant-call SESSION; /instant-call/host-accept creates the
+    // call record (and stops the other hosts' rings) instead of /UpdateCall. Any refusal goes
+    // to Dart too (the call may be another host's now): Dart retries, or leaves the call.
+    if Self.isInstant(payload), let ringId = Self.callId(of: call, payload: payload) {
+      let session = Self.str(payload["instantCallSessionId"]) ?? ringId
+      VibeCallNetwork.shared.instantHostAccept(
+        sessionId: session,
+        onSuccess: { [weak self] record in
+          self?.instantRecords[ringId] = record
+          VibeCallBridge.shared.emit([
+            "event": "instantAccepted", "callId": ringId, "serverCallId": record,
+          ])
+        },
+        onFailure: { [weak self] in
+          NSLog("[VibeCallKit] CALLTRACE native host-accept FAILED callId=%@ → Dart", ringId)
+          self?.markPendingAcceptUpdateFailed(callId: ringId)
+          VibeCallBridge.shared.emit([
+            "event": "updateCallFailed", "callId": ringId, "payload": payload,
+          ])
+        })
+      NSLog("[VibeCallKit] CALLTRACE native ACCEPT (Talk Now) callId=%@", ringId)
+      return
+    }
     // CALL-BREAKING when lost (I1): the server never learns of the answer. A failure is put on
     // the accept snapshot (a cold start that has not read it yet) and sent to Dart (queued
     // until it listens), which sends /UpdateCall again.
@@ -362,6 +388,12 @@ final class VibeCallKit {
     NSLog(
       "[VibeCallKit] CALLTRACE native DECLINE callId=%@ endedById=%@",
       callId, Self.str(payload["receiverId"]) ?? "nil")
+    // Talk Now: the server rings the next host now (a session has no call record).
+    if Self.isInstant(payload) {
+      VibeCallNetwork.shared.instantHostDecline(
+        sessionId: Self.str(payload["instantCallSessionId"]) ?? callId)
+      return
+    }
     VibeCallNetwork.shared.endCall(
       callId: callId, payload: payload, status: "declined", durationSecs: 0)
   }
@@ -379,9 +411,25 @@ final class VibeCallKit {
     guard payload["__compliance"] == nil, let callId else { return }
     markHandled(callId)
     if appEnding.remove(callId) != nil { return }
-    VibeCallNetwork.shared.endCall(
-      callId: callId, payload: payload,
-      status: "completed", durationSecs: max(1, secs))
+    if Self.isInstant(payload) {
+      // Talk Now bills the call record the accept created; when its reply has not come yet,
+      // host-accept again: the backend repeats it for the host who has the call.
+      let complete = { (record: String) in
+        VibeCallNetwork.shared.endCall(
+          callId: record, payload: payload, status: "completed", durationSecs: max(1, secs))
+      }
+      if let record = instantRecords.removeValue(forKey: callId) {
+        complete(record)
+      } else {
+        VibeCallNetwork.shared.instantHostAccept(
+          sessionId: Self.str(payload["instantCallSessionId"]) ?? callId,
+          onSuccess: complete, onFailure: {})
+      }
+    } else {
+      VibeCallNetwork.shared.endCall(
+        callId: callId, payload: payload,
+        status: "completed", durationSecs: max(1, secs))
+    }
     VibeCallBridge.shared.emit([
       "event": "nativeEnded", "callId": callId, "status": "completed", "durationSecs": secs,
     ])
@@ -572,6 +620,11 @@ final class VibeCallKit {
 
   static func callId(of call: Call, payload: [String: Any]) -> String? {
     str(payload["callId"]) ?? str(payload["call_id"])
+  }
+
+  /// A Talk Now ring (`isInstantCall: "true"`): its callId is an instant-call session.
+  static func isInstant(_ payload: [String: Any]) -> Bool {
+    str(payload["isInstantCall"])?.lowercased() == "true"
   }
 
   static func str(_ v: Any?) -> String? {

@@ -12,6 +12,7 @@ import '../../../api/callscreen/call_errors.dart';
 import '../../../api/callscreen/call_models.dart';
 import '../../../api/callscreen/call_queries.dart';
 import '../../../api/callscreen/pending_decline_queue.dart';
+import '../../../api/instant_call/instant_call_api.dart';
 import '../../../api/listingflow/listing_models.dart';
 import '../../../api/listingflow/listing_queries.dart';
 import '../../../api/paymentscreen/payment_keys.dart';
@@ -61,9 +62,7 @@ abstract final class EndFlow {
   /// Hang up (button, remote quit, timers, safety actions). Idempotent.
   /// The screen flips to ended at once; Callend runs in the background.
   /// [reason]: why, for analytics ([CallEndReason]).
-  static Future<void> hangup({
-    String reason = CallEndReason.userHangup,
-  }) async {
+  static Future<void> hangup({String reason = CallEndReason.userHangup}) async {
     CallRuntime.ensureStarted();
     var s = _calls.value;
     final callId = s.callId;
@@ -91,7 +90,7 @@ abstract final class EndFlow {
     );
     // Callend is dispatched before the ended phase starts the Agora leave
     // (A3); nothing here awaits before the native UI is cleared (mem #10).
-    final sent = _afterHangup(input);
+    final sent = _afterHangup(input, s, connected: connected);
     _lastEnd = sent;
     _calls.end();
     endNativeOnce(callId);
@@ -106,15 +105,60 @@ abstract final class EndFlow {
   /// leave: the server bills up to when it hears of the end (A3). A
   /// failure other than "already ended" is queued for replay (the
   /// idempotency key makes a replay safe).
-  static Future<void> _afterHangup(CallEndInput input) async {
-    final request = sendEnd(input);
+  static Future<void> _afterHangup(
+    CallEndInput input,
+    CallSession s, {
+    required bool connected,
+  }) async {
+    // Talk Now with no call record yet: nothing to Callend before a host
+    // answered (the cancel below ends the search); after, find the record.
+    final request = input.callId.isNotEmpty
+        ? sendEnd(input)
+        : (s.isInstantCall && connected
+              ? _endInstantUnresolved(s, input)
+              : Future<void>.value());
     try {
       await CallRingtone.silence();
       await HeadlessJoin.instance.leave();
     } catch (_) {}
     await request;
-    unawaited(InstantCallFlow.cancel());
+    unawaited(InstantCallFlow.cancel(s));
     queryCache.invalidateAll(PaymentKeys.walletData);
+  }
+
+  /// A connected Talk Now call hung up before its call record's id arrived
+  /// (the accept reply or `INSTANT_CALL_CONNECTED` still in flight, or
+  /// lost): ask for it (the host: host-accept again, which repeats the
+  /// answer for the host who has the call; the caller: the session's
+  /// status), then Callend it. Never throws.
+  static Future<void> _endInstantUnresolved(
+    CallSession s,
+    CallEndInput input,
+  ) async {
+    final session = s.instantCallSessionId ?? s.callId;
+    if (session == null) return;
+    String? id;
+    try {
+      id = s.isReceiver
+          ? (await InstantCallApi.hostAccept(session)).callId
+          : await InstantCallApi.connectedCallId(session);
+    } catch (e) {
+      Log.w('EndFlow', 'Talk Now call id: $e');
+    }
+    if (id == null) return;
+    await sendEnd(
+      CallEndInput(
+        callId: id,
+        endedById: input.endedById,
+        status: input.status,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        durationSeconds: input.durationSeconds,
+        totalCost: input.totalCost,
+        type: input.type,
+        callerDocumentId: input.callerDocumentId,
+      ),
+    );
   }
 
   /// `/call/Callend`; never throws. Lost races are fine, other failures
@@ -176,7 +220,8 @@ abstract final class EndFlow {
     required int seconds,
     DateTime? at,
   }) {
-    final callId = s.callId ?? '';
+    // The call record (Talk Now: empty until a host answered).
+    final callId = s.backendCallId ?? '';
     final endedBy = CallIdentity.endedBy(s);
     final type = s.isVideo ? CallType.video : CallType.voice;
     if (connected) {

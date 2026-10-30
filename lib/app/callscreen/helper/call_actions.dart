@@ -98,8 +98,12 @@ abstract final class CallActions {
 
   /// Instant call: one tap, system finds a host. Permission gate,
   /// `/instant-call/initiate`, then the call screen with cascading ring.
-  static Future<void> talkNow({bool video = false}) =>
-      _guard<void>(() => InstantCallFlow.place(video: video));
+  /// [maxRingSeconds]: the server's search window (its config).
+  static Future<void> talkNow({bool video = false, int? maxRingSeconds}) =>
+      _guard<void>(
+        () =>
+            InstantCallFlow.place(video: video, maxRingSeconds: maxRingSeconds),
+      );
 
   /// Call screen hang-up (idempotent; Callend in the background).
   /// [reason]: why, for analytics ([CallEndReason]).

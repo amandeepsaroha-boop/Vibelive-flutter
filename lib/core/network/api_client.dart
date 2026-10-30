@@ -25,8 +25,14 @@ abstract final class ApiClient {
   static final _sessionExpired = StreamController<ApiException>.broadcast();
   static final _tokenRefreshed = StreamController<String>.broadcast();
 
-  /// Refresh failed for good: the session must be cleared (RN `ForceLogout`).
+  /// The session could not be refreshed (no answer, or the server refused
+  /// the refresh token). NEVER a sign-out: the app only signs out from the
+  /// Logout button. `SessionHealth` shows "Server unreachable" with Retry.
   static Stream<ApiException> get onSessionExpired => _sessionExpired.stream;
+
+  /// Refreshes the access token now (single flight): `SessionHealth`'s
+  /// Retry. Throws [ApiException] / the refresh error when it fails.
+  static Future<String> refreshSession() => _refreshAccessToken();
 
   /// New access token after a refresh (e.g. to hand to native CallKit code).
   static Stream<String> get onTokenRefreshed => _tokenRefreshed.stream;
@@ -195,29 +201,35 @@ abstract final class ApiClient {
     final Response<dynamic> res;
     try {
       // Bare Dio: the refresh call must not go through the 401 interceptor.
-      res =
-          await Dio(
-            BaseOptions(
-              baseUrl: Env.apiBaseUrl,
-              connectTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 10),
-              headers: _baseHeaders,
-            ),
-          ).post<dynamic>(
-            '/api/session-auth/refresh',
-            data: {
-              'refreshToken': refreshToken,
-              // The rotated session takes its push tokens from here, else
-              // from older rows of this device id, which can be dead or
-              // empty — and a call rings only the session's token. Keys as
-              // in PushTokens (api/authscreen/push_api.dart).
-              'deviceInfo': {
-                ...await DeviceInfo.get(),
-                'fcmToken': ?_nonEmpty(AppPrefs.getString('fcm_token')),
-                'voipToken': ?_nonEmpty(AppPrefs.getString('voip_token')),
-              },
-            },
-          );
+      // Same transport as every other request (tests fake it there).
+      final bare = Dio(
+        BaseOptions(
+          baseUrl: Env.apiBaseUrl,
+          connectTimeout: const Duration(seconds: 20),
+          sendTimeout: const Duration(seconds: 20),
+          // Long on purpose: a slow server still completes the refresh and
+          // rotates the token. Giving up at 10 s threw the new pair away, and
+          // the next refresh (with the old token) was refused (29 Oct: every
+          // user signed out).
+          receiveTimeout: const Duration(seconds: 60),
+          headers: _baseHeaders,
+        ),
+      )..httpClientAdapter = dio.httpClientAdapter;
+      res = await bare.post<dynamic>(
+        '/api/session-auth/refresh',
+        data: {
+          'refreshToken': refreshToken,
+          // The rotated session takes its push tokens from here, else
+          // from older rows of this device id, which can be dead or
+          // empty — and a call rings only the session's token. Keys as
+          // in PushTokens (api/authscreen/push_api.dart).
+          'deviceInfo': {
+            ...await DeviceInfo.get(),
+            'fcmToken': ?_nonEmpty(AppPrefs.getString('fcm_token')),
+            'voipToken': ?_nonEmpty(AppPrefs.getString('voip_token')),
+          },
+        },
+      );
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
         final access = await _rotatedElsewhere(refreshToken);
@@ -275,13 +287,11 @@ abstract final class ApiClient {
     return null;
   }
 
-  static void _forceLogout(Object cause) {
-    if (_loggingOut) return;
-    _loggingOut = true;
-    Log.w('ApiClient', 'session expired → force logout ($cause)');
-    _sessionExpired.add(
-      ApiException(ApiErrorType.sessionExpired, cause: cause),
-    );
+  /// The session could not be refreshed: say so (`SessionHealth`), keep
+  /// the user signed in with their tokens. Never a sign-out.
+  static void _reportSessionTrouble(Object cause) {
+    Log.w('ApiClient', 'session refresh failed, staying signed in ($cause)');
+    _sessionExpired.add(ApiException.from(cause));
   }
 }
 
@@ -362,7 +372,7 @@ class _AuthInterceptor extends Interceptor {
       return handler.next(err);
     }
     if (isRefreshRoute) {
-      ApiClient._forceLogout(err);
+      ApiClient._reportSessionTrouble(err);
       return handler.next(err);
     }
 
@@ -384,13 +394,9 @@ class _AuthInterceptor extends Interceptor {
       final access = await ApiClient._refreshAccessToken();
       return _retry(options, 'Bearer $access', handler, err);
     } catch (refreshError) {
-      final e = ApiException.from(refreshError);
-      final authRejected =
-          e.statusCode == 401 ||
-          e.statusCode == 403 ||
-          e.type == ApiErrorType.parse;
-      // Network trouble during refresh must NOT log the user out.
-      if (authRejected) ApiClient._forceLogout(refreshError);
+      // Whatever went wrong (no answer, a server error, a refused token),
+      // the user stays signed in: "Server unreachable" + Retry instead.
+      ApiClient._reportSessionTrouble(refreshError);
       return handler.next(err);
     }
   }

@@ -16,6 +16,7 @@ abstract final class NativeCallMarks {
   static const _connectedKey = 'push_native_connected_v1';
   static const _inviteKey = 'push_native_last_invite_v1';
   static const _ackedKey = 'push_native_acked_v1';
+  static const _serverIdKey = 'push_native_server_call_id_v1';
 
   /// How long an app-initiated end suppresses the plugin's DECLINE / ENDED
   /// echo.
@@ -66,6 +67,30 @@ abstract final class NativeCallMarks {
 
   static Future<void> clearConnected(String callId) =>
       _remove(_connectedKey, callId);
+
+  /// Talk Now: the call record [serverCallId] the ring [callId] (its
+  /// session id) became when the host accepted. A background Hang up bills
+  /// that id; the ring's own id is not a call record.
+  static Future<void> saveServerCallId(
+    String callId,
+    String serverCallId,
+  ) async {
+    if (callId.isEmpty || serverCallId.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final map = await _getJson(_serverIdKey) ?? <String, dynamic>{};
+    map.removeWhere((_, v) {
+      final at = v is Map ? v['at'] : null;
+      return at is! int || now - at > connectedWindow.inMilliseconds;
+    });
+    map[callId] = {'id': serverCallId, 'at': now};
+    await _setJson(_serverIdKey, map);
+  }
+
+  static Future<String?> serverCallId(String callId) async {
+    final v = (await _getJson(_serverIdKey))?[callId];
+    final id = v is Map ? v['id'] : null;
+    return id is String && id.isNotEmpty ? id : null;
+  }
 
   // ── payloads ───────────────────────────────────────────────────────────
 

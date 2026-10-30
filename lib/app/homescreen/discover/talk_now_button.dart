@@ -34,7 +34,12 @@ class TalkNowButton extends HookWidget {
           DiscoverEvents.talkNowTapped(blockedByCall: onCall);
           if (onCall) return;
           unawaited(HapticFeedback.mediumImpact());
-          unawaited(CallActions.talkNow(video: config.placesVideo));
+          unawaited(
+            CallActions.talkNow(
+              video: config.placesVideo,
+              maxRingSeconds: config.maxRingSeconds,
+            ),
+          );
         },
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 18.ms, vertical: 12.ms),

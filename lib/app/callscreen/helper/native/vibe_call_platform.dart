@@ -231,5 +231,8 @@ class VibeCallPlatform extends CallPlatform {
     'type': call.isVideo ? 'videoCall' : 'voiceCall',
     'callerName': ?call.remote.name,
     'ProfilePic': ?call.remote.avatarUrl,
+    // Talk Now: a background Hang up ends a session / bills its record.
+    if (call.isInstantCall) 'isInstantCall': 'true',
+    'instantCallSessionId': ?call.instantCallSessionId,
   };
 }

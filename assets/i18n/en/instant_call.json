@@ -6,6 +6,7 @@
     "no_hosts": "No one is free to talk right now. Please try again in a few minutes.",
     "disabled": "Talk Now isn't available right now.",
     "low_balance": "Your wallet balance is too low for Talk Now. Add money and try again.",
-    "already_active": "You're already on a call or looking for someone to talk to."
+    "already_active": "You're already on a call or looking for someone to talk to.",
+    "taken": "This call was taken by someone else or has ended."
   }
 }

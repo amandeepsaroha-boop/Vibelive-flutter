@@ -5,6 +5,7 @@ import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
+import '../../api/listingflow/host_index.dart';
 import '../../api/listingflow/search_models.dart';
 import '../../component/c_image.dart';
 import '../../component/c_text.dart';
@@ -88,7 +89,17 @@ class _Card extends StatelessWidget {
             padding: EdgeInsets.all(12.ms),
             child: Row(
               children: [
-                CAvatar(url: h.profilePic, name: h.name, size: 58.ms),
+                // The host's card photo (primary) once their card loaded.
+                CAvatar(
+                  url:
+                      HostIndex.photoOf(
+                        expertDocumentId: h.documentId,
+                        userDocumentId: h.userDocumentId,
+                      ) ??
+                      h.profilePic,
+                  name: h.name,
+                  size: 58.ms,
+                ),
                 SizedBox(width: 12.ms),
                 Expanded(
                   child: Column(

@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:fquery/fquery.dart';
 
 import 'app/authscreen/helper/deep_links.dart';
+import 'app/banner/session_issue_host.dart';
 import 'app/callscreen/call/call_overlay_host.dart';
 import 'app/callscreen/call/capture_shield.dart';
 import 'app/callscreen/call_flow.dart';
@@ -107,14 +108,18 @@ class VibeLiveApp extends StatelessWidget {
             builder: (context, child) {
               Scale.update(MediaQuery.sizeOf(context));
               // The update notice sits under the call overlay: never over a call.
+              // So does "Server unreachable" (a session that can't refresh;
+              // the app never signs anyone out on its own).
               // The capture shield sits over everything: a recorded video call
               // shows the logo, not the call.
               return CaptureShield(
                 child: CallOverlayHost(
-                  child: UpdateNoticeHost(
-                    // The splash logo's flight into the first screen.
-                    child: LaunchLogoLayer(
-                      child: child ?? const SizedBox.shrink(),
+                  child: SessionIssueHost(
+                    child: UpdateNoticeHost(
+                      // The splash logo's flight into the first screen.
+                      child: LaunchLogoLayer(
+                        child: child ?? const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 ),

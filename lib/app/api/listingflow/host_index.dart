@@ -68,6 +68,20 @@ abstract final class HostIndex {
     return null;
   }
 
+  /// The photo a host's card shows (their primary approved gallery photo,
+  /// else the account photo; [HostCard.cardImage]), when the host is here.
+  /// Lists that only carry the account photo (call history, search) use it
+  /// so a host looks the same everywhere.
+  static String? photoOf({
+    String? expertDocumentId,
+    String? userDocumentId,
+    String? userId,
+  }) => find(
+    expertDocumentId: expertDocumentId,
+    userDocumentId: userDocumentId,
+    userId: userId,
+  )?.card.cardImage;
+
   /// A shared link / `openUserId` target: a user or expert-profile
   /// documentId, a numeric user id or a handler.
   static HostHit? findLink(String target) {

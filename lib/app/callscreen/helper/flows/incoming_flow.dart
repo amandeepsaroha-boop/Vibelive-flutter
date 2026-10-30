@@ -7,6 +7,8 @@ import '../../../../core/utils/log.dart';
 import '../../../api/callscreen/call_api.dart';
 import '../../../api/callscreen/call_models.dart';
 import '../../../api/callscreen/call_queries.dart';
+import '../../../api/instant_call/instant_call_api.dart';
+import '../call_alerts.dart';
 import '../call_analytics.dart';
 import '../call_controller.dart';
 import '../call_device.dart';
@@ -20,6 +22,7 @@ import '../call_session.dart';
 import '../call_timers.dart';
 import '../engine/call_engine.dart';
 import '../engine/headless_join.dart';
+import '../native/native_call_marks.dart';
 import '../state/call_constants.dart';
 import '../state/call_dedup.dart';
 import 'end_flow.dart';
@@ -181,6 +184,7 @@ abstract final class IncomingFlow {
   }) async {
     final callId = s.callId;
     if (callId == null) return false;
+    if (s.isInstantCall) return _instantAccept(s);
     if (!CallDedup.instance.beginUpdateCall(callId)) return true;
     try {
       final result = await CallRequests.updateStatus(
@@ -204,6 +208,55 @@ abstract final class IncomingFlow {
     } catch (e) {
       CallDedup.instance.failUpdateCall(callId);
       return false;
+    }
+  }
+
+  /// Talk Now (a ring of an instant-call SESSION, not a call record):
+  /// `/instant-call/host-accept` instead of `/UpdateCall`. The backend then
+  /// creates the call (billed at the Talk Now rates, the preferred host's
+  /// agreed rate), stops the other hosts' rings and tells the caller; its
+  /// reply's call id is what Callend bills ([adoptServerCallId]). Refused
+  /// (cancelled, another host took it, the search moved on): this host
+  /// leaves the call, with a word why. Never throws; true unless a retry may
+  /// still help.
+  static Future<bool> _instantAccept(CallSession s) async {
+    final callId = s.callId!;
+    if (s.serverCallId != null) return true; // the native answer got it
+    if (!CallDedup.instance.beginUpdateCall(callId)) return true;
+    try {
+      final r = await InstantCallApi.hostAccept(
+        s.instantCallSessionId ?? callId,
+      );
+      adoptServerCallId(callId, r.callId);
+      return true;
+    } on ApiException catch (e) {
+      CallDedup.instance.failUpdateCall(callId);
+      if (e.messageKey != InstantCallErrorKeys.taken) {
+        Log.w('IncomingFlow', 'host-accept failed: $e');
+        return false;
+      }
+      final live = _calls.value;
+      if (live.isSameCall(callId) && live.phase.isActive) {
+        CallAlerts.toast(InstantCallErrorKeys.taken);
+        EndFlow.endLocally(callId, reason: CallEndReason.answeredElsewhere);
+      }
+      return true;
+    } catch (e) {
+      CallDedup.instance.failUpdateCall(callId);
+      Log.w('IncomingFlow', 'host-accept: $e');
+      return false;
+    }
+  }
+
+  /// Talk Now: the call record ring [callId] became (the host-accept reply,
+  /// here or from the phone's native answer). Kept on the call (Callend
+  /// bills it; the backend's later pushes carry it) and for the background
+  /// isolates (a notification Hang up).
+  static void adoptServerCallId(String callId, String serverCallId) {
+    unawaited(NativeCallMarks.saveServerCallId(callId, serverCallId));
+    final live = _calls.value;
+    if (live.isSameCall(callId) && live.serverCallId != serverCallId) {
+      _calls.update((c) => c.copyWith(serverCallId: serverCallId));
     }
   }
 
@@ -295,6 +348,12 @@ abstract final class IncomingFlow {
   static Future<void> sendDecline(CallSession s) async {
     final callId = s.callId;
     if (callId == null) return;
+    // Talk Now: the server rings the next host now (a session has no call
+    // record to Callend).
+    if (s.isInstantCall) {
+      await InstantCallApi.hostDecline(s.instantCallSessionId ?? callId);
+      return;
+    }
     try {
       await CallRequests.declineOrQueue(
         CallEndInput.decline(

@@ -14,6 +14,7 @@ import '../../../core/utils/scale.dart';
 import '../../api/callscreen/call_errors.dart';
 import '../../api/callscreen/call_models.dart';
 import '../../api/callscreen/call_queries.dart';
+import '../../api/listingflow/host_index.dart';
 import '../../component/c_alert.dart';
 import '../../component/c_image.dart';
 import '../../component/c_text.dart';
@@ -225,7 +226,17 @@ class _StatusAvatar extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final e = entry;
-    final lookup = e.avatarUrl == null ? e.counterpartId : null;
+    // A host: their card photo (primary approved photo), as on Discover.
+    // The call log only carries the account photo.
+    final hostPhoto = e.isExpert
+        ? HostIndex.photoOf(
+            userDocumentId: e.counterpartId,
+            userId: e.counterpartId,
+          )
+        : null;
+    final lookup = hostPhoto == null && e.avatarUrl == null
+        ? e.counterpartId
+        : null;
     final found = useState<String?>(null);
     useEffect(() {
       if (lookup == null || HistoryAvatars.cached(lookup) != null) return null;
@@ -236,6 +247,7 @@ class _StatusAvatar extends HookWidget {
       return () => live = false;
     }, [lookup]);
     final url =
+        hostPhoto ??
         e.avatarUrl ??
         (lookup == null ? null : HistoryAvatars.cached(lookup) ?? found.value);
     final (bg, fg) = switch (e.tone) {

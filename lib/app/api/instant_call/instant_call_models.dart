@@ -61,6 +61,7 @@ class InitiatedInstantCall {
     required this.channelName,
     this.currentHost,
     this.parallelHosts,
+    this.callerRate,
   });
 
   final String sessionId;
@@ -68,6 +69,9 @@ class InitiatedInstantCall {
   final String channelName;
   final InstantCallHost? currentHost;
   final List<InstantCallHost>? parallelHosts;
+
+  /// ₹/min the caller pays for Talk Now (the config's caller rate).
+  final double? callerRate;
 
   static InitiatedInstantCall? tryParse(Map<String, dynamic> body) {
     final sessionId = J.str(body['sessionId']);
@@ -94,6 +98,7 @@ class InitiatedInstantCall {
       channelName: channel,
       currentHost: host ?? parallel?.firstOrNull,
       parallelHosts: parallel,
+      callerRate: J.number(body['callerRate']),
     );
   }
 }
@@ -106,6 +111,7 @@ class InstantCallConfig {
     this.allowedCallTypes = 'voice_only',
     this.callerVoiceRate,
     this.callerVideoRate,
+    this.maxRingSeconds,
   });
 
   factory InstantCallConfig.fromJson(Map<String, dynamic> json) =>
@@ -114,6 +120,7 @@ class InstantCallConfig {
         allowedCallTypes: J.str(json['allowedCallTypes']) ?? 'voice_only',
         callerVoiceRate: J.number(json['callerVoiceRate']),
         callerVideoRate: J.number(json['callerVideoRate']),
+        maxRingSeconds: J.integer(json['maxRingSeconds']),
       );
 
   static const off = InstantCallConfig(enabled: false);
@@ -125,6 +132,36 @@ class InstantCallConfig {
   final double? callerVoiceRate;
   final double? callerVideoRate;
 
+  /// How long the server searches for a host (null: an older backend).
+  final int? maxRingSeconds;
+
   /// The call type the one-tap button places.
   bool get placesVideo => allowedCallTypes == 'video_only';
+}
+
+/// `POST /instant-call/host-accept`: the call record a Talk Now ring became.
+@immutable
+class InstantHostAccept {
+  const InstantHostAccept({
+    required this.callId,
+    this.channelName,
+    this.hostToken,
+  });
+
+  static InstantHostAccept? tryParse(Map<String, dynamic> body) {
+    if (body['success'] == false) return null;
+    final id = J.str(body['callId']);
+    if (id == null) return null;
+    final token = J.str(body['hostToken']);
+    return InstantHostAccept(
+      callId: id,
+      channelName: J.str(body['channelName']),
+      hostToken: token == null || token.isEmpty ? null : token,
+    );
+  }
+
+  /// The `api::call.call` id: Callend bills it.
+  final String callId;
+  final String? channelName;
+  final String? hostToken;
 }

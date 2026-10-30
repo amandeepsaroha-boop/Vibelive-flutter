@@ -138,6 +138,8 @@ abstract final class PushFlow {
     final callId = s.callId;
     final receiverId = s.receiverId ?? CallIdentity.userId;
     if (callId == null || receiverId == null) return;
+    // Talk Now: the ring is a session, not a call record (nothing to ack).
+    if (s.isInstantCall) return;
     if (!CallDedup.instance.beginAck(callId)) return;
     unawaited(
       CallRequests.sendRingingAck(

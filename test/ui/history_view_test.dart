@@ -12,6 +12,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:vibelive/app/api/listingflow/listing_models.dart';
+import 'package:vibelive/app/api/listingflow/host_index.dart';
 import 'package:vibelive/app/api/callscreen/call_keys.dart';
 import 'package:vibelive/app/api/callscreen/call_models.dart';
 import 'package:vibelive/app/callscreen/history/helper/history_avatars.dart';
@@ -1113,6 +1115,36 @@ void main() {
     expect(find.text('Failed to submit report.'), findsOneWidget);
     expect(find.text('Reported user is required here'), findsNothing);
     await _tap(tester, find.text('OK'));
+    await finish(tester);
+  });
+
+  testWidgets("a host's row shows their primary photo, as on Discover", (
+    tester,
+  ) async {
+    Map<String, Object?> photo(String name, {bool primary = false}) => {
+      'status_enum': 'approved',
+      'isprimary': primary,
+      'image': {
+        'url': '/uploads/$name.jpg',
+        'formats': {
+          'medium': {'url': '/uploads/medium_$name.jpg'},
+        },
+      },
+    };
+    final card = HostCard.fromJson({
+      ..._hostRow(11, 'h1', 'Host One'),
+      'service_area_selections': const <Object>[],
+      'host_profile_images': [photo('other'), photo('primary', primary: true)],
+    });
+    HostIndex.seed([card]);
+    ApiClient.dio.httpClientAdapter = backend = _Backend();
+    await open(tester);
+    await _pump(tester, 600);
+    final avatar = tester.widget<CAvatar>(
+      _inRow('Host One', find.byType(CAvatar)),
+    );
+    expect(avatar.url, card.cardImage);
+    expect(avatar.url, contains('medium_primary'));
     await finish(tester);
   });
 

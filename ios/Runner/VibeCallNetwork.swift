@@ -128,6 +128,36 @@ final class VibeCallNetwork {
       onFailure: onFailure.map { report in { DispatchQueue.main.async { report(callId) } } })
   }
 
+  /// Talk Now: POST /api/instant-call/host-accept {sessionId} at CXAnswerCallAction (the ring is
+  /// an instant-call session; the backend creates the call record, billed at the Talk Now
+  /// rates). `onSuccess` (main thread) gets the record's id. `onFailure` (main thread) runs on
+  /// ANY failure, a refusal too (another host took it, cancelled): Dart decides.
+  func instantHostAccept(
+    sessionId: String, onSuccess: @escaping (String) -> Void, onFailure: @escaping () -> Void
+  ) {
+    post(
+      "/api/instant-call/host-accept", ["sessionId": sessionId], idempotencyKey: nil,
+      label: "host-accept \(sessionId)", queueOnFailure: false,
+      onFailure: { DispatchQueue.main.async { onFailure() } },
+      reportAllFailures: true,
+      onSuccess: { data in
+        let json = data.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]
+        guard let record = VibeCallKit.str(json?["callId"]) else {
+          DispatchQueue.main.async { onFailure() }
+          return
+        }
+        DispatchQueue.main.async { onSuccess(record) }
+      })
+  }
+
+  /// Talk Now: POST /api/instant-call/host-decline {sessionId}, so the server rings the next
+  /// host at once. Best effort: its own ring window moves on anyway.
+  func instantHostDecline(sessionId: String) {
+    post(
+      "/api/instant-call/host-decline", ["sessionId": sessionId], idempotencyKey: nil,
+      label: "host-decline \(sessionId)", queueOnFailure: false)
+  }
+
   func drainFailedEnds() -> [[String: Any]] {
     let list = UserDefaults.standard.array(forKey: failedKey) as? [[String: Any]] ?? []
     UserDefaults.standard.removeObject(forKey: failedKey)
@@ -139,7 +169,8 @@ final class VibeCallNetwork {
   private func post(
     _ path: String, _ body: [String: Any], idempotencyKey: String?, label: String,
     queueOnFailure: Bool, onFailure: (() -> Void)? = nil, token: String? = nil,
-    isRetry: Bool = false
+    isRetry: Bool = false, reportAllFailures: Bool = false,
+    onSuccess: ((Data?) -> Void)? = nil
   ) {
     guard let url = URL(string: VibeCallConfig.apiBaseUrl + path),
       let json = try? JSONSerialization.data(withJSONObject: body)
@@ -172,13 +203,17 @@ final class VibeCallNetwork {
       NSLog(
         "[VibeCallNetwork] CALLTRACE %@ → HTTP %ld retry=%d err=%@",
         label, code, isRetry ? 1 : 0, error?.localizedDescription ?? "-")
-      if (200..<300).contains(code) { return }
+      if (200..<300).contains(code) {
+        onSuccess?(data)
+        return
+      }
       if code == 401 || code == 403, !isRetry,
         let fallback = VibeCallConfig.defaultToken, fallback != bearer
       {
         self.post(
           path, body, idempotencyKey: idempotencyKey, label: label,
-          queueOnFailure: queueOnFailure, onFailure: onFailure, token: fallback, isRetry: true)
+          queueOnFailure: queueOnFailure, onFailure: onFailure, token: fallback, isRetry: true,
+          reportAllFailures: reportAllFailures, onSuccess: onSuccess)
         return
       }
       if let data, let text = String(data: data, encoding: .utf8) {
@@ -191,7 +226,7 @@ final class VibeCallNetwork {
       if queueOnFailure, retryable {
         DispatchQueue.main.async { self.rememberFailed(body) }
       }
-      if retryable { onFailure?() }
+      if retryable || reportAllFailures { onFailure?() }
     }.resume()
   }
 

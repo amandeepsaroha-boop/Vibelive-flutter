@@ -10,6 +10,7 @@ import '../query/query_persist.dart';
 import '../storage/app_prefs.dart';
 import '../storage/token_storage.dart';
 import '../utils/log.dart';
+import 'session_health.dart';
 
 @immutable
 class SessionState {
@@ -59,8 +60,6 @@ class SessionStore extends ValueNotifier<SessionState> {
   static const _userKey = 'session_user';
   static const _expertKey = 'session_expert';
 
-  StreamSubscription<Object>? _expiredSub;
-
   /// iOS protected data (keychain, prefs) readable right now; null when
   /// unknown. Installed by the call layer before [restore]: a VoIP push can
   /// boot the app on a locked phone, where both stores read as empty.
@@ -70,11 +69,13 @@ class SessionStore extends ValueNotifier<SessionState> {
   /// call: its `/call/Callend` needs the user's token). Bounded.
   static Future<void> Function()? beforeSignOut;
 
-  /// Restores the last session (before `runApp`) and starts listening for
-  /// forced logouts from the API client. Never wipes what it could not
-  /// read (locked VoIP boot): it keeps it for the next restore.
+  /// Restores the last session (before `runApp`) and starts
+  /// [SessionHealth]. A failed token refresh NEVER signs the user out (only
+  /// the Logout button does): it shows "Server unreachable" with Retry.
+  /// Never wipes what it could not read (locked VoIP boot): it keeps it for
+  /// the next restore.
   Future<void> restore() async {
-    _expiredSub ??= ApiClient.onSessionExpired.listen((_) => signOut());
+    SessionHealth.instance.start();
     final locked = await _protectedDataAvailable() == false;
     final user = _readJson(_userKey);
     if (user == null) {

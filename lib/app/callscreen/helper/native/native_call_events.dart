@@ -183,6 +183,14 @@ abstract final class NativeCallEvents {
         );
       case 'nativeEnded':
         await _ended('${e['callId'] ?? ''}', const {});
+      case 'instantAccepted':
+        // iOS: the native answer's `/instant-call/host-accept` reply (Talk
+        // Now): the call record Callend bills.
+        final callId = '${e['callId'] ?? ''}';
+        final record = '${e['serverCallId'] ?? ''}';
+        if (callId.isNotEmpty && record.isNotEmpty) {
+          CallSignals.onInstantAccepted(callId, record);
+        }
       case 'updateCallFailed':
         // CALL-BREAKING otherwise: the server never learns the answer, the
         // caller keeps ringing and the call is billed as missed (I1).

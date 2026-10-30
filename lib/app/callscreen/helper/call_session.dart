@@ -99,6 +99,7 @@ class CallSession {
     this.phaseSince,
     this.isInstantCall = false,
     this.instantCallSessionId,
+    this.serverCallId,
   });
 
   static const idle = CallSession();
@@ -150,8 +151,20 @@ class CallSession {
   /// guard window survives a remount (minimize, then return).
   final DateTime? phaseSince;
 
+  /// Talk Now: [callId] is the instant-call SESSION's id (the ring and
+  /// every local map key); the call record the backend bills is created
+  /// when a host accepts, as [serverCallId].
   final bool isInstantCall;
   final String? instantCallSessionId;
+
+  /// Talk Now: the `api::call.call` id once a host accepted (host: the
+  /// host-accept reply; caller: `INSTANT_CALL_CONNECTED`).
+  final String? serverCallId;
+
+  /// The id `/call/Callend` takes: the call record. A Talk Now call has
+  /// none until a host accepts (then nothing is billed: the session is
+  /// cancelled or declined through `/instant-call/*` instead).
+  String? get backendCallId => isInstantCall ? serverCallId : callId;
 
   bool get isCaller => role == CallRole.caller;
   bool get isReceiver => role == CallRole.receiver;
@@ -176,9 +189,12 @@ class CallSession {
     return s < 1 ? 1 : s;
   }
 
-  /// Same call (numeric id or documentId).
+  /// Same call (numeric id or documentId; for Talk Now also the call
+  /// record's id, which the backend's pushes after the accept carry).
   bool isSameCall(String? id) =>
-      id != null && id.isNotEmpty && (id == callId || id == callDocumentId);
+      id != null &&
+      id.isNotEmpty &&
+      (id == callId || id == callDocumentId || id == serverCallId);
 
   CallSession copyWith({
     CallPhase? phase,
@@ -204,6 +220,7 @@ class CallSession {
     DateTime? phaseSince,
     bool? isInstantCall,
     String? instantCallSessionId,
+    String? serverCallId,
   }) => CallSession(
     phase: phase ?? this.phase,
     role: role ?? this.role,
@@ -228,6 +245,7 @@ class CallSession {
     phaseSince: phaseSince ?? this.phaseSince,
     isInstantCall: isInstantCall ?? this.isInstantCall,
     instantCallSessionId: instantCallSessionId ?? this.instantCallSessionId,
+    serverCallId: serverCallId ?? this.serverCallId,
   );
 }
 

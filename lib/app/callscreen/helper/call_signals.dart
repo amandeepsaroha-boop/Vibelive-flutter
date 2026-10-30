@@ -5,6 +5,7 @@ import 'call_billing.dart';
 import 'call_controller.dart';
 import 'call_identity.dart';
 import 'call_payload.dart';
+import 'flows/incoming_flow.dart';
 import 'flows/instant_call_flow.dart';
 import 'flows/native_flow.dart';
 import 'flows/push_flow.dart';
@@ -66,6 +67,11 @@ abstract final class CallSignals {
   /// `CALL_ENDED`.
   static void onLowBalanceWarning(String callId) =>
       _guardSync(() => CallBilling.warnOnce(callId));
+
+  /// Talk Now, host side: the call record ring [callId] became (the
+  /// phone's native answer got the host-accept reply).
+  static void onInstantAccepted(String callId, String serverCallId) =>
+      _guardSync(() => IncomingFlow.adoptServerCallId(callId, serverCallId));
 
   /// Instant call: the system is ringing a different host (caller side).
   static void onInstantCallHostChanged(Map<String, dynamic> data) =>

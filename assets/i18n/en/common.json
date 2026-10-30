@@ -101,5 +101,13 @@
     "cta": "UPDATE NOW",
     "later": "Later",
     "footer": "Stay updated for the best performance"
+  },
+  "session_issue": {
+    "unreachable_title": "Can't reach the server",
+    "unreachable_body": "You're still signed in. Check your internet, or our server may be busy. We'll keep trying, or tap Retry.",
+    "rejected_title": "Couldn't refresh your session",
+    "rejected_body": "You're still signed in. Tap Retry. If this keeps happening, log in again.",
+    "retry": "Retry",
+    "log_in_again": "Log in again"
   }
 }

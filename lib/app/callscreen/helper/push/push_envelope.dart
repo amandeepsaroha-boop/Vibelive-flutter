@@ -81,9 +81,16 @@ class PushEnvelope {
   String get status =>
       (data['callStatus'] ?? data['status'] ?? '').toLowerCase();
 
-  /// `callId` / `call_id` / `CallId` (null when absent or empty).
+  /// `callId` / `call_id` / `CallId`, else a Talk Now ring's session id
+  /// (its ring's callId; older backends end a ring with only that). Null
+  /// when absent or empty.
   String? get callId {
-    for (final key in const ['callId', 'call_id', 'CallId']) {
+    for (final key in const [
+      'callId',
+      'call_id',
+      'CallId',
+      'instantCallSessionId',
+    ]) {
       final v = data[key]?.trim();
       if (v != null && v.isNotEmpty && v != 'null') return v;
     }
