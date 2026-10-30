@@ -81,7 +81,10 @@ void main() {
       events.clear();
       order.clear();
       Analytics.debugSink = (e, p) {
-        if (e.contains(':')) return; // meta: / firebase: twins
+        if (e.contains(':')) {
+          events[e] = p; // meta: / firebase: twins, kept off the order
+          return;
+        }
         events[e] = p;
         order.add(e);
       };
@@ -111,15 +114,23 @@ void main() {
       calls.end();
       expect(order, [
         'call_initiated',
+        'book_consultation',
         'call_ringing',
         'call_accepted',
         'call_started',
         'call_ended',
       ]);
+      // RN's booking events: Firebase book_consultation, Meta checkout.
+      expect(events['book_consultation']!['expert_id'], 'host1');
+      expect(
+        events['meta:fb_mobile_initiated_checkout']!['content_type'],
+        'call_booking',
+      );
       final ended = events['call_ended']!;
       expect(ended['call_type'], 'video');
       expect(ended['role'], 'caller');
       expect(ended['host_id'], 'host1');
+      expect(ended['expert_id'], 'host1');
       expect(ended['end_reason'], CallEndReason.balanceExhausted);
       expect(ended['duration_seconds'], 1);
     });

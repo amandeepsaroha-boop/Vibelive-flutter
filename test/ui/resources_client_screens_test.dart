@@ -10,6 +10,7 @@ import 'package:vibelive/app/client/referral/referral_screen.dart';
 import 'package:vibelive/app/component/app_logo.dart';
 import 'package:vibelive/app/resourcesscreen/category_menu/category_menu_screen.dart';
 import 'package:vibelive/app/resourcesscreen/dynamic_page/dynamic_page_screen.dart';
+import 'package:vibelive/app/resourcesscreen/support/support_screen.dart';
 import 'package:vibelive/core/router/app_router.dart';
 
 import 'resources_support/harness.dart';
@@ -46,7 +47,7 @@ void main() {
       'Referral Program': ReferralScreen,
       'Favourites': FavouritesScreen,
       'About Vibe': DynamicPageScreen,
-      'Help & Support': DynamicPageScreen,
+      'Help & Support': SupportScreen,
       'Privacy Policy': DynamicPageScreen,
     };
     for (final MapEntry(key: row, value: screen) in targets.entries) {

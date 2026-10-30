@@ -132,6 +132,7 @@ abstract final class CallAnalytics {
         _ringStart[id] = clock.now();
         _trim(_ringStart);
         _log('call_initiated', s);
+        if (s.isCaller) _booked(s);
       case CallPhase.ringing:
         if (s.isCaller) {
           _log('call_ringing', s);
@@ -193,17 +194,20 @@ abstract final class CallAnalytics {
         'duration_bucket': _bucket(seconds),
         'rate_per_min': rate,
       };
-      _log('call_ended', s, params);
+      // Meta sums the duration (RN `logMetaCallEnded`).
+      Analytics.log('call_ended', {
+        ..._params(s),
+        ...params,
+      }, seconds.toDouble());
       final user = _userKey();
       if (user != null) {
         final event = s.isCaller
             ? 'first_call_completed'
             : 'host_first_call_completed';
-        Analytics.logOncePersisted(
-          '${event}_$user',
-          event,
-          {..._params(s), ...params},
-        );
+        Analytics.logOncePersisted('${event}_$user', event, {
+          ..._params(s),
+          ...params,
+        });
       }
       return;
     }
@@ -225,7 +229,8 @@ abstract final class CallAnalytics {
         _ => 'call_cancelled',
       };
     } else {
-      event = r == CallEndReason.declined ||
+      event =
+          r == CallEndReason.declined ||
               r == CallEndReason.safetyBlock ||
               r == CallEndReason.safetyReport
           ? 'call_declined'
@@ -244,6 +249,25 @@ abstract final class CallAnalytics {
     Map<String, Object?> extra = const {},
   ]) => Analytics.log(event, {..._params(s), ...extra});
 
+  /// RN `logBookConsultation`: the server accepted the call (it rings, the
+  /// host was not busy), once per call: Firebase `book_consultation` and
+  /// Meta's InitiatedCheckout (`call_booking`), which ad conversions use.
+  static void _booked(CallSession s) {
+    final p = _params(s);
+    final id = s.callDocumentId ?? s.callId;
+    final category = p['category'];
+    Analytics.logOnce('book_consultation_$id', 'book_consultation', {
+      'expert_id': p['expert_id'],
+      'category': category,
+    });
+    Analytics.meta('fb_mobile_initiated_checkout', {
+      'content_id': id ?? p['expert_id'],
+      'content_type': 'call_booking',
+      'category': category,
+      'currency': 'INR',
+    });
+  }
+
   static Map<String, Object?> _params(CallSession s) {
     String? clean(String? v) =>
         v == null || v.isEmpty || v.toLowerCase() == 'null' ? null : v;
@@ -252,6 +276,10 @@ abstract final class CallAnalytics {
       'call_type': s.isVideo ? 'video' : 'audio',
       'role': s.isCaller ? 'caller' : 'receiver',
       'host_id': s.isCaller
+          ? clean(s.receiverDocId) ?? clean(s.remote.documentId)
+          : null,
+      // RN's name for it; reports and audiences still key on it.
+      'expert_id': s.isCaller
           ? clean(s.receiverDocId) ?? clean(s.remote.documentId)
           : null,
       'peer_id': clean(s.remote.documentId) ?? clean(s.remote.id),

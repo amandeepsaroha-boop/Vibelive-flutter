@@ -130,6 +130,15 @@ class HostBackend implements HttpClientAdapter {
   /// `/me/moderation-notes`: the team's messages, newest first.
   List<JsonMap> moderationNotes = [];
 
+  /// `/instant-call/config` (Talk Now off unless set) and the
+  /// `/instant-call/initiate` answer.
+  JsonMap instantConfig = {'enabled': false};
+  JsonMap instantInitiate = {
+    'success': false,
+    'message': 'No hosts are available right now.',
+    'code': 'NO_HOSTS',
+  };
+
   /// `'POST /api/expert-profiles'`-style calls that answer 500.
   final failing = <String>{};
 
@@ -220,6 +229,10 @@ class HostBackend implements HttpClientAdapter {
             'VideoCall_Percentage_Commission': 40,
             'Minimum_VoiceCall_Commission_Fixed': 3,
             'Minimum_videoCall_Commission_Fixed': 5,
+            'Referral_VoiceCall_Percentage_Commission': 30,
+            'Referral_VideoCall_Percentage_Commission': 30,
+            'Referral_Minimum_VoiceCall_Commission_Fixed': 1,
+            'Referral_Minimum_videoCall_Commission_Fixed': 1,
           },
         };
       case 'GET /api/expert-profiles':
@@ -252,6 +265,10 @@ class HostBackend implements HttpClientAdapter {
         return {'data': approvals};
       case 'GET /api/me/moderation-notes':
         return {'results': moderationNotes};
+      case 'GET /api/instant-call/config':
+        return instantConfig;
+      case 'POST /api/instant-call/initiate':
+        return instantInitiate;
       case 'POST /api/expert-profile-approvals':
         return {
           'data': {'id': 1, 'documentId': 'ap1', 'status': 'pending'},

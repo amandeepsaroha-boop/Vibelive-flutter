@@ -23,7 +23,7 @@ Code: `lib/core/analytics/` (`analytics.dart` sends events, `screen_tracker.dart
 | `fb_mobile_content_view` | a host profile is opened (value = per-minute rate) |
 | `fb_mobile_search` | a search returns results |
 | `fb_mobile_add_to_wishlist` | a host is added to favourites |
-| `fb_mobile_initiated_checkout`, `fb_mobile_add_payment_info` | a top-up or badge payment starts |
+| `fb_mobile_initiated_checkout`, `fb_mobile_add_payment_info` | a top-up or badge payment starts; `fb_mobile_initiated_checkout` also when a call is booked (`content_type: call_booking`) |
 | Purchase (`logPurchase`, INR) | a top-up or badge payment succeeds (once per transaction) |
 | `fb_mobile_rate` | a call is rated or reviewed |
 | `SubmitApplication` | a host application is submitted |
@@ -74,16 +74,17 @@ On sign-in, profile change, and sign-out:
 
 Every call event comes from one observer on the call's state, so calls answered from CallKit, a push, the Android notification, or the app are all counted the same way.
 
-Common params on every call event: `call_id`, `call_type` (audio | video), `role` (caller | receiver), `host_id` (caller side), `peer_id`, `category`, `instant_call`, `company_call`.
+Common params on every call event: `call_id`, `call_type` (audio | video), `role` (caller | receiver), `host_id` and `expert_id` (the same value, caller side; `expert_id` is RN's name), `peer_id`, `category`, `instant_call`, `company_call`.
 
 | event | when | extra params |
 |---|---|---|
 | call_initiated | caller: the call was created on the server, ringing starts | |
+| book_consultation | caller: the server accepted the call (not busy), once per call (RN name); with Meta `fb_mobile_initiated_checkout` {content_id, content_type: call_booking, category, currency} | expert_id, category |
 | call_incoming | receiver: the ring is shown | locked, auto_accept |
 | call_ringing | caller: the host's phone is ringing | |
 | call_accepted | the call was answered (both sides) | ring_seconds |
 | call_started | connected, the timer is running (RN name) | rate_per_min |
-| call_ended | a connected call finished (RN name) | end_reason, duration_seconds, duration_minutes, duration_bucket (under_1m, 1_5m, 5_15m, 15_30m, over_30m), rate_per_min |
+| call_ended | a connected call finished (RN name); Meta value = duration in seconds | end_reason, duration_seconds, duration_minutes, duration_bucket (under_1m, 1_5m, 5_15m, 15_30m, over_30m), rate_per_min |
 | call_cancelled | caller hung up before an answer | end_reason, ring_seconds |
 | call_not_answered | caller: nobody answered in time | end_reason, ring_seconds |
 | call_rejected | caller: the host declined / the server ended it before connect | end_reason, ring_seconds |

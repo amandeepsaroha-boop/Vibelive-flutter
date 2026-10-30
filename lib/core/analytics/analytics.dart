@@ -76,12 +76,26 @@ abstract final class Analytics {
 
   /// [event] to Firebase and Meta. Keep names snake_case, at most 40
   /// characters, starting with a letter, and off Firebase's reserved list.
-  static void log(String event, [Map<String, Object?> params = const {}]) {
+  /// [valueToSum]: Meta's value for the event (RN `logMetaEvent`'s third
+  /// argument, e.g. a call's duration).
+  static void log(
+    String event, [
+    Map<String, Object?> params = const {},
+    double? valueToSum,
+  ]) {
     assert(_validName(event), 'Bad analytics event name: $event');
     final clean = sanitize(params);
     Log.d('Analytics', '$event $clean');
     debugSink?.call(event, clean);
-    unawaited(_guard(() => _meta.logEvent(name: event, parameters: clean)));
+    unawaited(
+      _guard(
+        () => _meta.logEvent(
+          name: event,
+          parameters: clean,
+          valueToSum: valueToSum,
+        ),
+      ),
+    );
     unawaited(
       _guard(
         () => FirebaseAnalytics.instance.logEvent(
@@ -247,11 +261,7 @@ abstract final class Analytics {
     if (error is ApiException) {
       final key = error.messageKey;
       final status = error.statusCode;
-      return [
-        error.type.name,
-        ?status?.toString(),
-        ?key,
-      ].join(':');
+      return [error.type.name, ?status?.toString(), ?key].join(':');
     }
     if (error == null) return 'unknown';
     return error.runtimeType.toString();
@@ -295,12 +305,31 @@ abstract final class Analytics {
 
   /// Firebase drops these silently (they are its own automatic events).
   static const _reserved = {
-    'ad_activeview', 'ad_click', 'ad_exposure', 'ad_impression', 'ad_query',
-    'ad_reward', 'adunit_exposure', 'app_background', 'app_clear_data',
-    'app_exception', 'app_remove', 'app_store_refund', 'app_update',
-    'app_upgrade', 'error', 'first_open', 'first_visit', 'in_app_purchase',
-    'notification_dismiss', 'notification_foreground', 'notification_open',
-    'notification_receive', 'os_update', 'screen_view', 'session_start',
+    'ad_activeview',
+    'ad_click',
+    'ad_exposure',
+    'ad_impression',
+    'ad_query',
+    'ad_reward',
+    'adunit_exposure',
+    'app_background',
+    'app_clear_data',
+    'app_exception',
+    'app_remove',
+    'app_store_refund',
+    'app_update',
+    'app_upgrade',
+    'error',
+    'first_open',
+    'first_visit',
+    'in_app_purchase',
+    'notification_dismiss',
+    'notification_foreground',
+    'notification_open',
+    'notification_receive',
+    'os_update',
+    'screen_view',
+    'session_start',
     'user_engagement',
   };
 

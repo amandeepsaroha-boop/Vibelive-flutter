@@ -126,6 +126,9 @@ void main() {
     expect(find.text('₹ 25'), findsOneWidget);
     expect(find.text('₹ 35'), findsOneWidget);
     expectFlat(tester, 'Call Rates edit');
+    // Under the audio card's earnings panel: scroll to it first.
+    await tester.ensureVisible(find.bySemanticsLabel('Increase rate').last);
+    await tester.pump();
     await tester.tap(find.bySemanticsLabel('Increase rate').last);
     await tester.pump();
     await tester.tap(find.text('Save changes'));

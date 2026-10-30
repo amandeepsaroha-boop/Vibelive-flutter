@@ -16,7 +16,6 @@ import 'package:vibelive/app/hosthub/onboarding/helper/schedule_format.dart';
 import 'package:vibelive/app/hosthub/onboarding/helper/submit_plan.dart';
 import 'package:vibelive/app/hosthub/onboarding/helper/suggestions.dart';
 import 'package:vibelive/app/hosthub/onboarding/helper/validation.dart';
-import 'package:vibelive/app/hosthub/onboarding/steps/rates_step.dart';
 import 'package:vibelive/core/storage/app_prefs.dart';
 
 import 'host_onboarding_support/harness.dart';
@@ -295,12 +294,6 @@ void main() {
         pm: false,
       ));
       expect(HostScheduleFormat.parts(18 * 60), (h: 6, m: '00', pm: true));
-    });
-
-    test('earnings follow the RN commission rule', () {
-      expect(hostEarnings(25, 40, 3), 15); // 40% beats the ₹3 minimum
-      expect(hostEarnings(5, 40, 3), 2); // the ₹3 minimum wins
-      expect(hostEarnings(2, 40, 3), 0); // never more than the rate
     });
   });
 

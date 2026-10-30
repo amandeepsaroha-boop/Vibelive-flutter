@@ -60,6 +60,8 @@ class VibeCallPlatform extends CallPlatform {
       // foreground service from the background (and 14 its mic type), so a
       // caller who leaves the app while it rings would lose the mic.
       await _startOngoing(call, callId);
+      // RN: the screen goes dark at the ear from the first ring.
+      _proximity(call);
       // With the call permissions (the mic gate just passed): headsets.
       unawaited(CallPermissionPrimer.ensureBluetooth());
     } catch (e) {
@@ -79,7 +81,7 @@ class VibeCallPlatform extends CallPlatform {
         callId,
         call.connectedAt ?? DateTime.now(),
       );
-      if (!call.isVideo) unawaited(NativeCallBridge.acquireProximityLock());
+      _proximity(call);
       // Started by markOutgoing (caller) or answerNativeRinging (receiver)
       // already, else now. Either way the Telecom connection goes active.
       await _startOngoing(call, callId);
@@ -194,6 +196,21 @@ class VibeCallPlatform extends CallPlatform {
     await NativeCallBridge.setAudioRoute(
       on ? 'speaker' : 'earpiece',
       callId: callId,
+    );
+    // On speaker the phone is away from the face: keep the screen on.
+    _proximity(CallController.instance.value, speakerOn: on);
+  }
+
+  /// RN CallingScreen: the proximity lock (screen off at the ear) while an
+  /// audio call rings or runs on the earpiece; released on speaker, for
+  /// video, and when the call ends ([endNativeCall]). Android only.
+  void _proximity(CallSession call, {bool? speakerOn}) {
+    final speaker = speakerOn ?? CallEngine.instance.media.value.speakerOn;
+    final engage = !call.isVideo && call.phase.isActive && !speaker;
+    unawaited(
+      engage
+          ? NativeCallBridge.acquireProximityLock()
+          : NativeCallBridge.releaseProximityLock(),
     );
   }
 

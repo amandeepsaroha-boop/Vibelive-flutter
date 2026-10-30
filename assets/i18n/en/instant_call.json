@@ -1,0 +1,11 @@
+{
+  "errors": {
+    "initiate_failed": "Couldn't start Talk Now. Please try again.",
+    "cancel_failed": "Couldn't cancel. Please try again.",
+    "invalid_response": "Something went wrong starting Talk Now. Please try again.",
+    "no_hosts": "No one is free to talk right now. Please try again in a few minutes.",
+    "disabled": "Talk Now isn't available right now.",
+    "low_balance": "Your wallet balance is too low for Talk Now. Add money and try again.",
+    "already_active": "You're already on a call or looking for someone to talk to."
+  }
+}

@@ -172,9 +172,14 @@ void main() {
     final audioSwitch = find.byKey(
       const ValueKey('hostflow-switch-hostflow:rates.audio'),
     );
+    // Below the audio card's earnings panel: scroll to it first.
+    await tester.ensureVisible(videoSwitch);
+    await tester.pump();
     await tester.tap(videoSwitch);
     await pumpFor(tester, 300);
     expect(find.text('₹ 35'), findsNothing);
+    await tester.ensureVisible(audioSwitch);
+    await tester.pump();
     await tester.tap(audioSwitch);
     await pumpFor(tester, 300);
     await tapContinue(tester);

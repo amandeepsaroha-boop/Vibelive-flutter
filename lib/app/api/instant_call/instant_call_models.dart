@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../../core/network/strapi.dart';
 
 enum InstantCallSessionStatus {
@@ -94,4 +96,35 @@ class InitiatedInstantCall {
       parallelHosts: parallel,
     );
   }
+}
+
+/// `GET /instant-call/config`: Talk Now for the signed-in user.
+@immutable
+class InstantCallConfig {
+  const InstantCallConfig({
+    required this.enabled,
+    this.allowedCallTypes = 'voice_only',
+    this.callerVoiceRate,
+    this.callerVideoRate,
+  });
+
+  factory InstantCallConfig.fromJson(Map<String, dynamic> json) =>
+      InstantCallConfig(
+        enabled: J.boolean(json['enabled']),
+        allowedCallTypes: J.str(json['allowedCallTypes']) ?? 'voice_only',
+        callerVoiceRate: J.number(json['callerVoiceRate']),
+        callerVideoRate: J.number(json['callerVideoRate']),
+      );
+
+  static const off = InstantCallConfig(enabled: false);
+
+  final bool enabled;
+
+  /// `voice_only`, `video_only` or `both`.
+  final String allowedCallTypes;
+  final double? callerVoiceRate;
+  final double? callerVideoRate;
+
+  /// The call type the one-tap button places.
+  bool get placesVideo => allowedCallTypes == 'video_only';
 }

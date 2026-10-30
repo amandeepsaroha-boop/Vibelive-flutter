@@ -58,6 +58,16 @@ class CallScreen extends HookWidget {
 
     return PopScope(
       canPop: false,
+      // System back (Android) = the header's back: close the safety panel,
+      // else minimise a live call (RN left the screen and kept the call).
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (ui.safetyOpen.value) {
+          _toggleSafety(ui);
+        } else {
+          _back(callKey);
+        }
+      },
       child: ThemedStatusBar(
         darkBackground: true,
         child: Material(
