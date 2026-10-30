@@ -68,68 +68,40 @@ class RatesStep extends HookWidget {
           payout: videoPayout,
         ),
         SizedBox(height: 12.ms),
-        HostCard(
-          color: p.tint,
-          borderColor: p.tint,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(LucideIcons.info, size: 22.ms, color: p.accent),
-              SizedBox(width: 12.ms),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CText(
-                      'hostflow:rates.info',
-                      size: 14.5,
-                      height: 21.5,
-                      weight: FontWeight.w500,
-                      color: p.text,
-                    ),
-                    SizedBox(height: 6.ms),
-                    Pressable(
-                      onPressed: () {
-                        HostEvents.earningsViewed(
-                          audioRate: draft.audioOn.value
-                              ? draft.audioRate.value
-                              : null,
-                          videoRate: draft.videoOn.value
-                              ? draft.videoRate.value
-                              : null,
-                        );
-                        _showEarnings(
-                          context,
-                          draft,
-                          voice: voicePayout,
-                          video: videoPayout,
-                          runtime: runtime,
-                        );
-                      },
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: CText(
-                              'hostflow:rates.earnings_link',
-                              size: 14.5,
-                              weight: FontWeight.w700,
-                              color: p.accent,
-                            ),
-                          ),
-                          SizedBox(width: 4.ms),
-                          Icon(
-                            LucideIcons.arrowRight,
-                            size: 14.ms,
-                            color: p.accent,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+        // The full breakdown (call lengths, fees, invite link, payouts).
+        Pressable(
+          onPressed: () {
+            HostEvents.earningsViewed(
+              audioRate: draft.audioOn.value ? draft.audioRate.value : null,
+              videoRate: draft.videoOn.value ? draft.videoRate.value : null,
+            );
+            _showEarnings(
+              context,
+              draft,
+              voice: voicePayout,
+              video: videoPayout,
+              runtime: runtime,
+            );
+          },
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 10.ms),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(LucideIcons.info, size: 17.ms, color: p.accent),
+                SizedBox(width: 6.ms),
+                Flexible(
+                  child: CText(
+                    'hostflow:rates.earnings_link',
+                    size: 14.5,
+                    weight: FontWeight.w700,
+                    color: p.accent,
+                  ),
                 ),
-              ),
-            ],
+                SizedBox(width: 4.ms),
+                Icon(LucideIcons.arrowRight, size: 14.ms, color: p.accent),
+              ],
+            ),
           ),
         ),
       ],
@@ -183,23 +155,11 @@ class RateFormatCard extends StatelessWidget {
                 ),
                 SizedBox(width: 12.ms),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CText(
-                        title,
-                        size: 18,
-                        weight: FontWeight.w700,
-                        color: p.text,
-                      ),
-                      SizedBox(height: 2.ms),
-                      CText(
-                        'hostflow:rates.rate_hint',
-                        size: 14.5,
-                        weight: FontWeight.w500,
-                        color: p.muted,
-                      ),
-                    ],
+                  child: CText(
+                    title,
+                    size: 18,
+                    weight: FontWeight.w700,
+                    color: p.text,
                   ),
                 ),
                 HostSwitch(
@@ -246,15 +206,13 @@ class RateFormatCard extends StatelessWidget {
   }
 }
 
-/// "You earn": per minute from app callers and, when it is a better deal,
-/// from invite-link callers (badged BEST), then a 10-minute example. Follows
-/// the rate as the host steps it.
+/// What the host gets per minute at the rate being set, big, with the
+/// fee under it; one line for invite-link callers when they pay more. The
+/// full breakdown is in "How earnings work". Follows the stepper.
 class _EarningsPanel extends StatelessWidget {
   const _EarningsPanel({required this.rate, required this.payout});
   final ValueListenable<int> rate;
   final HostRatePayout payout;
-
-  static const exampleMinutes = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -262,167 +220,92 @@ class _EarningsPanel extends StatelessWidget {
     return ValueListenableBuilder<int>(
       valueListenable: rate,
       builder: (_, r, _) => Container(
-        margin: EdgeInsets.only(top: 14.ms),
-        padding: EdgeInsets.fromLTRB(12.ms, 12.ms, 12.ms, 10.ms),
+        margin: EdgeInsets.only(top: 10.ms),
+        padding: EdgeInsets.fromLTRB(12.ms, 9.ms, 12.ms, 9.ms),
         decoration: BoxDecoration(
-          color: p.soft,
-          borderRadius: BorderRadius.circular(14.ms),
-          border: Border.all(color: p.cardBorder),
+          color: p.successTint,
+          borderRadius: BorderRadius.circular(12.ms),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            CText(
-              'hostflow:rates.you_earn',
-              size: 11.5,
-              weight: FontWeight.w800,
-              letterSpacing: 0.6,
-              color: p.muted,
-            ),
-            SizedBox(height: 8.ms),
-            _EarningRow(
-              icon: LucideIcons.globe,
-              label: 'hostflow:rates.app_callers',
-              terms: payout.standard,
-              rate: r,
-            ),
-            if (payout.inviteIsBetter) ...[
-              SizedBox(height: 6.ms),
-              _EarningRow(
-                icon: LucideIcons.link,
-                label: 'hostflow:rates.invite_callers',
-                terms: payout.invite,
-                rate: r,
-                best: true,
-              ),
-            ],
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 10.ms),
-              child: Divider(height: 1, color: p.cardBorder),
-            ),
-            CText(
-              'hostflow:rates.example',
-              variables: {
-                'minutes': exampleMinutes,
-                'pays': rupees((r * exampleMinutes).toDouble()),
-                'gets': rupees(payout.standard.forCall(r, exampleMinutes)),
-              },
-              size: 13,
-              height: 19,
-              weight: FontWeight.w600,
-              color: p.text,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EarningRow extends StatelessWidget {
-  const _EarningRow({
-    required this.icon,
-    required this.label,
-    required this.terms,
-    required this.rate,
-    this.best = false,
-  });
-
-  final IconData icon;
-
-  /// i18n key.
-  final String label;
-  final HostPayoutTerms terms;
-  final int rate;
-
-  /// The invite-link row: highlighted, with a BEST badge.
-  final bool best;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = HostPalette.of(context);
-    return Container(
-      padding: best
-          ? EdgeInsets.symmetric(horizontal: 8.ms, vertical: 8.ms)
-          : EdgeInsets.symmetric(horizontal: 0, vertical: 2.ms),
-      decoration: best
-          ? BoxDecoration(
-              color: p.successTint,
-              borderRadius: BorderRadius.circular(10.ms),
-              border: Border.all(color: p.success.withValues(alpha: 0.3)),
-            )
-          : null,
-      child: Row(
-        children: [
-          Icon(icon, size: 17.ms, color: best ? p.success : p.accent),
-          SizedBox(width: 8.ms),
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
               children: [
-                // Wraps (badge under the label) rather than overflow on a
-                // narrow phone or in Hindi.
-                Wrap(
-                  spacing: 6.ms,
-                  runSpacing: 2.ms,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    CText(
-                      label,
-                      size: 14,
-                      weight: FontWeight.w700,
-                      color: p.text,
-                    ),
-                    if (best)
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 6.ms,
-                          vertical: 1.ms,
-                        ),
-                        decoration: BoxDecoration(
-                          color: p.success,
-                          borderRadius: BorderRadius.circular(6.ms),
-                        ),
-                        child: CText(
-                          'hostflow:rates.best',
-                          size: 9.5,
-                          weight: FontWeight.w900,
-                          color: p.onAccent,
-                        ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CText(
+                        'hostflow:rates.you_get',
+                        size: 13.5,
+                        weight: FontWeight.w700,
+                        color: p.text,
                       ),
-                  ],
+                      CText(
+                        'hostflow:rates.after_fee',
+                        variables: {'percent': rupees(payout.standard.percent)},
+                        size: 11.5,
+                        weight: FontWeight.w500,
+                        color: p.muted,
+                      ),
+                    ],
+                  ),
                 ),
-                CText(
-                  'hostflow:rates.fee',
-                  variables: {'percent': rupees(terms.percent)},
-                  size: 11.5,
-                  weight: FontWeight.w600,
-                  color: p.muted,
+                SizedBox(width: 8.ms),
+                // The number a host decides on: the boldest thing here.
+                // Shrinks rather than overflow on a narrow phone.
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        CText(
+                          'hostflow:rates.amount_plain',
+                          variables: {
+                            'amount': rupees(payout.standard.perMinute(r)),
+                          },
+                          size: 22,
+                          weight: FontWeight.w900,
+                          color: p.success,
+                          maxLines: 1,
+                        ),
+                        SizedBox(width: 2.ms),
+                        CText(
+                          'hostflow:rates.per_min_short',
+                          size: 12.5,
+                          weight: FontWeight.w700,
+                          color: p.success,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-          SizedBox(width: 8.ms),
-          // Never wider than its share: a long amount shrinks instead.
-          Flexible(
-            flex: 2,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: CText(
-                  'hostflow:rates.per_min_amount',
-                  variables: {'amount': rupees(terms.perMinute(rate))},
-                  size: 15,
-                  weight: FontWeight.w900,
-                  color: best ? p.success : p.accent,
-                  maxLines: 1,
-                ),
+            if (payout.inviteIsBetter) ...[
+              SizedBox(height: 6.ms),
+              Row(
+                children: [
+                  Icon(LucideIcons.link, size: 13.ms, color: p.success),
+                  SizedBox(width: 5.ms),
+                  Expanded(
+                    child: CText(
+                      'hostflow:rates.invite_line',
+                      variables: {'amount': rupees(payout.invite.perMinute(r))},
+                      size: 12,
+                      weight: FontWeight.w600,
+                      color: p.success,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ),
-        ],
+            ],
+          ],
+        ),
       ),
     );
   }

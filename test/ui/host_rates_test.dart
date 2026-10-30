@@ -102,24 +102,28 @@ void main() {
       await pumpFor(tester, 400);
     }
 
-    testWidgets('under each rate: what the host earns, live', (tester) async {
+    testWidgets('under each rate: what the host gets, big, live', (
+      tester,
+    ) async {
       await open(tester);
-      expect(find.text('YOU EARN'), findsNWidgets(2));
+      expect(find.text('You get'), findsNWidgets(2));
+      expect(find.text('after 40% platform fee'), findsNWidgets(2));
       // Audio ₹10: 40% fee → ₹6/min; invite link 30% → ₹7/min.
-      expect(find.text('₹6/min'), findsOneWidget);
-      expect(find.text('₹7/min'), findsOneWidget);
-      expect(find.text('BEST'), findsNWidgets(2));
+      expect(find.text('₹6'), findsOneWidget);
       expect(
-        find.text('A 10-minute call: the caller pays ₹100, you get ₹60.'),
+        find.text('₹7/min from people who join with your invite link'),
         findsOneWidget,
       );
       // Video ₹20: ₹12/min, ₹14/min by invite.
-      expect(find.text('₹12/min'), findsOneWidget);
-      expect(find.text('₹14/min'), findsOneWidget);
+      expect(find.text('₹12'), findsOneWidget);
+      expect(
+        find.text('₹14/min from people who join with your invite link'),
+        findsOneWidget,
+      );
 
       draft.audioRate.value = 15;
       await tester.pump();
-      expect(find.text('₹9/min'), findsOneWidget);
+      expect(find.text('₹9'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await finishHost(tester);
     });
@@ -148,7 +152,7 @@ void main() {
         size: const Size(320, 700),
         locale: const Locale('hi'),
       );
-      expect(find.text('आपकी कमाई'), findsNWidgets(2));
+      expect(find.text('आपको मिलेंगे'), findsNWidgets(2));
       expect(tester.takeException(), isNull);
       await finishHost(tester);
     });
