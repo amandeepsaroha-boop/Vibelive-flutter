@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vibelive/app/api/client/client_models.dart';
 import 'package:vibelive/app/api/hosthub/moderation_models.dart';
 import 'package:vibelive/app/api/hosthub/profile_models.dart';
 import 'package:vibelive/app/hosthub/approved/widgets/moderation_messages_card.dart';
@@ -7,6 +8,9 @@ import 'package:vibelive/app/hosthub/common/host_review.dart';
 import 'package:vibelive/app/hosthub/onboarding/helper/draft_controller.dart';
 import 'package:vibelive/app/hosthub/onboarding/helper/draft_models.dart';
 import 'package:vibelive/app/hosthub/onboarding/helper/host_steps.dart';
+import 'package:vibelive/app/hosthub/onboarding/steps/photos_step.dart';
+import 'package:vibelive/app/hosthub/onboarding/helper/prefill.dart';
+import 'package:vibelive/app/hosthub/onboarding/helper/validation.dart';
 import 'package:vibelive/app/hosthub/onboarding/steps/tagline_step.dart';
 import 'package:vibelive/app/hosthub/onboarding/steps/voice_step.dart';
 import 'package:vibelive/app/hosthub/onboarding/widgets/photo_tile.dart';
@@ -207,6 +211,62 @@ void main() {
       // An approved photo can't be deleted: no ✕ on it (rejected and in
       // review keep theirs).
       expect(find.bySemanticsLabel('Remove photo'), findsNWidgets(2));
+      expect(tester.takeException(), isNull);
+      await finishHost(tester);
+    });
+
+    testWidgets('a 4th saved photo (rejected) is shown, removable', (
+      tester,
+    ) async {
+      // The account that hid it: 3 approved photos and a rejected 4th.
+      final host = HostProfile.from({
+        'id': 50,
+        'documentId': 'exp50',
+        'host_profile_images': [
+          for (final (doc, id, prio, primary, status) in const [
+            ('oyo', 33, 99, true, 'approved'),
+            ('amx', 11, 1, false, 'approved'),
+            ('rr8', 22, 2, false, 'approved'),
+            ('jlp', 44, 99, false, 'rejected'),
+          ])
+            {
+              'documentId': doc,
+              'priority': prio,
+              'isprimary': primary,
+              'status_enum': status,
+              'image': {'id': id, 'url': '/u/$id.jpg'},
+            },
+        ],
+      })!;
+      HostPrefill.apply(
+        draft,
+        const UserWithExpert(user: {'id': 1, 'documentId': 'u1'}),
+        host: host,
+      );
+      expect(draft.photos.value.map((p) => p.mediaId), [33, 11, 22, 44]);
+      await open(
+        tester,
+        PhotosStep(draft: draft),
+        review: HostReview.from(host, const []),
+      );
+      expect(find.text('Not approved'), findsOneWidget);
+      // No "Add photo" while at 3 or more; asked to remove one.
+      expect(find.text('Add photo'), findsNothing);
+      expect(
+        find.text('You can keep up to 3 photos. Remove one to continue.'),
+        findsOneWidget,
+      );
+      expect(
+        HostValidation.photos(draft)?.key,
+        'hostflow:errors.photos_too_many',
+      );
+      // Only the rejected one can be removed (approved ones can't).
+      expect(find.bySemanticsLabel('Remove photo'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Remove photo'));
+      await pumpFor(tester, 200);
+      expect(draft.photos.value.map((p) => p.mediaId), [33, 11, 22]);
+      expect(find.text('Not approved'), findsNothing);
+      expect(HostValidation.photos(draft), isNull);
       expect(tester.takeException(), isNull);
       await finishHost(tester);
     });

@@ -69,6 +69,9 @@ abstract final class HostValidation {
     final list = d.photos.value;
     if (list.any((p) => p.uploading)) return _issue('photos_uploading');
     if (!list.any((p) => p.uploaded)) return _issue('photos');
+    if (list.length > maxPhotos) {
+      return _issue('photos_too_many', {'max': maxPhotos});
+    }
     return null;
   }
 

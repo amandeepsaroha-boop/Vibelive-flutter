@@ -47,44 +47,61 @@ class PhotosStep extends HookWidget {
         LayoutBuilder(
           builder: (_, box) {
             final gap = 10.ms;
-            final w = (box.maxWidth - gap * 2) / HostValidation.maxPhotos;
-            return SizedBox(
-              height: w * 1.45,
-              child: ValueListenableBuilder<List<HostDraftPhoto>>(
-                valueListenable: draft.photos,
-                builder: (_, photos, _) => Row(
-                  children: [
-                    for (var i = 0; i < HostValidation.maxPhotos; i++) ...[
-                      if (i > 0) SizedBox(width: gap),
-                      SizedBox(
-                        width: w,
-                        child: i < photos.length
-                            ? HostPhotoTile(
-                                key: ValueKey(photos[i].key),
-                                photo: photos[i],
-                                width: w,
-                                primary: i == 0,
-                                review: review.photoStatus(photos[i].mediaId),
-                                onRemove: () => uploads.remove(photos[i]),
-                                onTap: () {
-                                  final ph = photos[i];
-                                  if (ph.failed) {
-                                    uploads.retry(ph);
-                                  } else if (i > 0 && ph.uploaded) {
-                                    uploads.makePrimary(ph);
-                                  }
-                                },
-                              )
-                            : i == photos.length
-                            ? HostAddPhotoTile(onTap: add)
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+            const per = HostValidation.maxPhotos;
+            final w = (box.maxWidth - gap * (per - 1)) / per;
+            return ValueListenableBuilder<List<HostDraftPhoto>>(
+              valueListenable: draft.photos,
+              builder: (_, photos, _) {
+                Widget slot(int i) => SizedBox(
+                  width: w,
+                  height: w * 1.45,
+                  child: i < photos.length
+                      ? HostPhotoTile(
+                          key: ValueKey(photos[i].key),
+                          photo: photos[i],
+                          width: w,
+                          primary: i == 0,
+                          review: review.photoStatus(photos[i].mediaId),
+                          onRemove: () => uploads.remove(photos[i]),
+                          onTap: () {
+                            final ph = photos[i];
+                            if (ph.failed) {
+                              uploads.retry(ph);
+                            } else if (i > 0 && ph.uploaded) {
+                              uploads.makePrimary(ph);
+                            }
+                          },
+                        )
+                      : i == photos.length && photos.length < per
+                      ? HostAddPhotoTile(onTap: add)
+                      : const SizedBox.shrink(),
+                );
+                // The 3 slots; a photo saved past them (an older app could
+                // save a 4th) wraps onto the next row, so it can be removed.
+                final count = photos.length > per ? photos.length : per;
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: [for (var i = 0; i < count; i++) slot(i)],
+                );
+              },
             );
           },
+        ),
+        ValueListenableBuilder<List<HostDraftPhoto>>(
+          valueListenable: draft.photos,
+          builder: (_, photos, _) => photos.length > HostValidation.maxPhotos
+              ? Padding(
+                  padding: EdgeInsets.only(top: 10.ms),
+                  child: CText(
+                    'hostflow:errors.photos_too_many',
+                    variables: const {'max': HostValidation.maxPhotos},
+                    size: 13.5,
+                    weight: FontWeight.w600,
+                    color: p.danger,
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
         SizedBox(height: 20.ms),
         HostCard(

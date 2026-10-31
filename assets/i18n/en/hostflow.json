@@ -233,7 +233,8 @@
     "slot_overlap": "This slot overlaps another slot on this day.",
     "agree": "Please agree to the Host Guidelines to continue.",
     "server": "{{message}} Please fix this and try again.",
-    "voice": "Record a short voice intro to continue."
+    "voice": "Record a short voice intro to continue.",
+    "photos_too_many": "You can keep up to {{max}} photos. Remove one to continue."
   },
   "approved": {
     "title": "You're approved! 🎉",

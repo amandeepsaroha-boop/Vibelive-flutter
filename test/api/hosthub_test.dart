@@ -667,39 +667,121 @@ void main() {
       expect(backend.requests, hasLength(4));
     });
 
-    test(
-      'photo sync updates in place, deletes emptied and stray rows',
-      () async {
-        backend.handler = (o) => _json({
-          'data': {'id': 99},
-        });
-        await HostImagesApi.sync(
-          expertId: 'exp7',
-          slots: [11, null, 33],
-          existing: [
-            HostProfileImage.fromRow({'documentId': 'a', 'priority': 1}, 0),
-            HostProfileImage.fromRow({'documentId': 'b', 'priority': 2}, 1),
-            HostProfileImage.fromRow({'id': 9, 'priority': 5}, 2),
-          ],
-        );
-        expect(backend.requests.map(_call), [
-          'PUT /api/profile-images/a',
-          'DELETE /api/profile-images/b',
-          'POST /api/profile-images',
-          'DELETE /api/profile-images/9',
-        ]);
-        expect(backend.requests.first.data, {
-          'data': {
-            'host_image': 'exp7',
-            'image': 11,
-            'priority': 1,
-            'isprimary': true,
-          },
-          'status': 'published',
-        });
-        expect((backend.requests[2].data as Map)['data']['priority'], 3);
-      },
-    );
+    HostProfileImage row(
+      String doc,
+      int image,
+      int priority, {
+      bool primary = false,
+      String status = 'approved',
+    }) => HostProfileImage.fromRow({
+      'documentId': doc,
+      'priority': priority,
+      'isprimary': primary,
+      'status_enum': status,
+      'image': {'id': image, 'url': '/u/$image.jpg'},
+    }, 0);
+
+    // The account that hid a 4th photo: three approved (the primary stored
+    // at priority 99) and a rejected one, also at 99.
+    final fourPhotos = [
+      row('amx', 11, 1),
+      row('jlp', 44, 99, status: 'rejected'),
+      row('oyo', 33, 99, primary: true),
+      row('rr8', 22, 2),
+    ];
+
+    test('photo sync: nothing changed, nothing written', () async {
+      backend.handler = (o) => _json({'data': <String, Object>{}});
+      await HostImagesApi.sync(
+        expertId: 'exp7',
+        // Display order: the primary, then by priority.
+        slots: [33, 11, 22, 44],
+        existing: fourPhotos,
+      );
+      expect(backend.requests, isEmpty);
+    });
+
+    test('photo sync: removing the rejected photo deletes only it', () async {
+      backend.handler = (o) => _json({'data': <String, Object>{}});
+      await HostImagesApi.sync(
+        expertId: 'exp7',
+        slots: [33, 11, 22],
+        existing: fourPhotos,
+      );
+      // The approved photos are not touched (an edit would send them back
+      // to review; deleting one is refused by the server).
+      expect(backend.requests.map(_call), ['DELETE /api/profile-images/jlp']);
+    });
+
+    test('photo sync: a new photo is added after the others', () async {
+      backend.handler = (o) => _json({
+        'data': {'id': 99},
+      });
+      await HostImagesApi.sync(
+        expertId: 'exp7',
+        slots: [33, 11, 55],
+        existing: [row('oyo', 33, 99, primary: true), row('amx', 11, 1)],
+      );
+      expect(backend.requests.map(_call), ['POST /api/profile-images']);
+      expect(backend.requests.single.data, {
+        'data': {
+          'host_image': 'exp7',
+          'image': 55,
+          'priority': 100,
+          'isprimary': false,
+        },
+        'status': 'published',
+      });
+    });
+
+    test('photo sync: a first photo is the primary', () async {
+      backend.handler = (o) => _json({
+        'data': {'id': 99},
+      });
+      await HostImagesApi.sync(expertId: 'exp7', slots: [77, null]);
+      expect(backend.requests.map(_call), ['POST /api/profile-images']);
+      expect((backend.requests.single.data as Map)['data'], {
+        'host_image': 'exp7',
+        'image': 77,
+        'priority': 1,
+        'isprimary': true,
+      });
+    });
+
+    test('photo sync: a new primary updates only rows that moved', () async {
+      backend.handler = (o) => _json({'data': <String, Object>{}});
+      await HostImagesApi.sync(
+        expertId: 'exp7',
+        slots: [22, 11, 33],
+        existing: [
+          row('a', 11, 2),
+          row('b', 22, 3),
+          row('c', 33, 1, primary: true),
+        ],
+      );
+      expect(backend.requests.map(_call), [
+        'PUT /api/profile-images/b',
+        'PUT /api/profile-images/c',
+      ]);
+      expect((backend.requests.first.data as Map)['data'], {
+        'priority': 1,
+        'isprimary': true,
+      });
+      expect((backend.requests.last.data as Map)['data'], {
+        'priority': 3,
+        'isprimary': false,
+      });
+    });
+
+    test('photo sync: a duplicate row of a kept picture goes', () async {
+      backend.handler = (o) => _json({'data': <String, Object>{}});
+      await HostImagesApi.sync(
+        expertId: 'exp7',
+        slots: [11],
+        existing: [row('a', 11, 1, primary: true), row('dup', 11, 2)],
+      );
+      expect(backend.requests.map(_call), ['DELETE /api/profile-images/dup']);
+    });
 
     test('update retries with the numeric id after a documentId 404', () async {
       backend.handler = (o) {

@@ -62,8 +62,11 @@ abstract final class HostPrefill {
       d.languagesSeeded = true;
     }
     if (d.photos.value.isEmpty) {
+      // Every saved photo, even past the 3 slots (an older app could save a
+      // 4th): a hidden one could neither be seen nor removed, and save would
+      // drop it silently. The step asks to remove down to 3.
       d.photos.value = [
-        for (final img in host.profileImages.take(3))
+        for (final img in host.profileImages)
           if (img.imageId != null)
             HostDraftPhoto(
               key: 'm${img.imageId}',
