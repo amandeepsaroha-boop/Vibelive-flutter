@@ -466,10 +466,16 @@ void main() {
         ifsc: 'sbin0001234 ',
         bankName: 'SBI',
         upiAddress: '  ',
+        bankProofId: 11,
+        panFrontId: 12,
+        panBackId: '13',
       );
       expect(input.toJson(), {
         'user': 'u7',
         'Primary': true,
+        'Bank_Proof': 11,
+        'PAN_Front': 12,
+        'PAN_Back': '13',
         'BankAccount': {
           'Account_Name': 'Asha K',
           'Account_Number': '123456789',
@@ -488,6 +494,23 @@ void main() {
       expect(detail.accountNumber, '9988');
       expect(detail.upiAddress, 'a@upi');
       expect(detail.isVerified, isTrue);
+      // Saved before photos were asked for.
+      expect(detail.hasDocuments, isFalse);
+
+      const withDocs = BankDetail({
+        'id': 4,
+        'Bank_Proof': {'id': 11, 'url': '/uploads/pb.jpg'},
+        'PAN_Front': {
+          'id': 12,
+          'formats': {
+            'small': {'url': '/uploads/small_pf.jpg'},
+          },
+        },
+      });
+      expect(withDocs.hasDocuments, isTrue);
+      expect(withDocs.bankProofUrl, '${Env.apiBaseUrl}/uploads/pb.jpg');
+      expect(withDocs.panFrontUrl, '${Env.apiBaseUrl}/uploads/small_pf.jpg');
+      expect(withDocs.panBackUrl, isNull);
     });
 
     test('invoice PDF URL', () {

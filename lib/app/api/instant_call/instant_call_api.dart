@@ -12,6 +12,30 @@ abstract final class InstantCallErrorKeys {
   static const lowBalance = 'instant_call:errors.low_balance';
   static const alreadyActive = 'instant_call:errors.already_active';
   static const taken = 'instant_call:errors.taken';
+
+  /// Host: already on another call when answering.
+  static const hostBusy = 'instant_call:errors.host_busy';
+
+  /// Host: the caller can no longer pay for the call.
+  static const callerLowBalance = 'instant_call:errors.caller_low_balance';
+}
+
+/// The server's `code` on a refusal, read before its English message:
+/// Strapi puts the helper's details under `error.details`; older replies
+/// carried it at the top or inside an object message.
+String? _codeOf(ApiException e) {
+  final data = e.data;
+  if (data is! Map) return null;
+  final error = data['error'];
+  final details = error is Map ? error['details'] : null;
+  final message = error is Map ? error['message'] : null;
+  final code =
+      (details is Map ? details['code'] : null) ??
+      (error is Map ? error['code'] : null) ??
+      (message is Map ? message['code'] : null) ??
+      data['code'];
+  final s = code == null ? '' : '$code'.trim();
+  return s.isEmpty ? null : s;
 }
 
 abstract final class InstantCallApi {
@@ -77,12 +101,17 @@ abstract final class InstantCallApi {
           e.type == ApiErrorType.rejected ||
           e.type == ApiErrorType.notFound ||
           e.type == ApiErrorType.conflict;
+      final key = switch (_codeOf(e)) {
+        'HOST_BUSY' => InstantCallErrorKeys.hostBusy,
+        'CALLER_LOW_BALANCE' => InstantCallErrorKeys.callerLowBalance,
+        _ => gone ? InstantCallErrorKeys.taken : null,
+      };
       Error.throwWithStackTrace(
-        gone
+        key != null
             ? ApiException(
                 e.type,
                 statusCode: e.statusCode,
-                messageKey: InstantCallErrorKeys.taken,
+                messageKey: key,
                 data: e.data,
               )
             : e,
@@ -113,15 +142,19 @@ abstract final class InstantCallApi {
     } catch (_) {}
   }
 
-  /// Caller: the call record a connected Talk Now session became
-  /// (`GET /instant-call/status`), or null.
-  static Future<String?> connectedCallId(String sessionId) async {
+  /// Caller: the call record a Talk Now session became once a host
+  /// answered, and who answered (`GET /instant-call/status`); null while
+  /// nobody has.
+  static Future<InstantConnectedCall?> connectedCall(String sessionId) async {
     final body = Strapi.map(
       await ApiClient.get('/instant-call/status/$sessionId'),
     );
-    final call = body?['connectedCall'];
-    return call is Map ? J.str(call['id']) : null;
+    return InstantConnectedCall.tryParse(body);
   }
+
+  /// [connectedCall]'s record id only.
+  static Future<String?> connectedCallId(String sessionId) async =>
+      (await connectedCall(sessionId))?.callId;
 
   static Future<void> cancel(String sessionId) async {
     await _guard(
@@ -137,21 +170,33 @@ abstract final class InstantCallApi {
   /// English message; null for anything else.
   static String? knownErrorKey(ApiException e) {
     final m = (e.serverMessage ?? '').toLowerCase();
-    final code = e.data is Map ? '${(e.data! as Map)['code'] ?? ''}' : '';
+    final code = _codeOf(e) ?? '';
     if (code == 'LOW_BALANCE' || m.contains('insufficient balance')) {
       return InstantCallErrorKeys.lowBalance;
     }
     if (code == 'NO_HOSTS' || m.contains('no hosts')) {
       return InstantCallErrorKeys.noHosts;
     }
-    if (m.contains('active talk now session') ||
+    if (code == 'ALREADY_ACTIVE' ||
+        m.contains('active talk now session') ||
         m.contains('already on a call')) {
       return InstantCallErrorKeys.alreadyActive;
     }
-    if (e.type == ApiErrorType.forbidden ||
+    // Off, staff-only, the type not allowed, or not set up on the server:
+    // all "not available" to the user.
+    if (const {
+          'DISABLED',
+          'STAFF_ONLY',
+          'TYPE_NOT_ALLOWED',
+          'RATE_MISSING',
+          'CONFIG_MISSING',
+        }.contains(code) ||
+        e.type == ApiErrorType.forbidden ||
         m.contains('disabled') ||
         m.contains('not yet available') ||
-        m.contains('not enabled')) {
+        m.contains('not enabled') ||
+        m.contains('not configured') ||
+        m.contains('configuration missing')) {
       return InstantCallErrorKeys.disabled;
     }
     return null;

@@ -7,6 +7,7 @@ import 'package:vibelive/app/callscreen/helper/call_payload.dart';
 import 'package:vibelive/app/callscreen/helper/call_session.dart';
 import 'package:vibelive/app/callscreen/helper/call_signals.dart';
 import 'package:vibelive/app/callscreen/helper/flows/end_flow.dart';
+import 'package:vibelive/app/callscreen/helper/flows/instant_call_flow.dart';
 import 'package:vibelive/app/callscreen/helper/native/headless_call_end.dart';
 import 'package:vibelive/app/callscreen/helper/native/native_call_marks.dart';
 import 'package:vibelive/app/callscreen/helper/push/push_envelope.dart';
@@ -20,6 +21,14 @@ import 'logic_fakes.dart';
 void main() {
   final calls = CallController.instance;
   late FakeBackend backend;
+  late ({
+    FakeBackend backend,
+    FakeRingtone ringtone,
+    FakePermissions permissions,
+    FakePlatform platform,
+    FakeRtcEngine Function() engine,
+  })
+  env;
 
   const hostAccept = '/api/instant-call/host-accept';
   const hostDecline = '/api/instant-call/host-decline';
@@ -35,7 +44,7 @@ void main() {
 
   setUpAll(initCallTestEnv);
   setUp(() async {
-    final env = await resetCallTestEnv();
+    env = await resetCallTestEnv();
     backend = env.backend;
     backend.replies['POST $hostAccept'] = (_) => {
       'success': true,
@@ -99,6 +108,53 @@ void main() {
         expect(body['status'], 'completed');
         // The host never cancels the caller's search.
         expect(backend.to('POST', cancel), isEmpty);
+      },
+    );
+
+    test(
+      'a transient host-accept failure is retried, then the call bills',
+      () async {
+        var failures = 1;
+        backend.replies['POST $hostAccept'] = (_) {
+          if (failures-- > 0) throw StateError('boom');
+          return {
+            'success': true,
+            'callId': 901,
+            'channelName': 'instant_5_1',
+            'hostToken': 'tok',
+          };
+        };
+        await CallSignals.onInvite(talkNowRing(), foreground: false);
+        await CallActions.accept();
+        await settle(100);
+        expect(backend.to('POST', hostAccept), hasLength(1));
+        expect(calls.value.serverCallId, isNull);
+        await settle(2300); // first retry after 2 s
+        expect(backend.to('POST', hostAccept), hasLength(2));
+        expect(calls.value.serverCallId, '901');
+      },
+    );
+
+    test(
+      'accept refused because this host is busy: leave, with that word',
+      () async {
+        backend.refusals['POST $hostAccept'] = (
+          409,
+          {
+            'data': null,
+            'error': {
+              'status': 409,
+              'name': 'ConflictError',
+              'message': 'You are already on a call.',
+              'details': {'code': 'HOST_BUSY'},
+            },
+          },
+        );
+        await CallSignals.onInvite(talkNowRing(), foreground: false);
+        await CallActions.accept();
+        await settle(100);
+        expect(calls.value.phase.isActive, isFalse);
+        expect(alertLog().last, contains('host_busy'));
       },
     );
 
@@ -202,6 +258,122 @@ void main() {
         expect(backend.lastBody('POST', callEnd)['callId'], '901');
       },
     );
+
+    test(
+      'the host joins the channel: the caller CONFIRMS the connection '
+      '(/UpdateCall on the record), never host-accept; the call goes on',
+      () async {
+        backend.replies['POST /api/instant-call/initiate'] = (_) => {
+          'success': true,
+          'sessionId': 'sess1',
+          'channelName': 'instant_9_1',
+          'callerToken': agoraToken(),
+          'callerRate': 7,
+          'currentHost': {'userId': 70, 'name': 'Meera', 'profilePic': null},
+        };
+        backend.replies['GET /api/instant-call/status/sess1'] = (_) => {
+          'sessionId': 'sess1',
+          'status': 'connected',
+          'connectedCall': {'id': 901, 'status': 'pending'},
+          'connectedHost': {'userId': 70, 'name': 'Meera'},
+        };
+        backend.replies['POST $updateCall'] = (_) => {'ok': true};
+
+        expect(await InstantCallFlow.place(), isTrue);
+        // The first host is known from the reply's own field names.
+        expect(calls.value.remote.name, 'Meera');
+        expect(calls.value.remote.id, '70');
+        await settle(100); // the (unawaited) Agora join
+        final engine = env.engine();
+        engine.joined('instant_9_1', 9);
+        await settle();
+        // No INSTANT_CALL_CONNECTED push yet; the host is in the channel.
+        engine.remoteJoined(70);
+        await settle(700); // the 500 ms connect delay
+        expect(calls.value.phase, CallPhase.ongoing);
+        await settle(200);
+        expect(backend.to('POST', hostAccept), isEmpty);
+        expect(calls.value.serverCallId, '901');
+        final confirm = backend.lastBody('POST', updateCall);
+        expect(confirm['callId'], '901');
+        expect(confirm['callerId'], '9');
+        expect(confirm['receiverId'], '70');
+        expect(backend.to('POST', updateCall), hasLength(1));
+
+        // A "failed" that arrives now (an escalation push in flight) is
+        // ignored: the call is live.
+        CallSignals.onInstantCallFailed(const {
+          'instantCallSessionId': 'sess1',
+          'reason': 'timeout',
+        });
+        expect(calls.value.phase, CallPhase.ongoing);
+
+        // The late push changes nothing (confirmed once).
+        CallSignals.onInstantCallConnected(const {
+          'instantCallSessionId': 'sess1',
+          'callId': '901',
+          'hostUserId': '70',
+        });
+        await settle(100);
+        expect(backend.to('POST', updateCall), hasLength(1));
+
+        await CallActions.hangup();
+        await settle(100);
+        expect(backend.lastBody('POST', callEnd)['callId'], '901');
+        // Connected: nothing to cancel on the server.
+        expect(backend.to('POST', cancel), isEmpty);
+      },
+    );
+
+    test(
+      'the connected push lands first: confirmed with its record id',
+      () async {
+        backend.replies['POST $updateCall'] = (_) => {'ok': true};
+        calls.startOutgoing(searching());
+        CallSignals.onInstantCallConnected(const {
+          'instantCallSessionId': 'sess1',
+          'callId': '901',
+          'hostUserId': '70',
+          'hostName': 'Meera',
+        });
+        await settle(50);
+        // Not in the channel yet: nothing confirmed.
+        expect(backend.to('POST', updateCall), isEmpty);
+        calls.setConnected();
+        await InstantCallFlow.confirmConnected(calls.value);
+        expect(backend.lastBody('POST', updateCall)['callId'], '901');
+        expect(backend.to('GET', '/api/instant-call/status/sess1'), isEmpty);
+      },
+    );
+
+    test('the initiate reply is read with the server\'s field names', () {
+      final r = InitiatedInstantCall.tryParse(const {
+        'success': true,
+        'sessionId': 'sess1',
+        'callerToken': 'tok',
+        'channelName': 'instant_9_1',
+        'currentHost': {'userId': 70, 'name': 'Meera', 'profilePic': '/p.jpg'},
+        'parallelHosts': [
+          {'userId': 70, 'name': 'Meera', 'profilePic': '/p.jpg'},
+          {'userId': 71, 'name': 'Asha', 'profilePic': null},
+        ],
+      })!;
+      expect(r.currentHost?.userId, '70');
+      expect(r.currentHost?.name, 'Meera');
+      expect(r.currentHost?.profilePic, '/p.jpg');
+      expect(r.parallelHosts?.map((h) => h.userId), ['70', '71']);
+      expect(
+        InstantConnectedCall.tryParse(const {
+          'connectedCall': {'id': 901, 'status': 'pending'},
+          'connectedHost': {'userId': 70, 'name': 'Meera'},
+        })?.hostUserId,
+        '70',
+      );
+      expect(
+        InstantConnectedCall.tryParse(const {'connectedCall': null}),
+        isNull,
+      );
+    });
 
     test('hang up while searching: cancel the search, no Callend', () async {
       calls.startOutgoing(searching());

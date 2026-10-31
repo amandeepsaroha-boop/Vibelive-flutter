@@ -109,7 +109,7 @@ void main() {
     tester,
   ) async {
     // Available now, one photo, video off.
-    await openAt(tester, 'preview', extra: {'videoOn': false});
+    await openAt(tester, 'preview', extra: {'audioOn': true, 'videoOn': false});
     expect(find.text('10 of 12'), findsOneWidget);
     expect(find.text('Online'), findsOneWidget);
     expect(find.text('Available to take calls now'), findsOneWidget);

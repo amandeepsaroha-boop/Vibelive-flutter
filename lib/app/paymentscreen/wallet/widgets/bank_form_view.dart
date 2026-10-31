@@ -16,11 +16,15 @@ import '../../../component/c_alert.dart';
 import '../../../component/c_button.dart';
 import '../../../component/c_input.dart';
 import '../../../component/c_text.dart';
+import '../helper/bank_doc.dart';
 import '../helper/bank_form.dart';
 import '../helper/wallet_palette.dart';
+import 'bank_doc_tile.dart';
 
-/// The payout-account form (RN WithdrawalModal, add state). Submitted once:
-/// the saved account then shows as pending, and changes go through support.
+/// The payout-account form (RN WithdrawalModal, add state) plus the proof
+/// photos the backend requires: passbook / cancelled cheque and the PAN card,
+/// front and back. Submitted once: the saved account then shows as pending,
+/// and changes go through support.
 class BankFormView extends HookWidget {
   const BankFormView({super.key});
 
@@ -34,6 +38,19 @@ class BankFormView extends HookWidget {
     final ifsc = useTextEditingController();
     final upi = useTextEditingController();
     final errors = useState<Map<BankField, String>>(const {});
+    final docs = useMemoized(
+      () => {
+        for (final k in BankDocKind.values) k: ValueNotifier<BankDoc?>(null),
+      },
+    );
+    useEffect(
+      () => () {
+        for (final n in docs.values) {
+          n.dispose();
+        }
+      },
+      [docs],
+    );
     final save = useSaveBankDetail();
     // fquery's isPending lags a frame: a second tap must not resend. After a
     // success the sheet swaps to the account's status once the refetch lands;
@@ -43,6 +60,47 @@ class BankFormView extends HookWidget {
     void clear(BankField field) {
       if (!errors.value.containsKey(field)) return;
       errors.value = {...errors.value}..remove(field);
+    }
+
+    Future<void> pickDoc(BankDocKind kind) async {
+      if (busy.value) return;
+      final target = docs[kind]!;
+      // A failed upload retries the same picture; otherwise choose one.
+      final failedPath = target.value?.failed == true
+          ? target.value!.localPath
+          : null;
+      var path = failedPath;
+      if (path == null) {
+        final origin = await showBankDocSourceSheet(context);
+        if (origin == null) return;
+        path = await BankDocSource.instance.pick(origin);
+        PaymentEvents.bankDocPicked(
+          doc: kind.key,
+          origin: origin.name,
+          picked: path != null,
+        );
+        if (path == null) return;
+      }
+      clear(BankForm.fieldOf(kind));
+      target.value = BankDoc(localPath: path);
+      try {
+        final media = await BankDocSource.instance.upload(path);
+        // Still the same picture? (The user may have picked another since.)
+        if (target.value?.localPath != path) return;
+        target.value = BankDoc(
+          mediaId: media['id'] ?? media['documentId'],
+          localPath: path,
+        );
+        PaymentEvents.bankDocUploaded(doc: kind.key);
+      } catch (e) {
+        if (target.value?.localPath != path) return;
+        target.value = BankDoc(localPath: path, failed: true);
+        PaymentEvents.bankDocUploadFailed(
+          doc: kind.key,
+          error: Analytics.errorCode(e),
+        );
+        unawaited(CAlert.error(e));
+      }
     }
 
     Future<void> submit() async {
@@ -55,6 +113,7 @@ class BankFormView extends HookWidget {
         confirm: confirm.text,
         ifsc: ifsc.text,
         upi: upi.text,
+        docs: {for (final e in docs.entries) e.key: e.value.value},
       );
       errors.value = next;
       if (next.isNotEmpty) {
@@ -75,6 +134,9 @@ class BankFormView extends HookWidget {
             ifsc: ifsc.text,
             bankName: bank.text,
             upiAddress: upi.text,
+            bankProofId: docs[BankDocKind.bankProof]!.value?.mediaId,
+            panFrontId: docs[BankDocKind.panFront]!.value?.mediaId,
+            panBackId: docs[BankDocKind.panBack]!.value?.mediaId,
           ),
         );
       } on ApiException catch (e) {
@@ -184,9 +246,54 @@ class BankFormView extends HookWidget {
           errorText: errors.value[BankField.upi],
           onChanged: (_) => clear(BankField.upi),
           textInputAction: TextInputAction.done,
-          onSubmitted: (_) => unawaited(submit()),
         ),
         SizedBox(height: 6.ms),
+        const _Label('payment:bank.docs.title'),
+        CText(
+          'payment:bank.docs.intro',
+          size: 12,
+          weight: FontWeight.w700,
+          height: 18,
+          color: p.muted,
+        ),
+        SizedBox(height: 12.ms),
+        BankDocTile(
+          key: const ValueKey('bank-doc-bank_proof'),
+          kind: BankDocKind.bankProof,
+          doc: docs[BankDocKind.bankProof]!,
+          hint: 'payment:bank.docs.bank_proof_hint',
+          error: errors.value[BankField.bankProof],
+          height: 130,
+          onTap: () => unawaited(pickDoc(BankDocKind.bankProof)),
+        ),
+        SizedBox(height: 12.ms),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: BankDocTile(
+                key: const ValueKey('bank-doc-pan_front'),
+                kind: BankDocKind.panFront,
+                doc: docs[BankDocKind.panFront]!,
+                error: errors.value[BankField.panFront],
+                height: 120,
+                onTap: () => unawaited(pickDoc(BankDocKind.panFront)),
+              ),
+            ),
+            SizedBox(width: 12.ms),
+            Expanded(
+              child: BankDocTile(
+                key: const ValueKey('bank-doc-pan_back'),
+                kind: BankDocKind.panBack,
+                doc: docs[BankDocKind.panBack]!,
+                error: errors.value[BankField.panBack],
+                height: 120,
+                onTap: () => unawaited(pickDoc(BankDocKind.panBack)),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 18.ms),
         CButton(
           title: 'payment:bank.submit',
           loading: busy.value || save.isPending,

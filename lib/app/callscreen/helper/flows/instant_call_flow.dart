@@ -4,6 +4,9 @@ import '../../../../core/analytics/analytics.dart';
 import '../../../../core/analytics/events/call_ui_events.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/utils/log.dart';
+import '../../../api/callscreen/call_api.dart';
+import '../../../api/callscreen/call_models.dart';
+import '../../../api/callscreen/call_queries.dart';
 import '../../../api/instant_call/instant_call_api.dart';
 import '../../../api/instant_call/instant_call_models.dart';
 import '../call_alerts.dart';
@@ -21,6 +24,7 @@ import '../call_session.dart';
 import '../call_timers.dart';
 import '../engine/call_engine.dart';
 import '../native/native_call_marks.dart';
+import '../state/call_constants.dart';
 import 'end_flow.dart';
 import 'outgoing_flow.dart';
 
@@ -29,6 +33,23 @@ abstract final class InstantCallFlow {
 
   /// Hosts the current instant call has rung so far (analytics).
   static int _attempts = 0;
+
+  /// Sessions whose connection this caller has confirmed to the server
+  /// (`/UpdateCall` sent, or in flight).
+  static final _confirmed = <String>{};
+
+  /// Retries of the status lookup while the accept reply is in flight.
+  static List<Duration> resolveRetryDelays = const [
+    Duration(milliseconds: 1500),
+    Duration(seconds: 3),
+    Duration(seconds: 6),
+  ];
+
+  static void debugReset() {
+    _confirmed.clear();
+    _attempts = 0;
+    _placing = false;
+  }
 
   /// The server searches this long by default (`max_total_ring_seconds`).
   static const defaultSearchSeconds = 120;
@@ -188,6 +209,98 @@ abstract final class InstantCallFlow {
     );
   }
 
+  /// Caller: the host is in the channel — tell the server the call
+  /// connected (`/UpdateCall`), which is when its bill starts. The record
+  /// is `pending` from the host's answer until then, so a call nobody
+  /// joined is never billed. The record id comes with the
+  /// `INSTANT_CALL_CONNECTED` push; if that is late or lost, the session's
+  /// status says. Once per session; a failure lets a later trigger retry
+  /// (the server also connects it itself when it sees both in the channel).
+  static Future<void> confirmConnected(CallSession s) async {
+    if (!s.isInstantCall || !s.isCaller) return;
+    final sessionId = s.instantCallSessionId ?? s.callId;
+    if (sessionId == null || !_confirmed.add(sessionId)) return;
+    try {
+      final ok = await _confirm(s, sessionId);
+      if (!ok) _confirmed.remove(sessionId);
+    } catch (e) {
+      _confirmed.remove(sessionId);
+      Log.w('InstantCallFlow', 'confirmConnected: $e');
+    }
+  }
+
+  static bool _stillOn(String sessionId) {
+    final now = CallController.instance.value;
+    return now.isSameCall(sessionId) && now.phase.isActive;
+  }
+
+  static Future<bool> _confirm(CallSession s, String sessionId) async {
+    var record = s.serverCallId;
+    var hostId = s.receiverId;
+    for (final wait in [Duration.zero, ...resolveRetryDelays]) {
+      if (record != null) break;
+      if (wait > Duration.zero) await Future<void>.delayed(wait);
+      if (!_stillOn(sessionId)) return true; // over: nothing to confirm
+      final live = CallController.instance.value;
+      record = live.serverCallId; // the push may have landed meanwhile
+      hostId ??= live.receiverId;
+      if (record != null) break;
+      try {
+        final found = await InstantCallApi.connectedCall(sessionId);
+        if (found != null) {
+          record = found.callId;
+          hostId ??= found.hostUserId;
+          _adopt(sessionId, found.callId, hostId);
+        }
+      } catch (e) {
+        Log.w('InstantCallFlow', 'status: $e');
+      }
+    }
+    if (record == null) {
+      Log.w('InstantCallFlow', 'connected but no call record for $sessionId');
+      return false;
+    }
+    final update = CallStatusUpdate(
+      callId: record,
+      callerId: s.callerId,
+      receiverId: hostId,
+      type: s.isVideo ? CallType.video : CallType.voice,
+    );
+    for (final wait in [Duration.zero, ...CallTimings.updateRetry]) {
+      if (wait > Duration.zero) await Future<void>.delayed(wait);
+      if (!_stillOn(sessionId)) return true;
+      try {
+        await CallRequests.updateStatus(update);
+        return true;
+      } on ApiException catch (e) {
+        // Already ongoing / ended: nothing more to say.
+        if (e.type == ApiErrorType.conflict ||
+            e.type == ApiErrorType.rejected ||
+            e.type == ApiErrorType.notFound) {
+          Log.w('InstantCallFlow', 'UpdateCall refused: $e');
+          return true;
+        }
+        Log.w('InstantCallFlow', 'UpdateCall failed: $e');
+      }
+    }
+    return false;
+  }
+
+  /// The call record (and who answered) onto the live call.
+  static void _adopt(String sessionId, String record, String? hostId) {
+    unawaited(NativeCallMarks.saveServerCallId(sessionId, record));
+    final live = CallController.instance.value;
+    if (!live.isSameCall(sessionId)) return;
+    if (live.serverCallId == record &&
+        (hostId == null || live.receiverId == hostId)) {
+      return;
+    }
+    CallController.instance.update(
+      (c) =>
+          c.copyWith(serverCallId: record, receiverId: hostId ?? c.receiverId),
+    );
+  }
+
   static void onConnected(Map<String, dynamic> data) {
     final session = CallController.instance.value;
     if (!session.isInstantCall) return;
@@ -216,6 +329,13 @@ abstract final class InstantCallFlow {
               ),
       ),
     );
+    // The host may already be in the channel (the push often lands after
+    // the remote join): confirm now, with the record id just learnt.
+    final now = CallController.instance.value;
+    if (now.isCaller &&
+        (now.phase == CallPhase.ongoing || CallEngine.instance.hasRemote)) {
+      unawaited(confirmConnected(now));
+    }
   }
 
   static void onFailed(Map<String, dynamic> data) {
@@ -223,8 +343,9 @@ abstract final class InstantCallFlow {
     if (!session.isInstantCall) return;
     final sessionId = data['instantCallSessionId']?.toString();
     if (sessionId != session.instantCallSessionId) return;
-    // Only a search can fail: a call a host already answered goes on.
-    if (!session.phase.isPreConnect) return;
+    // Only a search can fail: a call a host already answered goes on (the
+    // host may be in the channel before the 500 ms connect delay ran).
+    if (!session.phase.isPreConnect || CallEngine.instance.hasRemote) return;
     CallUiEvents.instantNoHost(callId: session.callId, attempts: _attempts);
     // Nobody picked up: CallAnalytics files it as not answered.
     CallAnalytics.reason(session.callId, CallEndReason.noAnswer);
@@ -239,13 +360,10 @@ abstract final class InstantCallFlow {
     if (!session.isInstantCall || !session.isCaller) return;
     final sessionId = session.instantCallSessionId;
     if (sessionId == null) return;
-    // Every hang-up comes through here; only one before an answer counts.
-    if (!session.everConnected) {
-      CallUiEvents.instantCancelled(
-        callId: session.callId,
-        attempts: _attempts,
-      );
-    }
+    // Every hang-up comes through here; a search that connected is over on
+    // the server already (Callend ends the call), nothing to cancel.
+    if (session.everConnected) return;
+    CallUiEvents.instantCancelled(callId: session.callId, attempts: _attempts);
     try {
       await InstantCallApi.cancel(sessionId);
     } catch (e) {

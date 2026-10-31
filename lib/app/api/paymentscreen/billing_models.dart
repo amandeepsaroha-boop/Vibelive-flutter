@@ -130,6 +130,15 @@ class BankDetail {
 
   bool get isVerified =>
       J.boolean(raw['Is_Verified']) || J.boolean(raw['is_verified']);
+
+  /// The uploaded proof photos (passbook / cheque, PAN front, PAN back).
+  String? get bankProofUrl => Strapi.mediaFromAsset(raw['Bank_Proof']);
+  String? get panFrontUrl => Strapi.mediaFromAsset(raw['PAN_Front']);
+  String? get panBackUrl => Strapi.mediaFromAsset(raw['PAN_Back']);
+
+  /// Rows saved before photos were asked for have none.
+  bool get hasDocuments =>
+      bankProofUrl != null || panFrontUrl != null || panBackUrl != null;
 }
 
 /// Create (no [bankDetailKey]) or update a payout account.
@@ -143,6 +152,9 @@ class BankDetailInput {
     this.upiAddress = '',
     this.primary = true,
     this.bankDetailKey,
+    this.bankProofId,
+    this.panFrontId,
+    this.panBackId,
   });
 
   final String userDocumentId;
@@ -156,9 +168,18 @@ class BankDetailInput {
   /// [BankDetail.key] of the row to update.
   final String? bankDetailKey;
 
+  /// Strapi media ids of the proof photos; the backend requires all three
+  /// on a new account.
+  final Object? bankProofId;
+  final Object? panFrontId;
+  final Object? panBackId;
+
   JsonMap toJson() => {
     'user': userDocumentId,
     'Primary': primary,
+    if (bankProofId != null) 'Bank_Proof': bankProofId,
+    if (panFrontId != null) 'PAN_Front': panFrontId,
+    if (panBackId != null) 'PAN_Back': panBackId,
     'BankAccount': {
       'Account_Name': accountName.trim(),
       'Account_Number': accountNumber.trim(),

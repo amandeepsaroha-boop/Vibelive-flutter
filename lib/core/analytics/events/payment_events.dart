@@ -447,6 +447,26 @@ abstract final class PaymentEvents {
   static void bankSaveFailed({required String error}) =>
       Analytics.log('bank_details_save_failed', {'error': error});
 
+  /// A proof photo ([doc]: `bank_proof`, `pan_front`, `pan_back`) was picked
+  /// from the [origin] (`gallery`/`camera`); [picked] false = cancelled.
+  static void bankDocPicked({
+    required String doc,
+    required String origin,
+    required bool picked,
+  }) => Analytics.log('bank_doc_picked', {
+    'doc': doc,
+    'origin': origin,
+    'picked': picked,
+  });
+
+  static void bankDocUploaded({required String doc}) =>
+      Analytics.log('bank_doc_uploaded', {'doc': doc});
+
+  static void bankDocUploadFailed({
+    required String doc,
+    required String error,
+  }) => Analytics.log('bank_doc_upload_failed', {'doc': doc, 'error': error});
+
   /// A saved account's status ([status]: `pending`, `verified`).
   static void bankStatusViewed({
     required String status,

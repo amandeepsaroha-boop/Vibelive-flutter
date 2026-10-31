@@ -37,11 +37,13 @@ class InstantCallHost {
   final String? profilePic;
   final int? ringAttemptIndex;
 
+  /// The initiate reply's `currentHost` / `parallelHosts[]`
+  /// (`{userId, name, profilePic}`); the push field names are taken too.
   factory InstantCallHost.fromJson(Map<String, dynamic> json) =>
       InstantCallHost(
-        userId: J.str(json['hostUserId']),
-        name: J.str(json['hostName']),
-        profilePic: J.str(json['hostProfilePic']),
+        userId: J.str(json['userId'] ?? json['hostUserId']),
+        name: J.str(json['name'] ?? json['hostName']),
+        profilePic: J.str(json['profilePic'] ?? json['hostProfilePic']),
         ringAttemptIndex: J.integer(json['ringAttemptIndex']),
       );
 
@@ -99,6 +101,38 @@ class InitiatedInstantCall {
       currentHost: host ?? parallel?.firstOrNull,
       parallelHosts: parallel,
       callerRate: J.number(body['callerRate']),
+    );
+  }
+}
+
+/// `GET /instant-call/status/:id` once a host answered: the call record
+/// (what Callend bills and `/UpdateCall` confirms) and who answered.
+@immutable
+class InstantConnectedCall {
+  const InstantConnectedCall({
+    required this.callId,
+    this.hostUserId,
+    this.hostName,
+    this.callStatus,
+  });
+
+  final String callId;
+  final String? hostUserId;
+  final String? hostName;
+
+  /// `pending` until the caller confirms the connection, then `ongoing`.
+  final String? callStatus;
+
+  static InstantConnectedCall? tryParse(Map<String, dynamic>? body) {
+    final call = body?['connectedCall'];
+    final id = call is Map ? J.str(call['id']) : null;
+    if (id == null) return null;
+    final host = body?['connectedHost'];
+    return InstantConnectedCall(
+      callId: id,
+      callStatus: call is Map ? J.str(call['status']) : null,
+      hostUserId: host is Map ? J.str(host['userId']) : null,
+      hostName: host is Map ? J.str(host['name']) : null,
     );
   }
 }

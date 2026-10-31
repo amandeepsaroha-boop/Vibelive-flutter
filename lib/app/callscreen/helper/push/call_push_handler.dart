@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
@@ -129,12 +130,29 @@ abstract final class CallPushHandler {
         // routes the request (NotificationTapRouter).
         if (!foreground || background || _isRecentPing(m, now)) return;
         CallSignals.onCallbackRequest(m.raw);
+      // Talk Now, caller side. In a background isolate the UI isolate
+      // holds the searching call: hand the push over (with its payload).
       case CallPushKind.instantCallHostChanged:
-        if (!background) CallSignals.onInstantCallHostChanged(m.raw);
+        _instant(
+          m,
+          background,
+          CallIsolateBridge.kindInstantHostChanged,
+          CallSignals.onInstantCallHostChanged,
+        );
       case CallPushKind.instantCallConnected:
-        if (!background) CallSignals.onInstantCallConnected(m.raw);
+        _instant(
+          m,
+          background,
+          CallIsolateBridge.kindInstantConnected,
+          CallSignals.onInstantCallConnected,
+        );
       case CallPushKind.instantCallFailed:
-        if (!background) CallSignals.onInstantCallFailed(m.raw);
+        _instant(
+          m,
+          background,
+          CallIsolateBridge.kindInstantFailed,
+          CallSignals.onInstantCallFailed,
+        );
       case CallPushKind.other:
         // A hint (decision 8): the logic toasts once; teardown still comes
         // from CALL_ENDED. Nothing to do without the UI isolate's call.
@@ -144,6 +162,18 @@ abstract final class CallPushHandler {
       case CallPushKind.missedHistory:
         return;
     }
+  }
+
+  static void _instant(
+    PushEnvelope m,
+    bool background,
+    String kind,
+    void Function(Map<String, dynamic>) handle,
+  ) {
+    if (!background) return handle(m.raw);
+    final session = '${m.raw['instantCallSessionId'] ?? m.callId ?? ''}';
+    if (session.isEmpty) return;
+    CallIsolateBridge.notifyUi(kind, session, payload: jsonEncode(m.raw));
   }
 
   static Future<void> _invite(

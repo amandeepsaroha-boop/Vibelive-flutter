@@ -20,6 +20,7 @@ import 'engine/engine_events.dart';
 import 'engine/headless_join.dart';
 import 'flows/end_flow.dart';
 import 'flows/incoming_flow.dart';
+import 'flows/instant_call_flow.dart';
 import 'state/call_constants.dart';
 import 'state/call_dedup.dart';
 import 'state/call_store.dart';
@@ -142,9 +143,8 @@ abstract final class CallRuntime {
     unawaited(
       CallBilling.arm(
         s,
-        onLimit: () => unawaited(
-          EndFlow.hangup(reason: CallEndReason.balanceExhausted),
-        ),
+        onLimit: () =>
+            unawaited(EndFlow.hangup(reason: CallEndReason.balanceExhausted)),
       ),
     );
   }
@@ -231,7 +231,14 @@ abstract final class CallRuntime {
                 final now = CallController.instance.value;
                 if (!now.isSameCall(callId) || !now.phase.isActive) return;
                 CallController.instance.setConnected();
-                unawaited(IncomingFlow.reportOngoing(now, answering: false));
+                // Talk Now: the caller confirms the connection (the record
+                // goes ongoing, the bill starts); host-accept is the
+                // host's call, never the caller's.
+                unawaited(
+                  now.isInstantCall
+                      ? InstantCallFlow.confirmConnected(now)
+                      : IncomingFlow.reportOngoing(now, answering: false),
+                );
               },
             );
           }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/widgets.dart';
@@ -79,11 +80,33 @@ abstract final class CallFlow {
       }
     });
     await _step('isolate bridge', () async {
-      CallIsolateBridge.host((kind, callId) {
-        if (kind == CallIsolateBridge.kindEnded) {
-          unawaited(CallSignals.onEnded(callId));
-        } else if (kind == CallIsolateBridge.kindAnsweredElsewhere) {
-          CallSignals.onAnsweredElsewhere(callId);
+      CallIsolateBridge.host((kind, callId, payload) {
+        Map<String, dynamic>? data() {
+          if (payload == null) return null;
+          try {
+            final decoded = jsonDecode(payload);
+            return decoded is Map ? Map<String, dynamic>.from(decoded) : null;
+          } catch (_) {
+            return null;
+          }
+        }
+
+        switch (kind) {
+          case CallIsolateBridge.kindEnded:
+            unawaited(CallSignals.onEnded(callId));
+          case CallIsolateBridge.kindAnsweredElsewhere:
+            CallSignals.onAnsweredElsewhere(callId);
+          // Talk Now searching with the app behind: the UI isolate holds
+          // the call; the backend's answer must reach it.
+          case CallIsolateBridge.kindInstantHostChanged:
+            final d = data();
+            if (d != null) CallSignals.onInstantCallHostChanged(d);
+          case CallIsolateBridge.kindInstantConnected:
+            final d = data();
+            if (d != null) CallSignals.onInstantCallConnected(d);
+          case CallIsolateBridge.kindInstantFailed:
+            final d = data();
+            if (d != null) CallSignals.onInstantCallFailed(d);
         }
       });
     });

@@ -44,11 +44,15 @@ class UseLocationButton extends StatelessWidget {
                 else
                   Icon(LucideIcons.locateFixed, size: 16.ms, color: accent),
                 SizedBox(width: 8.ms),
-                CText(
-                  busy ? 'client:location.locating' : 'client:location.use',
-                  size: 13.5,
-                  weight: FontWeight.w800,
-                  color: accent,
+                // Wraps on a narrow phone / in Hindi rather than overflow.
+                Flexible(
+                  child: CText(
+                    busy ? 'client:location.locating' : 'client:location.use',
+                    size: 13.5,
+                    weight: FontWeight.w800,
+                    color: accent,
+                    maxLines: 2,
+                  ),
                 ),
               ],
             ),

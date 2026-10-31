@@ -57,7 +57,29 @@
       "number": "Account number must be 9 to 18 digits.",
       "confirm": "Account numbers do not match.",
       "ifsc": "Enter a valid 11-character IFSC, e.g. SBIN0001234.",
-      "upi": "Enter a valid UPI ID, e.g. name@upi."
+      "upi": "Enter a valid UPI ID, e.g. name@upi.",
+      "bank_proof": "Add a photo of your passbook or a cancelled cheque.",
+      "pan_front": "Add a photo of the front of your PAN card.",
+      "pan_back": "Add a photo of the back of your PAN card.",
+      "doc_uploading": "Please wait for this photo to finish uploading.",
+      "doc_failed": "This photo didn't upload. Tap it to try again."
+    },
+    "docs": {
+      "title": "Proof documents",
+      "intro": "Add clear photos. Our team matches them with the details above before approving payouts.",
+      "bank_proof": "Bank passbook or cancelled cheque",
+      "bank_proof_hint": "Name, account number and IFSC must be readable",
+      "pan_front": "PAN card – front",
+      "pan_back": "PAN card – back",
+      "add": "Add photo",
+      "uploading": "Uploading…",
+      "retry": "Upload failed. Tap to retry",
+      "change": "Tap to change",
+      "source_title": "Add document photo",
+      "gallery": "Choose from gallery",
+      "camera": "Take a photo",
+      "submitted": "Documents submitted",
+      "submitted_hint": "Passbook / cheque and PAN card photos are with our team."
     }
   },
   "verification": {

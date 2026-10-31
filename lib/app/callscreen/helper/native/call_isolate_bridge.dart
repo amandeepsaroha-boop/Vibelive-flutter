@@ -15,13 +15,22 @@ abstract final class CallIsolateBridge {
   static const kindEnded = 'ended';
   static const kindAnsweredElsewhere = 'answered_elsewhere';
 
+  /// Talk Now (caller side): the search's pushes, with their payload (JSON)
+  /// as the third element — the UI isolate holds the searching call.
+  static const kindInstantHostChanged = 'instant_host_changed';
+  static const kindInstantConnected = 'instant_connected';
+  static const kindInstantFailed = 'instant_failed';
+
   static ReceivePort? _port;
 
   /// This isolate is the UI isolate (it hosts the port).
   static bool get isHost => _port != null;
 
-  /// UI isolate only, idempotent. [onMessage] gets the kind and call id.
-  static void host(void Function(String kind, String callId) onMessage) {
+  /// UI isolate only, idempotent. [onMessage] gets the kind, the call id
+  /// and the payload (JSON, or null).
+  static void host(
+    void Function(String kind, String callId, String? payload) onMessage,
+  ) {
     if (_port != null) return;
     try {
       // A port left by a previous engine (hot restart, recreated activity)
@@ -34,12 +43,17 @@ abstract final class CallIsolateBridge {
       }
       _port = port;
       port.listen((message) {
-        if (message is! List || message.length != 2) return;
+        if (message is! List || message.length < 2 || message.length > 3) {
+          return;
+        }
         final kind = '${message[0]}';
         final callId = '${message[1]}';
         if (callId.isEmpty) return;
+        final payload = message.length == 3 && message[2] != null
+            ? '${message[2]}'
+            : null;
         try {
-          onMessage(kind, callId);
+          onMessage(kind, callId, payload);
         } catch (e) {
           Log.w('CallIsolateBridge', 'handler: $e');
         }
@@ -50,12 +64,12 @@ abstract final class CallIsolateBridge {
   }
 
   /// Background isolate → UI isolate. False when no UI isolate listens.
-  static bool notifyUi(String kind, String callId) {
+  static bool notifyUi(String kind, String callId, {String? payload}) {
     if (_port != null || callId.isEmpty) return false; // we ARE the UI isolate
     try {
       final port = IsolateNameServer.lookupPortByName(portName);
       if (port == null) return false;
-      port.send([kind, callId]);
+      port.send(payload == null ? [kind, callId] : [kind, callId, payload]);
       return true;
     } catch (_) {
       return false;

@@ -184,7 +184,9 @@ abstract final class IncomingFlow {
   }) async {
     final callId = s.callId;
     if (callId == null) return false;
-    if (s.isInstantCall) return _instantAccept(s);
+    // Talk Now: only the host "accepts"; the caller confirms the connection
+    // elsewhere (InstantCallFlow.confirmConnected).
+    if (s.isInstantCall) return s.isReceiver ? _instantAccept(s) : true;
     if (!CallDedup.instance.beginUpdateCall(callId)) return true;
     try {
       final result = await CallRequests.updateStatus(
@@ -223,29 +225,40 @@ abstract final class IncomingFlow {
     final callId = s.callId!;
     if (s.serverCallId != null) return true; // the native answer got it
     if (!CallDedup.instance.beginUpdateCall(callId)) return true;
-    try {
-      final r = await InstantCallApi.hostAccept(
-        s.instantCallSessionId ?? callId,
-      );
-      adoptServerCallId(callId, r.callId);
-      return true;
-    } on ApiException catch (e) {
-      CallDedup.instance.failUpdateCall(callId);
-      if (e.messageKey != InstantCallErrorKeys.taken) {
-        Log.w('IncomingFlow', 'host-accept failed: $e');
-        return false;
-      }
+    final session = s.instantCallSessionId ?? callId;
+    // A network blip must not leave the host talking with no call record
+    // (nothing would bill it, and the search would move on to the next
+    // host): a few retries while the call is still live.
+    for (final wait in [Duration.zero, ...CallTimings.updateRetry]) {
+      if (wait > Duration.zero) await Future<void>.delayed(wait);
       final live = _calls.value;
-      if (live.isSameCall(callId) && live.phase.isActive) {
-        CallAlerts.toast(InstantCallErrorKeys.taken);
-        EndFlow.endLocally(callId, reason: CallEndReason.answeredElsewhere);
+      if (!live.isSameCall(callId) || !live.phase.isActive) return true;
+      if (live.serverCallId != null) return true;
+      try {
+        final r = await InstantCallApi.hostAccept(session);
+        adoptServerCallId(callId, r.callId);
+        return true;
+      } on ApiException catch (e) {
+        if (e.messageKey == InstantCallErrorKeys.taken ||
+            e.messageKey == InstantCallErrorKeys.hostBusy ||
+            e.messageKey == InstantCallErrorKeys.callerLowBalance) {
+          // Not this host's call (cancelled, another host, too late, the
+          // caller broke, this host busy): leave, with a word why.
+          CallDedup.instance.failUpdateCall(callId);
+          final now = _calls.value;
+          if (now.isSameCall(callId) && now.phase.isActive) {
+            CallAlerts.toast(e.messageKey!);
+            EndFlow.endLocally(callId, reason: CallEndReason.answeredElsewhere);
+          }
+          return true;
+        }
+        Log.w('IncomingFlow', 'host-accept failed: $e');
+      } catch (e) {
+        Log.w('IncomingFlow', 'host-accept: $e');
       }
-      return true;
-    } catch (e) {
-      CallDedup.instance.failUpdateCall(callId);
-      Log.w('IncomingFlow', 'host-accept: $e');
-      return false;
     }
+    CallDedup.instance.failUpdateCall(callId);
+    return false;
   }
 
   /// Talk Now: the call record ring [callId] became (the host-accept reply,

@@ -7,6 +7,8 @@
     "disabled": "Talk Now isn't available right now.",
     "low_balance": "Your wallet balance is too low for Talk Now. Add money and try again.",
     "already_active": "You're already on a call or looking for someone to talk to.",
-    "taken": "This call was taken by someone else or has ended."
+    "taken": "This call was taken by someone else or has ended.",
+    "host_busy": "You're already on a call.",
+    "caller_low_balance": "The caller's wallet balance is too low for this call."
   }
 }

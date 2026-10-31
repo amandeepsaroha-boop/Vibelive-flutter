@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vibelive/app/component/infinite_scroll.dart';
+import 'package:vibelive/app/paymentscreen/wallet/helper/bank_doc.dart';
 import 'package:vibelive/app/paymentscreen/wallet/helper/bank_form.dart';
 import 'package:vibelive/core/theme/app_theme.dart';
 import 'package:vibelive/core/utils/scale.dart';
@@ -12,6 +13,7 @@ Map<BankField, String> _validate({
   String? confirm,
   String ifsc = 'SBIN0001234',
   String upi = '',
+  Map<BankDocKind, BankDoc?>? docs,
 }) => BankForm.validate(
   holder: holder,
   bank: bank,
@@ -19,7 +21,15 @@ Map<BankField, String> _validate({
   confirm: confirm ?? number,
   ifsc: ifsc,
   upi: upi,
+  docs: docs ?? _allDocs,
 );
+
+/// Every proof photo uploaded.
+const _allDocs = {
+  BankDocKind.bankProof: BankDoc(mediaId: 11, localPath: '/a.jpg'),
+  BankDocKind.panFront: BankDoc(mediaId: 12, localPath: '/b.jpg'),
+  BankDocKind.panBack: BankDoc(mediaId: 13, localPath: '/c.jpg'),
+};
 
 void main() {
   group('BankForm', () {
@@ -36,6 +46,41 @@ void main() {
       expect(_validate(ifsc: 'sbin0001234'), isEmpty);
       expect(_validate(upi: 'asha').keys, [BankField.upi]);
       expect(_validate(upi: 'asha@okhdfc'), isEmpty);
+    });
+
+    test('the three proof photos are required, uploaded', () {
+      expect(_validate(docs: const {}).keys, [
+        BankField.bankProof,
+        BankField.panFront,
+        BankField.panBack,
+      ]);
+      expect(
+        _validate(docs: const {}),
+        containsPair(BankField.panBack, 'payment:bank.errors.pan_back'),
+      );
+      // Still uploading, or failed: its own message, and no submit.
+      expect(
+        _validate(
+          docs: {
+            ..._allDocs,
+            BankDocKind.panFront: const BankDoc(localPath: '/b.jpg'),
+          },
+        ),
+        {BankField.panFront: 'payment:bank.errors.doc_uploading'},
+      );
+      expect(
+        _validate(
+          docs: {
+            ..._allDocs,
+            BankDocKind.bankProof: const BankDoc(
+              localPath: '/a.jpg',
+              failed: true,
+            ),
+          },
+        ),
+        {BankField.bankProof: 'payment:bank.errors.doc_failed'},
+      );
+      expect(BankForm.fieldOf(BankDocKind.panBack), BankField.panBack);
     });
 
     test('shows only the last four digits', () {

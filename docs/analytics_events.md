@@ -505,6 +505,9 @@ RN names kept: `wallet_opened`, `initiate_payment`, `payment_success`, `payment_
 | bank_details_submitted | form submitted | has_upi | |
 | bank_details_saved | saved | has_upi | |
 | bank_details_save_failed | save failed | error | |
+| bank_doc_picked | a proof photo (passbook/cheque, PAN front, PAN back) chosen | doc, origin (`gallery`/`camera`), picked | |
+| bank_doc_uploaded | proof photo uploaded | doc | |
+| bank_doc_upload_failed | proof photo upload failed | doc, error | |
 | bank_status_viewed | saved account status shown | status (`pending`/`verified`), has_upi | |
 | bank_support_tapped | "contact support" to change the account | mail_opened | Meta `Contact` {topic: bank_account} |
 

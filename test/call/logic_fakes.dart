@@ -28,6 +28,7 @@ import 'package:vibelive/app/callscreen/helper/engine/headless_join.dart';
 import 'package:vibelive/app/callscreen/helper/flows/end_flow.dart';
 import 'package:vibelive/app/callscreen/helper/flows/incoming_flow.dart';
 import 'package:vibelive/app/callscreen/helper/flows/native_flow.dart';
+import 'package:vibelive/app/callscreen/helper/flows/instant_call_flow.dart';
 import 'package:vibelive/app/callscreen/helper/flows/outgoing_flow.dart';
 import 'package:vibelive/app/callscreen/helper/state/call_dedup.dart';
 import 'package:vibelive/core/network/api_client.dart';
@@ -49,6 +50,9 @@ class FakeBackend implements HttpClientAdapter {
   /// `'POST /api/call/Callend'` → HTTP status (with `{message}` body).
   final failures = <String, (int, String)>{};
 
+  /// Non-2xx replies with a full body (Strapi's `error.details.code`).
+  final refusals = <String, (int, Object)>{};
+
   /// Wallet cash for the max-duration read.
   double cash = 1000;
 
@@ -68,6 +72,14 @@ class FakeBackend implements HttpClientAdapter {
           'error': {'status': failure.$1, 'message': failure.$2},
         }),
         failure.$1,
+        headers: _json,
+      );
+    }
+    final refusal = refusals[key];
+    if (refusal != null) {
+      return ResponseBody.fromString(
+        jsonEncode(refusal.$2),
+        refusal.$1,
         headers: _json,
       );
     }
@@ -342,6 +354,7 @@ void resetCallState() {
   EndFlow.debugReset();
   IncomingFlow.debugReset();
   OutgoingFlow.debugReset();
+  InstantCallFlow.debugReset();
   NativeFlow.debugReset();
   CallNavigator.debugReset();
   CallEngine.instance.debugReset();

@@ -80,7 +80,12 @@ object DeadProcessDeclines : CallkitEventCallback {
             null
         }
         val out = JSONObject()
-        for (key in listOf("callId", "receiverId", "type", "calleridDocID", "callerId")) {
+        // isInstantCall / instantCallSessionId: a Talk Now ring declines through
+        // /instant-call/host-decline, not Callend (the id is a session's).
+        for (key in listOf(
+            "callId", "receiverId", "type", "calleridDocID", "callerId",
+            "isInstantCall", "instantCallSessionId",
+        )) {
             val v = extra?.get(key)?.toString()?.trim()
             if (!v.isNullOrEmpty() && v != "null") out.put(key, v)
         }

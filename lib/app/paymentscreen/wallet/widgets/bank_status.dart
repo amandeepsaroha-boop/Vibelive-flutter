@@ -12,6 +12,7 @@ import '../../../api/paymentscreen/billing_models.dart';
 import '../../../api/resourcesscreen/resources_models.dart';
 import '../../../api/splashscreen/splash_queries.dart';
 import '../../../component/c_alert.dart';
+import '../../../component/c_image.dart';
 import '../../../component/c_text.dart';
 import '../../../component/pressable.dart';
 import '../helper/bank_form.dart';
@@ -169,6 +170,55 @@ class BankStatusView extends HookWidget {
             ],
           ),
         ),
+        if (detail.hasDocuments) ...[
+          SizedBox(height: 12.ms),
+          _Panel(
+            color: p.cardBg,
+            border: p.cardBorder,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(LucideIcons.fileCheck, size: 18.ms, color: tone),
+                    SizedBox(width: 8.ms),
+                    Expanded(
+                      child: CText(
+                        'payment:bank.docs.submitted',
+                        size: 13,
+                        weight: FontWeight.w900,
+                        color: p.text,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 4.ms),
+                CText(
+                  'payment:bank.docs.submitted_hint',
+                  size: 11,
+                  weight: FontWeight.w700,
+                  height: 16,
+                  color: p.muted,
+                ),
+                SizedBox(height: 10.ms),
+                Row(
+                  children: [
+                    for (final (i, (label, url)) in [
+                      ('payment:bank.docs.bank_proof', detail.bankProofUrl),
+                      ('payment:bank.docs.pan_front', detail.panFrontUrl),
+                      ('payment:bank.docs.pan_back', detail.panBackUrl),
+                    ].indexed) ...[
+                      if (i > 0) SizedBox(width: 8.ms),
+                      Expanded(
+                        child: _DocThumb(label: label, url: url),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
         SizedBox(height: 12.ms),
         Pressable(
           onPressed: () => unawaited(contactSupport()),
@@ -232,6 +282,45 @@ class _Panel extends StatelessWidget {
     ),
     child: child,
   );
+}
+
+/// A submitted document: its picture (or a placeholder) and name.
+class _DocThumb extends StatelessWidget {
+  const _DocThumb({required this.label, required this.url});
+
+  final String label;
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = WalletPalette.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          height: 56.ms,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: p.inputBg,
+            borderRadius: BorderRadius.circular(10.ms),
+            border: Border.all(color: p.cardBorder),
+          ),
+          child: url == null
+              ? Icon(LucideIcons.fileQuestion, size: 18.ms, color: p.muted)
+              : CImage(url: url, fit: BoxFit.cover),
+        ),
+        SizedBox(height: 4.ms),
+        CText(
+          label,
+          size: 9.5,
+          weight: FontWeight.w700,
+          color: p.muted,
+          align: TextAlign.center,
+          maxLines: 2,
+        ),
+      ],
+    );
+  }
 }
 
 class _DetailRow extends StatelessWidget {
