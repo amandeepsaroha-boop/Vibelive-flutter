@@ -11,10 +11,12 @@ import '../../../../core/utils/scale.dart';
 import '../../../component/c_alert.dart';
 import '../../../component/c_text.dart';
 import '../../../component/c_toast.dart';
+import '../../../component/pressable.dart';
 import '../../../hosthub/hub/host_hub_menu.dart';
 import '../../../hosthub/hub/hub_list.dart';
 import '../../../hosthub/onboarding/helper/host_palette.dart';
 import '../../../hosthub/onboarding/helper/intro_image.dart';
+import '../../../hosthub/onboarding/widgets/sheet_frame.dart';
 import '../helper/host_unlock_promo.dart';
 import '../helper/me_actions.dart';
 import '../helper/me_data.dart';
@@ -201,6 +203,8 @@ class MeSettingsList extends HookWidget {
         gap,
         const _ThemeCard(),
         gap,
+        const _LanguageCard(),
+        gap,
         HubListCard(
           rows: [
             HubListRow(
@@ -304,6 +308,116 @@ class _ThemeCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// App language: the current one in its own script; a tap lists them all.
+class _LanguageCard extends StatelessWidget {
+  const _LanguageCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = HostPalette.of(context);
+    final locale = AppScope.of(context).locale;
+    return ValueListenableBuilder<Locale>(
+      valueListenable: locale,
+      builder: (context, current, _) => HubListCard(
+        rows: [
+          HubListRow(
+            icon: LucideIcons.languages,
+            label: 'client:me.language.title',
+            subtitle: 'client:me.language.hint',
+            trailing: HubListRow.value(
+              AppI18n.languageOf(current).nativeName,
+              p.accent,
+            ),
+            onTap: () async {
+              MeEvents.itemTapped(item: 'language', section: 'language');
+              final picked = await showHostSheet<AppLanguage>(
+                context,
+                title: 'client:me.language.choose',
+                name: 'language_picker',
+                child: LanguagePicker(selected: current.languageCode),
+              );
+              if (picked == null || picked.code == current.languageCode) {
+                return;
+              }
+              MeEvents.languageChanged(
+                from: current.languageCode,
+                to: picked.code,
+              );
+              await locale.setLocale(picked.locale);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Every app language, each in its own script with its English name; the
+/// current one ticked. Pops the one tapped.
+class LanguagePicker extends StatelessWidget {
+  const LanguagePicker({super.key, required this.selected});
+
+  /// Language code of the current language.
+  final String selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = HostPalette.of(context);
+    return ListView.separated(
+      shrinkWrap: true,
+      padding: EdgeInsets.fromLTRB(16.ms, 0, 16.ms, 8.ms),
+      itemCount: AppI18n.languages.length,
+      separatorBuilder: (_, _) => SizedBox(height: 8.ms),
+      itemBuilder: (context, i) {
+        final lang = AppI18n.languages[i];
+        final on = lang.code == selected;
+        return Pressable(
+          key: ValueKey('language_${lang.code}'),
+          onPressed: () => Navigator.of(context).pop(lang),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 14.ms, vertical: 12.ms),
+            decoration: BoxDecoration(
+              color: on ? p.tint : null,
+              borderRadius: BorderRadius.circular(14.ms),
+              border: Border.all(color: on ? p.accent : p.track, width: 1.5),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CText.raw(
+                        lang.nativeName,
+                        size: 16,
+                        weight: FontWeight.w700,
+                        color: on ? p.accent : p.text,
+                        maxLines: 1,
+                      ),
+                      if (lang.englishName != lang.nativeName) ...[
+                        SizedBox(height: 2.ms),
+                        CText.raw(
+                          lang.englishName,
+                          size: 12.5,
+                          weight: FontWeight.w500,
+                          color: p.muted,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (on)
+                  Icon(LucideIcons.circleCheck, size: 20.ms, color: p.accent),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

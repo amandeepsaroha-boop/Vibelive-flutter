@@ -1,0 +1,39 @@
+{
+  "header": {
+    "placeholder": "एक्सपर्ट, श्रेणी शोधा…",
+    "clear": "सर्च क्लिअर करा",
+    "filter": "फिल्टर"
+  },
+  "idle": "नाव, श्रेणी किंवा ठिकाणानुसार शोधा",
+  "sections": {
+    "experts": "एक्सपर्ट",
+    "categories": "श्रेणी",
+    "category_locations": "ठिकाणानुसार श्रेणी"
+  },
+  "results": {
+    "currency": "₹",
+    "per_min": "/मिनिट",
+    "calls_handled": "{{minutes}} मिनिटांचे कॉल घेतले",
+    "calls_count": "{{count}} कॉल",
+    "calls_count_plural": "{{count}} कॉल",
+    "category_in_location": "{{location}} मध्ये {{category}}",
+    "profile_title": "प्रोफाइल"
+  },
+  "empty": {
+    "title": "निकाल नाहीत",
+    "message": "“{{query}}” साठी निकाल नाहीत"
+  },
+  "filter": {
+    "title": "एक्सपर्ट फिल्टर करा",
+    "close": "बंद करा",
+    "language": "🌐  भाषा",
+    "topic": "🏷️  विषय",
+    "all_languages": "सर्व भाषा",
+    "all_topics": "सर्व विषय",
+    "reset": "रीसेट",
+    "clear_all": "सर्व काढा",
+    "apply": "फिल्टर लागू करा",
+    "no_languages": "भाषा उपलब्ध नाहीत",
+    "languages_failed": "भाषा लोड होऊ शकल्या नाहीत."
+  }
+}

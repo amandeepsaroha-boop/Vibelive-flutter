@@ -1,0 +1,39 @@
+{
+  "header": {
+    "placeholder": "நிபுணர்கள், வகைகளைத் தேடுங்கள்…",
+    "clear": "தேடலை அழி",
+    "filter": "ஃபில்டர்கள்"
+  },
+  "idle": "பெயர், வகை அல்லது இடம் மூலம் தேடுங்கள்",
+  "sections": {
+    "experts": "நிபுணர்கள்",
+    "categories": "வகைகள்",
+    "category_locations": "இடம் வாரியாக வகைகள்"
+  },
+  "results": {
+    "currency": "₹",
+    "per_min": "/நிமி",
+    "calls_handled": "{{minutes}} நிமிட அழைப்புகள் முடிந்தன",
+    "calls_count": "{{count}} அழைப்பு",
+    "calls_count_plural": "{{count}} அழைப்புகள்",
+    "category_in_location": "{{location}}-இல் {{category}}",
+    "profile_title": "ப்ரொஃபைல்"
+  },
+  "empty": {
+    "title": "முடிவுகள் இல்லை",
+    "message": "“{{query}}”-க்கு முடிவுகள் இல்லை"
+  },
+  "filter": {
+    "title": "நிபுணர்களை ஃபில்டர் செய்",
+    "close": "மூடு",
+    "language": "🌐  மொழி",
+    "topic": "🏷️  தலைப்பு",
+    "all_languages": "அனைத்து மொழிகள்",
+    "all_topics": "அனைத்துத் தலைப்புகள்",
+    "reset": "மீட்டமை",
+    "clear_all": "அனைத்தையும் அழி",
+    "apply": "ஃபில்டர்களைப் பயன்படுத்து",
+    "no_languages": "மொழிகள் எதுவும் இல்லை",
+    "languages_failed": "மொழிகளை ஏற்ற முடியவில்லை."
+  }
+}

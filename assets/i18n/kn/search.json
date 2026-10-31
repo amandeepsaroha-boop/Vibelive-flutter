@@ -1,0 +1,39 @@
+{
+  "header": {
+    "placeholder": "ತಜ್ಞರು, ವರ್ಗಗಳನ್ನು ಹುಡುಕಿ…",
+    "clear": "ಹುಡುಕಾಟ ತೆರವುಗೊಳಿಸಿ",
+    "filter": "ಫಿಲ್ಟರ್‌ಗಳು"
+  },
+  "idle": "ಹೆಸರು, ವರ್ಗ ಅಥವಾ ಸ್ಥಳದ ಮೂಲಕ ಹುಡುಕಿ",
+  "sections": {
+    "experts": "ತಜ್ಞರು",
+    "categories": "ವರ್ಗಗಳು",
+    "category_locations": "ಸ್ಥಳದ ಪ್ರಕಾರ ವರ್ಗಗಳು"
+  },
+  "results": {
+    "currency": "₹",
+    "per_min": "/ನಿಮಿಷ",
+    "calls_handled": "{{minutes}} ನಿಮಿಷದ ಕಾಲ್‌ಗಳು ನಿರ್ವಹಿಸಲಾಗಿದೆ",
+    "calls_count": "{{count}} ಕಾಲ್",
+    "calls_count_plural": "{{count}} ಕಾಲ್‌ಗಳು",
+    "category_in_location": "{{location}} ನಲ್ಲಿ {{category}}",
+    "profile_title": "ಪ್ರೊಫೈಲ್"
+  },
+  "empty": {
+    "title": "ಯಾವುದೇ ಫಲಿತಾಂಶಗಳಿಲ್ಲ",
+    "message": "“{{query}}” ಗೆ ಯಾವುದೇ ಫಲಿತಾಂಶಗಳಿಲ್ಲ"
+  },
+  "filter": {
+    "title": "ತಜ್ಞರನ್ನು ಫಿಲ್ಟರ್ ಮಾಡಿ",
+    "close": "ಮುಚ್ಚಿ",
+    "language": "🌐  ಭಾಷೆ",
+    "topic": "🏷️  ವಿಷಯ",
+    "all_languages": "ಎಲ್ಲಾ ಭಾಷೆಗಳು",
+    "all_topics": "ಎಲ್ಲಾ ವಿಷಯಗಳು",
+    "reset": "ರೀಸೆಟ್",
+    "clear_all": "ಎಲ್ಲಾ ತೆರವುಗೊಳಿಸಿ",
+    "apply": "ಫಿಲ್ಟರ್ ಅನ್ವಯಿಸಿ",
+    "no_languages": "ಯಾವುದೇ ಭಾಷೆಗಳು ಲಭ್ಯವಿಲ್ಲ",
+    "languages_failed": "ಭಾಷೆಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ."
+  }
+}

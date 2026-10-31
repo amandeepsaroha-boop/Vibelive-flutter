@@ -6,13 +6,50 @@ import 'package:i18next/i18next.dart';
 import '../analytics/analytics.dart';
 import '../storage/app_prefs.dart';
 
+/// A language the app is translated into. Its name is never translated:
+/// each is shown in its own script, with the English name to help find it.
+@immutable
+class AppLanguage {
+  const AppLanguage(this.code, this.nativeName, this.englishName);
+
+  /// The `assets/i18n/<code>` folder and the locale's language code.
+  final String code;
+  final String nativeName;
+  final String englishName;
+
+  Locale get locale => Locale(code);
+}
+
 /// Translations live in `assets/i18n/<lang>/<namespace>.json`.
 /// Each file name is an i18next namespace; `common` is searched by default,
 /// so `context.t('ok')` == `context.t('common:ok')`.
 abstract final class AppI18n {
   static const fallbackLocale = Locale('en');
 
-  static const supportedLocales = <Locale>[Locale('en'), Locale('hi')];
+  /// Every language, in the order the language picker lists them. A new
+  /// one needs its `assets/i18n/<code>/` folder (all namespaces) and a
+  /// pubspec asset entry; `test/core/i18n_files_test.dart` checks both.
+  static const languages = <AppLanguage>[
+    AppLanguage('en', 'English', 'English'),
+    AppLanguage('hi', 'हिन्दी', 'Hindi'),
+    AppLanguage('bn', 'বাংলা', 'Bengali'),
+    AppLanguage('mr', 'मराठी', 'Marathi'),
+    AppLanguage('ta', 'தமிழ்', 'Tamil'),
+    AppLanguage('gu', 'ગુજરાતી', 'Gujarati'),
+    AppLanguage('ur', 'اردو', 'Urdu'),
+    AppLanguage('kn', 'ಕನ್ನಡ', 'Kannada'),
+    AppLanguage('or', 'ଓଡ଼ିଆ', 'Odia'),
+  ];
+
+  static final List<Locale> supportedLocales = [
+    for (final l in languages) l.locale,
+  ];
+
+  /// The language of [locale] (English when not one of ours).
+  static AppLanguage languageOf(Locale locale) => languages.firstWhere(
+    (l) => l.code == locale.languageCode,
+    orElse: () => languages.first,
+  );
 
   static final LocalizationsDelegate<I18Next> delegate =
       I18NextLocalizationDelegate(
@@ -59,7 +96,7 @@ class LocaleController extends ValueNotifier<Locale> {
     await AppPrefs.setString(_prefsKey, locale.languageCode);
   }
 
-  /// Firebase user property `app_language` (en / hi).
+  /// Firebase user property `app_language` (en, hi, bn…).
   static void _reportLanguage(Locale locale) =>
       unawaited(Analytics.userProperty('app_language', locale.languageCode));
 }

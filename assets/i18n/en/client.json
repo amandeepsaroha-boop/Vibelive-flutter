@@ -164,6 +164,11 @@
       "light": "Light",
       "dark": "Dark"
     },
+    "language": {
+      "title": "Language",
+      "hint": "The app is shown in this language.",
+      "choose": "Choose language"
+    },
     "categories": {
       "identity": "IDENTITY",
       "hub": "HOST HUB",

@@ -531,6 +531,7 @@ Helpers: `lib/core/analytics/events/me_events.dart` (`MeEvents`, `PersonalInfoEv
 | me_refreshed | pull-to-refresh on ME | — | |
 | me_avatar_tapped | avatar opens the photo preview | is_expert | |
 | theme_changed | theme segment changed (+ user property `app_theme`) | theme (`system`/`light`/`dark`) | |
+| language_changed | app language picked in Settings (+ user property `app_language`) | from, to (`en`/`hi`/`bn`/`mr`/`te`/`ta`/`gu`/`ur`/`kn`/`or`/`ml`/`pa`) | |
 | own_profile_shared | own host profile link shared | source (`me_list`, `me_menu`, `profile_preview`, `resources`), host_id | Firebase `share` {method, content_type=`own_profile`, item_id} |
 | own_profile_share_unavailable | share tapped, no link yet | source | |
 | own_profile_link_copied | copy link in the photo preview | source | |

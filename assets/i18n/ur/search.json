@@ -1,0 +1,39 @@
+{
+  "header": {
+    "placeholder": "ایکسپرٹ، کیٹیگری تلاش کریں…",
+    "clear": "تلاش صاف کریں",
+    "filter": "فلٹر"
+  },
+  "idle": "نام، کیٹیگری یا جگہ سے تلاش کریں",
+  "sections": {
+    "experts": "ایکسپرٹس",
+    "categories": "کیٹیگریز",
+    "category_locations": "جگہ کے حساب سے کیٹیگریز"
+  },
+  "results": {
+    "currency": "₹",
+    "per_min": "/منٹ",
+    "calls_handled": "{{minutes}} منٹ کی کالیں مکمل",
+    "calls_count": "{{count}} کال",
+    "calls_count_plural": "{{count}} کالیں",
+    "category_in_location": "{{location}} میں {{category}}",
+    "profile_title": "پروفائل"
+  },
+  "empty": {
+    "title": "کوئی نتیجہ نہیں",
+    "message": "“{{query}}” کے لیے کوئی نتیجہ نہیں ملا"
+  },
+  "filter": {
+    "title": "ایکسپرٹ فلٹر کریں",
+    "close": "بند کریں",
+    "language": "🌐  زبان",
+    "topic": "🏷️  موضوع",
+    "all_languages": "تمام زبانیں",
+    "all_topics": "تمام موضوعات",
+    "reset": "ری سیٹ",
+    "clear_all": "سب ہٹائیں",
+    "apply": "فلٹر لگائیں",
+    "no_languages": "کوئی زبان دستیاب نہیں",
+    "languages_failed": "زبانیں لوڈ نہیں ہو سکیں۔"
+  }
+}

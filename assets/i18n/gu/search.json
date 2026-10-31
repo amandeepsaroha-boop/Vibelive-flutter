@@ -1,0 +1,39 @@
+{
+  "header": {
+    "placeholder": "એક્સપર્ટ, કૅટેગરી શોધો…",
+    "clear": "સર્ચ સાફ કરો",
+    "filter": "ફિલ્ટર"
+  },
+  "idle": "નામ, કૅટેગરી કે સ્થળથી શોધો",
+  "sections": {
+    "experts": "એક્સપર્ટ",
+    "categories": "કૅટેગરી",
+    "category_locations": "સ્થળ મુજબ કૅટેગરી"
+  },
+  "results": {
+    "currency": "₹",
+    "per_min": "/મિનિટ",
+    "calls_handled": "{{minutes}} મિનિટના કૉલ સંભાળ્યા",
+    "calls_count": "{{count}} કૉલ",
+    "calls_count_plural": "{{count}} કૉલ",
+    "category_in_location": "{{location}}માં {{category}}",
+    "profile_title": "પ્રોફાઇલ"
+  },
+  "empty": {
+    "title": "કોઈ પરિણામ નથી",
+    "message": "“{{query}}” માટે કોઈ પરિણામ નથી"
+  },
+  "filter": {
+    "title": "એક્સપર્ટ ફિલ્ટર કરો",
+    "close": "બંધ કરો",
+    "language": "🌐  ભાષા",
+    "topic": "🏷️  વિષય",
+    "all_languages": "બધી ભાષાઓ",
+    "all_topics": "બધા વિષયો",
+    "reset": "રીસેટ",
+    "clear_all": "બધું હટાવો",
+    "apply": "ફિલ્ટર લાગુ કરો",
+    "no_languages": "કોઈ ભાષા ઉપલબ્ધ નથી",
+    "languages_failed": "ભાષાઓ લોડ થઈ શકી નહીં."
+  }
+}

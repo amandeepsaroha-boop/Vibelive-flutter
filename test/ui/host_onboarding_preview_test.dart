@@ -8,6 +8,7 @@ import 'package:vibelive/app/hosthub/approval/host_approval_screen.dart';
 import 'package:vibelive/app/hosthub/badge/host_badge_screen.dart';
 import 'package:vibelive/app/hosthub/onboarding/helper/host_steps.dart';
 import 'package:vibelive/app/hosthub/onboarding/host_onboarding_screen.dart';
+import 'package:vibelive/core/i18n/i18n.dart';
 import 'package:vibelive/core/network/strapi.dart';
 import 'package:vibelive/core/storage/app_prefs.dart';
 
@@ -191,6 +192,24 @@ void main() {
     expect(find.text('Your profile is submitted!'), findsNothing);
     expect(savedDraft(), isNotNull); // nothing lost
     await finishHost(tester);
+  });
+
+  // Every language (Urdu right to left) on a small phone: each step lays out.
+  testWidgets('every language: each step renders without overflow', (
+    tester,
+  ) async {
+    for (final lang in AppI18n.languages.skip(1)) {
+      for (final step in HostStep.values) {
+        await openAt(
+          tester,
+          step.name,
+          locale: lang.locale,
+          size: const Size(360, 740),
+        );
+        expect(tester.takeException(), isNull, reason: '${lang.code} $step');
+        await finishHost(tester);
+      }
+    }
   });
 
   testWidgets('Hindi: no English UI text on any screen', (tester) async {

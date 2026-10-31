@@ -1,0 +1,39 @@
+{
+  "header": {
+    "placeholder": "এক্সপার্ট, ক্যাটাগরি খুঁজুন…",
+    "clear": "সার্চ মুছুন",
+    "filter": "ফিল্টার"
+  },
+  "idle": "নাম, ক্যাটাগরি বা লোকেশন দিয়ে খুঁজুন",
+  "sections": {
+    "experts": "এক্সপার্ট",
+    "categories": "ক্যাটাগরি",
+    "category_locations": "লোকেশন অনুযায়ী ক্যাটাগরি"
+  },
+  "results": {
+    "currency": "₹",
+    "per_min": "/মিনিট",
+    "calls_handled": "{{minutes}} মিনিটের কল সামলেছেন",
+    "calls_count": "{{count}}টি কল",
+    "calls_count_plural": "{{count}}টি কল",
+    "category_in_location": "{{location}}-এ {{category}}",
+    "profile_title": "প্রোফাইল"
+  },
+  "empty": {
+    "title": "কোনো ফলাফল নেই",
+    "message": "“{{query}}”-এর জন্য কোনো ফলাফল পাওয়া যায়নি"
+  },
+  "filter": {
+    "title": "এক্সপার্ট ফিল্টার করুন",
+    "close": "বন্ধ করুন",
+    "language": "🌐  ভাষা",
+    "topic": "🏷️  বিষয়",
+    "all_languages": "সব ভাষা",
+    "all_topics": "সব বিষয়",
+    "reset": "রিসেট",
+    "clear_all": "সব মুছুন",
+    "apply": "ফিল্টার লাগান",
+    "no_languages": "কোনো ভাষা পাওয়া যাচ্ছে না",
+    "languages_failed": "ভাষাগুলো লোড করা যায়নি।"
+  }
+}

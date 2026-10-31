@@ -1,0 +1,39 @@
+{
+  "header": {
+    "placeholder": "ଏକ୍ସପର୍ଟ, ବର୍ଗ ଖୋଜନ୍ତୁ…",
+    "clear": "ସର୍ଚ୍ଚ ସଫା କରନ୍ତୁ",
+    "filter": "ଫିଲ୍ଟର୍"
+  },
+  "idle": "ନାମ, ବର୍ଗ କିମ୍ବା ଲୋକେସନ୍ ଦ୍ୱାରା ଖୋଜନ୍ତୁ",
+  "sections": {
+    "experts": "ଏକ୍ସପର୍ଟ",
+    "categories": "ବର୍ଗ",
+    "category_locations": "ଲୋକେସନ୍ ଅନୁସାରେ ବର୍ଗ"
+  },
+  "results": {
+    "currency": "₹",
+    "per_min": "/ମିନିଟ୍",
+    "calls_handled": "{{minutes}} ମିନିଟର କଲ୍ ସମ୍ଭାଳିଛନ୍ତି",
+    "calls_count": "{{count}}ଟି କଲ୍",
+    "calls_count_plural": "{{count}}ଟି କଲ୍",
+    "category_in_location": "{{location}}ରେ {{category}}",
+    "profile_title": "ପ୍ରୋଫାଇଲ୍"
+  },
+  "empty": {
+    "title": "କୌଣସି ଫଳାଫଳ ନାହିଁ",
+    "message": "“{{query}}” ପାଇଁ କୌଣସି ଫଳାଫଳ ମିଳିଲା ନାହିଁ"
+  },
+  "filter": {
+    "title": "ଏକ୍ସପର୍ଟ ଫିଲ୍ଟର୍ କରନ୍ତୁ",
+    "close": "ବନ୍ଦ କରନ୍ତୁ",
+    "language": "🌐  ଭାଷା",
+    "topic": "🏷️  ବିଷୟ",
+    "all_languages": "ସବୁ ଭାଷା",
+    "all_topics": "ସବୁ ବିଷୟ",
+    "reset": "ରିସେଟ୍",
+    "clear_all": "ସବୁ ହଟାନ୍ତୁ",
+    "apply": "ଫିଲ୍ଟର୍ ଲଗାନ୍ତୁ",
+    "no_languages": "କୌଣସି ଭାଷା ଉପଲବ୍ଧ ନାହିଁ",
+    "languages_failed": "ଭାଷା ଲୋଡ୍ ହୋଇପାରିଲା ନାହିଁ।"
+  }
+}

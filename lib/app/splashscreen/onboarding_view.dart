@@ -67,7 +67,10 @@ class OnboardingView extends HookWidget {
       onHorizontalDragStart: (_) => dragDx.value = 0,
       onHorizontalDragUpdate: (d) => dragDx.value += d.delta.dx,
       onHorizontalDragEnd: (d) {
-        final dx = dragDx.value, vx = d.primaryVelocity ?? 0;
+        // Right to left (Urdu): a swipe to the right goes forward.
+        final rtl = Directionality.of(context) == TextDirection.rtl;
+        final sign = rtl ? -1 : 1;
+        final dx = dragDx.value * sign, vx = (d.primaryVelocity ?? 0) * sign;
         if (dx < -50 || vx < -500) {
           if (!isLast) show(i + 1);
         } else if (dx > 50 || vx > 500) {

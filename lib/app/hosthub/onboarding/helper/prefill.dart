@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../../core/i18n/i18n.dart';
 import '../../../../core/network/strapi.dart';
 import '../../../api/client/client_models.dart';
 import '../../../client/personal_info/helper/gender_answer.dart';
@@ -116,14 +117,18 @@ abstract final class HostPrefill {
     }
   }
 
-  /// Languages default once: English, plus Hindi for a Hindi UI.
+  /// Languages default once: English, plus the app's language when it is
+  /// another one (Hindi UI → Hindi, Tamil UI → Tamil…).
   static void seedLanguages(
     HostDraftController d,
     List<HostOption> catalog,
     Locale locale,
   ) {
     if (d.languagesSeeded || d.languages.value.isNotEmpty) return;
-    final wanted = {'english', if (locale.languageCode == 'hi') 'hindi'};
+    final wanted = {
+      'english',
+      AppI18n.languageOf(locale).englishName.toLowerCase(),
+    };
     d.languages.value = [
       for (final o in catalog)
         if (wanted.contains(languageKey(o.label))) o,
@@ -160,6 +165,8 @@ abstract final class HostPrefill {
     'ਪੰਜਾਬੀ': 'punjabi',
     'ગુજરાતી': 'gujarati',
     'ಕನ್ನಡ': 'kannada',
+    'ଓଡ଼ିଆ': 'odia',
+    'ଓଡିଆ': 'odia',
     'മലയാളം': 'malayalam',
     'اردو': 'urdu',
     'हरियाणवी': 'haryanvi',

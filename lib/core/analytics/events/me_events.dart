@@ -31,6 +31,11 @@ abstract final class MeEvents {
     Analytics.userProperty('app_theme', theme);
   }
 
+  /// App language picked in Settings: `en`, `hi`, `bn`… (the user property
+  /// `app_language` is set by LocaleController).
+  static void languageChanged({required String from, required String to}) =>
+      Analytics.log('language_changed', {'from': from, 'to': to});
+
   /// The user's own host profile link shared. [source]: `me_list`,
   /// `me_menu`, `profile_preview`, `resources`.
   static void profileShared({required String source, String? hostId}) {

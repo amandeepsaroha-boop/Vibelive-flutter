@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -681,4 +682,72 @@ void main() {
     expect(find.text('Start Talking'), findsOneWidget);
     await finish(tester);
   });
+
+  testWidgets('Language: picked in Settings, the app switches and keeps it', (
+    tester,
+  ) async {
+    await openMe(tester, user: _Backend.client, theme: ThemeMode.light);
+    await _pump(tester, 600);
+    final row = find.text('Language');
+    await tester.dragUntilVisible(
+      row,
+      find.byType(CustomScrollView).last,
+      const Offset(0, -200),
+    );
+    await _pump(tester, 200);
+    expect(find.text('English'), findsOneWidget, reason: 'the current one');
+    await tester.tap(row);
+    await _pump(tester, 600);
+    expect(find.text('Choose language'), findsOneWidget);
+    expect(find.text('हिन्दी'), findsOneWidget);
+    expect(find.text('Hindi'), findsOneWidget, reason: 'English name too');
+
+    await tester.tap(find.byKey(const ValueKey('language_ta')));
+    await _pump(tester, 800);
+    final locale = AppScope.of(tester.element(find.byType(Scaffold).first))
+        .locale;
+    expect(locale.value, const Locale('ta'));
+    expect(AppPrefs.getString('app_locale'), 'ta', reason: 'kept');
+    final ta = _strings('ta', 'client')['me']['language'];
+    expect(find.text(ta['title'] as String), findsOneWidget);
+    expect(find.text('தமிழ்'), findsOneWidget);
+    expect(find.text('Language'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  // Every language at the narrowest phone: the profile, the dashboard and
+  // the settings list (Urdu right to left).
+  testWidgets('every language, 320 wide host: no overflow', (tester) async {
+    for (final lang in AppI18n.languages) {
+      await openMe(
+        tester,
+        user: backend.hostUser(),
+        expert: backend.expert(),
+        size: const Size(320, 667),
+        locale: lang.locale,
+        theme: ThemeMode.light,
+      );
+      await _pump(tester, 800);
+      expect(tester.takeException(), isNull, reason: lang.code);
+      await tester.fling(_meScrollable, const Offset(0, -3000), 3000);
+      await _pump(tester, 800);
+      expect(tester.takeException(), isNull, reason: '${lang.code} dashboard');
+      await tester.fling(_meScrollable, const Offset(0, 3000), 3000);
+      await _pump(tester, 800);
+      final settings =
+          _strings(lang.code, 'client')['me']['section']['settings'] as String;
+      await tester.tap(find.text(settings).first);
+      await _pump(tester, 400);
+      await tester.fling(_meScrollable, const Offset(0, -3000), 3000);
+      await _pump(tester, 800);
+      expect(tester.takeException(), isNull, reason: '${lang.code} settings');
+      await finish(tester);
+    }
+  });
 }
+
+/// One namespace of a language, as bundled.
+Map<String, dynamic> _strings(String lang, String ns) =>
+    jsonDecode(File('assets/i18n/$lang/$ns.json').readAsStringSync())
+        as Map<String, dynamic>;

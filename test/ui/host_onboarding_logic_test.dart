@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vibelive/app/api/hosthub/onboarding_models.dart';
 import 'package:vibelive/app/api/hosthub/profile_patch.dart';
@@ -327,6 +328,26 @@ void main() {
       final gone = HostDraftController('v3', persist: false)..restore(saved);
       expect(gone.voiceIntro.value!.isNew, isFalse);
       expect(gone.voiceIntro.value!.savedUrl, 'https://cdn.example/old.m4a');
+    });
+
+    test("languages default to English plus the app's language", () {
+      const catalog = [
+        HostOption(id: 1, label: 'English'),
+        HostOption(id: 2, label: 'हिंदी'),
+        HostOption(id: 3, label: 'தமிழ்'),
+        HostOption(id: 4, label: 'اردو'),
+      ];
+      List<String> seeded(String code) {
+        final d = HostDraftController('l$code', persist: false);
+        HostPrefill.seedLanguages(d, catalog, Locale(code));
+        return [for (final o in d.languages.value) o.label];
+      }
+
+      expect(seeded('en'), ['English']);
+      expect(seeded('hi'), ['English', 'हिंदी']);
+      expect(seeded('ta'), ['English', 'தமிழ்']);
+      expect(seeded('ur'), ['English', 'اردو']);
+      expect(seeded('kn'), ['English'], reason: 'not in the catalog');
     });
 
     test('Personal Info fills an empty draft once', () {
