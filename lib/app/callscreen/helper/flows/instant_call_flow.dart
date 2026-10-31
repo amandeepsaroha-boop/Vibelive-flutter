@@ -5,6 +5,7 @@ import '../../../../core/analytics/events/call_ui_events.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/utils/log.dart';
 import '../../../api/callscreen/call_api.dart';
+import '../../../api/callscreen/call_errors.dart';
 import '../../../api/callscreen/call_models.dart';
 import '../../../api/callscreen/call_queries.dart';
 import '../../../api/instant_call/instant_call_api.dart';
@@ -56,7 +57,14 @@ abstract final class InstantCallFlow {
 
   /// [maxRingSeconds]: the server's search window (`/instant-call/config`);
   /// the caller waits that long, then a margin, for a host.
-  static Future<bool> place({bool video = false, int? maxRingSeconds}) async {
+  ///
+  /// [firstHost]: a call to a host that rolls over (admin "Direct calls roll
+  /// over"): that host rings first, at their own rate.
+  static Future<bool> place({
+    bool video = false,
+    int? maxRingSeconds,
+    OutgoingRequest? firstHost,
+  }) async {
     CallRuntime.ensureStarted();
     if (_placing) return false;
     final now = CallController.instance.value;
@@ -68,7 +76,7 @@ abstract final class InstantCallFlow {
     _placing = true;
     CallUiEvents.instantRequested(video: video);
     try {
-      return await _place(video, maxRingSeconds);
+      return await _place(video, maxRingSeconds, firstHost);
     } catch (e) {
       Log.w('InstantCallFlow', 'place: $e');
       CallUiEvents.instantFailed(
@@ -82,7 +90,11 @@ abstract final class InstantCallFlow {
     }
   }
 
-  static Future<bool> _place(bool video, int? maxRingSeconds) async {
+  static Future<bool> _place(
+    bool video,
+    int? maxRingSeconds,
+    OutgoingRequest? chosen,
+  ) async {
     final callerId = CallIdentity.userId;
     if (callerId == null) {
       CallUiEvents.instantFailed(video: video, reason: 'missing_participants');
@@ -99,9 +111,13 @@ abstract final class InstantCallFlow {
 
     final InitiatedInstantCall started;
     try {
+      final chosenId = chosen?.receiverId;
       started = await InstantCallApi.initiate(
         callerId: int.tryParse(callerId) ?? callerId,
         type: video ? 'videoCall' : 'voiceCall',
+        firstHostId: chosenId == null
+            ? null
+            : int.tryParse(chosenId) ?? chosenId,
       );
     } on ApiException catch (e) {
       CallUiEvents.instantFailed(
@@ -109,10 +125,15 @@ abstract final class InstantCallFlow {
         reason: OutgoingFlow.failureReason(e),
         error: Analytics.errorCode(e),
       );
-      await CallAlerts.error(e, title: CallFlowKeys.failedTitle);
+      await CallAlerts.error(
+        e,
+        title: e.isUserBusy ? CallFlowKeys.busyTitle : CallFlowKeys.failedTitle,
+      );
       return false;
     }
 
+    // A rolled-over call shows the host the caller chose while they ring.
+    final ringsChosen = chosen != null && !started.firstHostBusy;
     final firstHost = started.currentHost;
     _attempts = firstHost?.userId == null ? 0 : 1;
     final call = CallSession(
@@ -122,11 +143,18 @@ abstract final class InstantCallFlow {
       channelName: started.channelName,
       token: CallPayload.repairToken(started.callerToken),
       isVideo: video,
-      remote: CallPeer(
-        id: firstHost?.userId,
-        name: firstHost?.name,
-        avatarUrl: firstHost?.profilePic,
-      ),
+      remote: ringsChosen
+          ? CallPeer(
+              id: chosen.receiverId,
+              documentId: chosen.receiverDocId,
+              name: chosen.name ?? firstHost?.name,
+              avatarUrl: chosen.avatarUrl ?? firstHost?.profilePic,
+            )
+          : CallPeer(
+              id: firstHost?.userId,
+              name: firstHost?.name,
+              avatarUrl: firstHost?.profilePic,
+            ),
       callerId: callerId,
       callerDocId: CallIdentity.userDocumentId,
       callerIsCompany: CallIdentity.isCompany,
@@ -135,8 +163,9 @@ abstract final class InstantCallFlow {
       instantCallSessionId: started.sessionId,
     );
     // The balance cap (hang up before the wallet runs out) needs the rate
-    // the caller pays: Talk Now's own.
-    final rate = started.callerRate;
+    // the caller pays: the chosen host's, or Talk Now's (the connected push
+    // corrects it when someone else answers).
+    final rate = started.callerRate ?? (ringsChosen ? chosen.ratePerMin : null);
     if (rate != null && rate > 0) {
       CallBilling.rememberRate(started.sessionId, rate);
     }
@@ -314,6 +343,13 @@ abstract final class InstantCallFlow {
     final ring = session.callId;
     if (record != null && ring != null) {
       unawaited(NativeCallMarks.saveServerCallId(ring, record));
+    }
+    // The rate this call bills at (whoever answered): the balance cap.
+    final rate = num.tryParse(
+      CallPayload.read(data, const ['callerRate']) ?? '',
+    );
+    if (ring != null && rate != null && rate > 0) {
+      CallBilling.rememberRate(ring, rate.toDouble());
     }
     CallUiEvents.instantMatched(callId: session.callId, hostUserId: hostId);
     CallController.instance.update(

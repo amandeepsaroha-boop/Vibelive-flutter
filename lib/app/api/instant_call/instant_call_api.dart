@@ -1,6 +1,7 @@
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/strapi.dart';
+import '../callscreen/call_errors.dart';
 import 'instant_call_models.dart';
 
 abstract final class InstantCallErrorKeys {
@@ -50,15 +51,18 @@ abstract final class InstantCallApi {
     }
   }
 
+  /// [firstHostId]: a direct call that rolls over — that host (public-user
+  /// id) rings first.
   static Future<InitiatedInstantCall> initiate({
     required Object callerId,
     String type = 'voiceCall',
+    Object? firstHostId,
   }) async {
     final body = await _guard(
       InstantCallErrorKeys.initiateFailed,
       () => ApiClient.post(
         '/instant-call/initiate',
-        data: {'callerId': callerId, 'type': type},
+        data: {'callerId': callerId, 'type': type, 'firstHostId': ?firstHostId},
       ),
     );
     final data = body is Map
@@ -66,6 +70,15 @@ abstract final class InstantCallApi {
         : <String, dynamic>{};
     // Nobody free is a 200 with `success: false`, not an error status.
     if (data['success'] == false) {
+      // The host called is on another call and nobody else is free: the
+      // normal "busy" answer.
+      if (data['code'] == 'USER_BUSY') {
+        throw ApiException(
+          ApiErrorType.conflict,
+          messageKey: CallErrorKeys.userBusy,
+          data: data,
+        );
+      }
       throw ApiException(
         ApiErrorType.rejected,
         messageKey: data['code'] == 'NO_HOSTS'

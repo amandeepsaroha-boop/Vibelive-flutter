@@ -231,6 +231,22 @@ class CallPayload {
     return null;
   }
 
+  /// How long the server wants this ring to ring (`ringSeconds`; a Talk Now
+  /// cascade rings a host until the whole search window ends, longer than
+  /// the usual 45 s), within [min]…[max]; null when it didn't say.
+  static Duration? ringLength(
+    Map<String, dynamic> d, {
+    Duration min = const Duration(seconds: 10),
+    Duration max = const Duration(minutes: 3),
+  }) {
+    final raw = _pick(d, const ['ringSeconds']);
+    final n = raw == null ? null : num.tryParse(raw);
+    if (n == null || !n.isFinite || n <= 0) return null;
+    final asked = Duration(milliseconds: (n * 1000).round());
+    if (asked < min) return min;
+    return asked > max ? max : asked;
+  }
+
   /// [_pick] for other helpers (push type / status reads).
   static String? read(Map<String, dynamic> d, List<String> keys) =>
       _pick(d, keys);

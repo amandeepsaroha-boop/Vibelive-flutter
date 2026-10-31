@@ -28,6 +28,9 @@ import '../call_timers.dart';
 import '../engine/call_engine.dart';
 import '../state/call_constants.dart';
 import 'end_flow.dart';
+import 'instant_call_flow.dart';
+import '../../../api/instant_call/instant_call_models.dart';
+import '../../../api/instant_call/instant_call_api.dart';
 
 /// Who is being called and how (host card, callback sheet or redial).
 @immutable
@@ -66,16 +69,16 @@ class OutgoingRequest {
     required bool video,
     String source = 'callback',
   }) => OutgoingRequest(
-        receiverId: t.receiverId,
-        video: video,
-        receiverDocId: t.receiverDocId,
-        name: t.name,
-        avatarUrl: t.avatarUrl,
-        isCompany: t.isCompany,
-        categoryId: t.categoryId,
-        ratePerMin: t.ratePerMin?.toDouble(),
-        source: source,
-      );
+    receiverId: t.receiverId,
+    video: video,
+    receiverDocId: t.receiverDocId,
+    name: t.name,
+    avatarUrl: t.avatarUrl,
+    isCompany: t.isCompany,
+    categoryId: t.categoryId,
+    ratePerMin: t.ratePerMin?.toDouble(),
+    source: source,
+  );
 
   /// Numeric public-user id of the person called (their Agora uid).
   final String? receiverId;
@@ -112,6 +115,16 @@ abstract final class OutgoingFlow {
   static Future<bool> place(OutgoingRequest r) async {
     CallRuntime.ensureStarted();
     if (_placing) return false; // E-74 double tap
+    // Admin "Direct calls roll over": this host rings first, then others
+    // join the way Talk Now rings them; the first to answer takes it.
+    final rollover = await _rolloverConfig(r);
+    if (rollover != null) {
+      return InstantCallFlow.place(
+        video: r.video,
+        maxRingSeconds: rollover.maxRingSeconds,
+        firstHost: r,
+      );
+    }
     final now = CallController.instance.value;
     // One call at a time (decision 17).
     if (now.phase.isActive) {
@@ -137,6 +150,21 @@ abstract final class OutgoingFlow {
       return false;
     } finally {
       _placing = false;
+    }
+  }
+
+  /// The Talk Now config when this call should roll over; null for a plain
+  /// call (off, the type not taken, calling a company account, or no
+  /// answer from the server). A company caller rolls over too (their calls
+  /// are free either way).
+  static Future<InstantCallConfig?> _rolloverConfig(OutgoingRequest r) async {
+    if (r.isCompany) return null;
+    if (r.receiverId == null || r.receiverId!.isEmpty) return null;
+    try {
+      final config = await InstantCallApi.fetchConfig();
+      return config.rollsOver(video: r.video) ? config : null;
+    } catch (_) {
+      return null;
     }
   }
 

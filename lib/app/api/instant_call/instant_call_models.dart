@@ -64,6 +64,8 @@ class InitiatedInstantCall {
     this.currentHost,
     this.parallelHosts,
     this.callerRate,
+    this.firstHost,
+    this.firstHostBusy = false,
   });
 
   final String sessionId;
@@ -71,6 +73,11 @@ class InitiatedInstantCall {
   final String channelName;
   final InstantCallHost? currentHost;
   final List<InstantCallHost>? parallelHosts;
+
+  /// A rolled-over direct call: the host the caller chose (rung first,
+  /// unless [firstHostBusy]).
+  final InstantCallHost? firstHost;
+  final bool firstHostBusy;
 
   /// ₹/min the caller pays for Talk Now (the config's caller rate).
   final double? callerRate;
@@ -94,6 +101,7 @@ class InitiatedInstantCall {
           ]
         : null;
 
+    final first = body['firstHost'];
     return InitiatedInstantCall(
       sessionId: sessionId,
       callerToken: token,
@@ -101,6 +109,10 @@ class InitiatedInstantCall {
       currentHost: host ?? parallel?.firstOrNull,
       parallelHosts: parallel,
       callerRate: J.number(body['callerRate']),
+      firstHost: first is Map<String, dynamic>
+          ? InstantCallHost.fromJson(first)
+          : null,
+      firstHostBusy: first is Map && J.boolean(first['busy']),
     );
   }
 }
@@ -146,6 +158,7 @@ class InstantCallConfig {
     this.callerVoiceRate,
     this.callerVideoRate,
     this.maxRingSeconds,
+    this.directRollover = false,
   });
 
   factory InstantCallConfig.fromJson(Map<String, dynamic> json) =>
@@ -155,6 +168,7 @@ class InstantCallConfig {
         callerVoiceRate: J.number(json['callerVoiceRate']),
         callerVideoRate: J.number(json['callerVideoRate']),
         maxRingSeconds: J.integer(json['maxRingSeconds']),
+        directRollover: J.boolean(json['directRollover']),
       );
 
   static const off = InstantCallConfig(enabled: false);
@@ -169,8 +183,23 @@ class InstantCallConfig {
   /// How long the server searches for a host (null: an older backend).
   final int? maxRingSeconds;
 
+  /// A call to a host rings them first, then other hosts join the same way
+  /// as Talk Now (admin "Direct calls roll over").
+  final bool directRollover;
+
   /// The call type the one-tap button places.
   bool get placesVideo => allowedCallTypes == 'video_only';
+
+  /// Talk Now takes this call type.
+  bool allows({required bool video}) => switch (allowedCallTypes) {
+    'video_only' => video,
+    'voice_only' => !video,
+    _ => true,
+  };
+
+  /// A [video] call to a host should roll over.
+  bool rollsOver({required bool video}) =>
+      enabled && directRollover && allows(video: video);
 }
 
 /// `POST /instant-call/host-accept`: the call record a Talk Now ring became.

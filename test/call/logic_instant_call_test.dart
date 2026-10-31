@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vibelive/app/callscreen/helper/state/call_constants.dart';
+import 'package:vibelive/app/authscreen/helper/deep_links.dart';
 import 'package:vibelive/app/api/instant_call/instant_call_api.dart';
 import 'package:vibelive/app/api/instant_call/instant_call_models.dart';
 import 'package:vibelive/app/callscreen/helper/call_actions.dart';
@@ -8,6 +10,7 @@ import 'package:vibelive/app/callscreen/helper/call_session.dart';
 import 'package:vibelive/app/callscreen/helper/call_signals.dart';
 import 'package:vibelive/app/callscreen/helper/flows/end_flow.dart';
 import 'package:vibelive/app/callscreen/helper/flows/instant_call_flow.dart';
+import 'package:vibelive/app/callscreen/helper/flows/outgoing_flow.dart';
 import 'package:vibelive/app/callscreen/helper/native/headless_call_end.dart';
 import 'package:vibelive/app/callscreen/helper/native/native_call_marks.dart';
 import 'package:vibelive/app/callscreen/helper/push/push_envelope.dart';
@@ -375,6 +378,21 @@ void main() {
       );
     });
 
+    test('after a Talk Now call: Home, no host profile re-opened', () async {
+      DeepLinks.instance.takeOpenUser();
+      calls.startOutgoing(
+        searching().copyWith(
+          remote: const CallPeer(id: '70', documentId: 'host70', name: 'Meera'),
+        ),
+      );
+      calls.setConnected();
+      await CallActions.hangup();
+      await settle(50);
+      EndFlow.exitToHome(callId: 'sess1');
+      await settle(CallTimings.reopenProfileDelay.inMilliseconds + 300);
+      expect(DeepLinks.instance.takeOpenUser(), isNull);
+    });
+
     test('hang up while searching: cancel the search, no Callend', () async {
       calls.startOutgoing(searching());
       await CallActions.hangup();
@@ -390,6 +408,142 @@ void main() {
         'reason': 'pool_exhausted',
       });
       expect(calls.value.phase.isActive, isFalse);
+    });
+  });
+
+  test('a Talk Now ring rings as long as the server asks (cascade)', () {
+    expect(
+      CallPayload.ringLength(const {'ringSeconds': '110'}),
+      const Duration(seconds: 110),
+    );
+    // Bounded: never under 10 s, never over 3 minutes.
+    expect(
+      CallPayload.ringLength(const {'ringSeconds': '3'}),
+      const Duration(seconds: 10),
+    );
+    expect(
+      CallPayload.ringLength(const {'ringSeconds': 900}),
+      const Duration(minutes: 3),
+    );
+    // Not said (a direct call, an older backend): the usual length applies.
+    expect(CallPayload.ringLength(const {}), isNull);
+    expect(CallPayload.ringLength(const {'ringSeconds': 'null'}), isNull);
+    expect(CallPayload.ringLength(const {'ringSeconds': '-4'}), isNull);
+  });
+
+  group('a call to a host that rolls over', () {
+    const config = '/api/instant-call/config';
+    const initiate = '/api/instant-call/initiate';
+    const initiateCall = '/api/initiateCall';
+    const meera = OutgoingRequest(
+      receiverId: '70',
+      receiverDocId: 'u70',
+      video: false,
+      name: 'Meera',
+      avatarUrl: '/meera.jpg',
+      ratePerMin: 12,
+    );
+
+    void rolloverOn({bool on = true, String types = 'voice_only'}) {
+      backend.replies['GET $config'] = (_) => {
+        'enabled': true,
+        'allowedCallTypes': types,
+        'directRollover': on,
+        'maxRingSeconds': 120,
+      };
+    }
+
+    test('on: the chosen host rings first, through Talk Now', () async {
+      rolloverOn();
+      backend.replies['POST $initiate'] = (_) => {
+        'success': true,
+        'sessionId': 'sess9',
+        'channelName': 'instant_9_9',
+        'callerToken': agoraToken(),
+        'callerRate': 12,
+        'currentHost': {'userId': 70, 'name': 'Meera'},
+        'firstHost': {'userId': 70, 'name': 'Meera', 'callerRate': 12},
+      };
+      expect(await OutgoingFlow.place(meera), isTrue);
+      await settle(100);
+      expect(backend.lastBody('POST', initiate)['firstHostId'], 70);
+      expect(backend.to('POST', initiateCall), isEmpty);
+      final live = calls.value;
+      expect(live.isInstantCall, isTrue);
+      expect(live.remote.name, 'Meera');
+      expect(live.remote.documentId, 'u70');
+
+      // Another host answers at the Talk Now rate: the cap follows it.
+      CallSignals.onInstantCallConnected(const {
+        'instantCallSessionId': 'sess9',
+        'callId': '905',
+        'hostUserId': '71',
+        'hostName': 'Asha',
+        'callerRate': '10',
+      });
+      expect(calls.value.serverCallId, '905');
+      expect(calls.value.remote.name, 'Asha');
+    });
+
+    test('off (or the type not taken): a plain call', () async {
+      rolloverOn(on: false);
+      await OutgoingFlow.place(meera);
+      await settle(100);
+      expect(backend.to('POST', initiate), isEmpty);
+      expect(backend.to('POST', initiateCall), hasLength(1));
+      resetCallState();
+
+      rolloverOn(types: 'voice_only');
+      await OutgoingFlow.place(
+        const OutgoingRequest(receiverId: '70', video: true, name: 'Meera'),
+      );
+      await settle(100);
+      expect(backend.to('POST', initiate), isEmpty);
+      expect(backend.to('POST', initiateCall), hasLength(2));
+    });
+
+    test('the host is on a call and nobody else is free: "busy"', () async {
+      rolloverOn();
+      backend.replies['POST $initiate'] = (_) => {
+        'success': false,
+        'code': 'USER_BUSY',
+        'message': 'Receiver is currently on another call',
+      };
+      expect(await OutgoingFlow.place(meera), isFalse);
+      await settle(100);
+      expect(calls.value.phase.isActive, isFalse);
+      expect(alertLog().join(' '), contains('user_busy'));
+    });
+
+    test('rollsOver needs Talk Now on, the switch on and the type', () {
+      const on = InstantCallConfig(
+        enabled: true,
+        directRollover: true,
+        allowedCallTypes: 'both',
+      );
+      expect(on.rollsOver(video: true), isTrue);
+      expect(
+        const InstantCallConfig(
+          enabled: true,
+          directRollover: true,
+        ).rollsOver(video: true),
+        isFalse,
+        reason: 'voice only by default',
+      );
+      expect(
+        const InstantCallConfig(
+          enabled: false,
+          directRollover: true,
+        ).rollsOver(video: false),
+        isFalse,
+      );
+      expect(
+        InstantCallConfig.fromJson(const {
+          'enabled': true,
+          'directRollover': true,
+        }).rollsOver(video: false),
+        isTrue,
+      );
     });
   });
 

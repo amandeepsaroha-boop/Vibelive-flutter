@@ -318,7 +318,9 @@ abstract final class EndFlow {
     // Android: a call that started on the lock screen goes back there.
     if (last.openedLocked) unawaited(CallPlatform.instance.minimizeApp());
     if (s.phase == CallPhase.ended) _calls.reset();
-    if (caller) unawaited(_reopenHost(last));
+    // A host the caller chose: their profile re-opens. A Talk Now call (the
+    // system picked the host): just Home, no profile.
+    if (caller && !last.isInstantCall) unawaited(_reopenHost(last));
   }
 
   static bool _lastIsCaller(String? callId) {

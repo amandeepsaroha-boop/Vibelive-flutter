@@ -92,9 +92,17 @@ abstract final class PushFlow {
     // Decision 7: no end push within a minute → dismiss here, no API. UI
     // isolate only: an accept never reaches a background isolate (A1).
     if (CallRuntime.isUiIsolate) {
+      // The server may ask for a longer ring (a Talk Now cascade rings until
+      // its search ends); a little extra for its end push to arrive.
+      final asked = CallPayload.ringLength(data);
+      final ring =
+          asked != null &&
+              asked + const Duration(seconds: 5) > CallTimings.incomingRing
+          ? asked + const Duration(seconds: 5)
+          : CallTimings.incomingRing;
       CallTimers.instance.arm(
         CallTimers.incomingRing,
-        CallTimings.incomingRing,
+        ring,
         () => unawaited(_ringTimedOut(callId)),
       );
     }

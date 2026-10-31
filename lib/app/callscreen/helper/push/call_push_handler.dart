@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/utils/log.dart';
 import '../../../api/callscreen/call_queries.dart';
+import '../call_payload.dart';
 import '../call_signals.dart';
 import '../native/call_isolate_bridge.dart';
 import '../native/callkit_service.dart';
@@ -260,11 +261,14 @@ abstract final class CallPushHandler {
     await NativeCallMarks.markRung(callId);
     await NativeCallMarks.saveInvite(callId, m.raw);
     final age = ageOf(m.sentAt, now ?? DateTime.now()) ?? Duration.zero;
-    final left = ringTtl - age;
+    // The server may ask for longer (a Talk Now cascade rings until its
+    // search ends); its CALL_ENDED stops the ringer earlier either way.
+    final ttl = CallPayload.ringLength(m.raw) ?? ringTtl;
+    final left = ttl - age;
     return CallKitService.showIncoming(
       m.raw,
       callId: callId,
-      ring: left < minRing ? minRing : (left > ringTtl ? ringTtl : left),
+      ring: left < minRing ? minRing : (left > ttl ? ttl : left),
     );
   }
 
