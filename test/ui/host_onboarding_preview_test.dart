@@ -206,7 +206,26 @@ void main() {
           locale: lang.locale,
           size: const Size(360, 740),
         );
-        expect(tester.takeException(), isNull, reason: '${lang.code} $step');
+        // The language's files load from disk (real time, not the clock).
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 150)),
+        );
+        await pumpFor(tester, 400);
+        final where = '${lang.code} $step';
+        final shown = find.byType(Scaffold);
+        expect(shown, findsWidgets, reason: '$where: nothing on screen');
+        expect(
+          Localizations.localeOf(tester.element(shown.first)),
+          lang.locale,
+          reason: where,
+        );
+        final error = tester.takeException();
+        expect(
+          error,
+          isNull,
+          reason:
+              '$where\n${error is FlutterError ? error.toStringDeep() : error}',
+        );
         await finishHost(tester);
       }
     }

@@ -114,11 +114,14 @@ class PhotosStep extends HookWidget {
                 children: [
                   Icon(LucideIcons.lightbulb, size: 20.ms, color: p.accent),
                   SizedBox(width: 8.ms),
-                  CText(
-                    'hostflow:photos.tips_title',
-                    size: 17,
-                    weight: FontWeight.w700,
-                    color: p.accent,
+                  // Long in some languages: wraps instead of overflowing.
+                  Flexible(
+                    child: CText(
+                      'hostflow:photos.tips_title',
+                      size: 17,
+                      weight: FontWeight.w700,
+                      color: p.accent,
+                    ),
                   ),
                 ],
               ),

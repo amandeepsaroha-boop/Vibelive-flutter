@@ -703,13 +703,26 @@ void main() {
     expect(find.text('Hindi'), findsOneWidget, reason: 'English name too');
 
     await tester.tap(find.byKey(const ValueKey('language_ta')));
-    await _pump(tester, 800);
-    final locale = AppScope.of(tester.element(find.byType(Scaffold).first))
-        .locale;
+    await _pump(tester, 400);
+    // The Tamil files load from disk (real time, not the test clock).
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    await _pump(tester, 400);
+    final locale = AppScope.of(
+      tester.element(find.byType(Scaffold).first),
+    ).locale;
     expect(locale.value, const Locale('ta'));
     expect(AppPrefs.getString('app_locale'), 'ta', reason: 'kept');
     final ta = _strings('ta', 'client')['me']['language'];
-    expect(find.text(ta['title'] as String), findsOneWidget);
+    final taTitle = find.text(ta['title'] as String);
+    await tester.dragUntilVisible(
+      taTitle,
+      find.byType(CustomScrollView).last,
+      const Offset(0, -200),
+    );
+    await _pump(tester, 200);
+    expect(taTitle, findsOneWidget);
     expect(find.text('தமிழ்'), findsOneWidget);
     expect(find.text('Language'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -727,6 +740,10 @@ void main() {
         size: const Size(320, 667),
         locale: lang.locale,
         theme: ThemeMode.light,
+      );
+      // The language's files load from disk (real time, not the test clock).
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 300)),
       );
       await _pump(tester, 800);
       expect(tester.takeException(), isNull, reason: lang.code);
