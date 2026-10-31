@@ -45,7 +45,7 @@ class HostStatusSection extends StatelessWidget {
             ),
           ),
         // Its own padding; nothing when there are no messages.
-        HostModerationMessagesCard(open: open),
+        HostModerationMessagesCard(open: open, host: host),
       ],
     );
   }

@@ -10,6 +10,7 @@ import 'package:vibelive/app/hosthub/onboarding/helper/host_steps.dart';
 import 'package:vibelive/app/hosthub/onboarding/steps/tagline_step.dart';
 import 'package:vibelive/app/hosthub/onboarding/steps/voice_step.dart';
 import 'package:vibelive/app/hosthub/onboarding/widgets/photo_tile.dart';
+import 'package:vibelive/core/network/strapi.dart';
 import 'package:vibelive/core/router/app_router.dart';
 
 import 'host_onboarding_support/harness.dart';
@@ -302,6 +303,96 @@ void main() {
       await tester.pump();
       expect(opened, [AppRoutes.hostStep('basic')]);
       await finishHost(tester);
+    });
+
+    testWidgets('a request already fixed is not shown', (tester) async {
+      final backend = await resetHost(
+        expert: {'id': 50, 'documentId': 'exp50'},
+      );
+      backend.moderationNotes = [
+        {
+          'id': 5,
+          'kind': 'photo_decision',
+          'body': 'A photo was not approved.',
+          'photo': 'img-gone',
+        },
+        {
+          'id': 4,
+          'kind': 'photo_decision',
+          'body': 'Another photo was not approved.',
+          'photo': 'img-still',
+        },
+        {'id': 3, 'kind': 'note', 'body': 'Welcome aboard.'},
+      ];
+      final host = HostProfile.from({
+        'id': 50,
+        'documentId': 'exp50',
+        'host_profile_images': [
+          {
+            'id': 2,
+            'documentId': 'img-still',
+            'status_enum': 'rejected',
+            'image': {'id': 12, 'url': '/uploads/b.jpg'},
+          },
+        ],
+      })!;
+      phone(tester);
+      await pumpRoutes(
+        tester,
+        Scaffold(
+          body: ListView(
+            children: [
+              HostModerationMessagesCard(open: (_) async {}, host: host),
+            ],
+          ),
+        ),
+      );
+      await pumpFor(tester, 300);
+      // The deleted photo's request is gone; the one still rejected stays.
+      expect(find.text('A photo was not approved.'), findsNothing);
+      expect(find.text('Another photo was not approved.'), findsOneWidget);
+      expect(find.text('Welcome aboard.'), findsOneWidget);
+      await finishHost(tester);
+    });
+
+    test('resolvedFor: photo, voice, text; notes never', () {
+      final host = HostProfile.from({
+        'id': 50,
+        'moderation_status': 'pending',
+        'audio_intro_status': 'approved',
+        'host_profile_images': const [],
+      })!;
+      HostModerationMessage m(JsonMap j) =>
+          HostModerationMessage.from({'id': 1, ...j});
+      expect(
+        m({'kind': 'photo_decision', 'photo': 'x'}).resolvedFor(host),
+        isTrue,
+      );
+      expect(
+        m({'kind': 'photo_decision', 'audio': 'rejected'}).resolvedFor(host),
+        isTrue,
+      );
+      expect(
+        m({
+          'kind': 'rejected',
+          'fields': ['name'],
+        }).resolvedFor(host),
+        isTrue,
+      );
+      expect(m({'kind': 'note', 'body': 'hi'}).resolvedFor(host), isFalse);
+      final rejected = HostProfile.from({
+        'id': 50,
+        'moderation_status': 'rejected',
+        'audio_intro_status': 'rejected',
+      })!;
+      expect(m({'kind': 'rejected'}).resolvedFor(rejected), isFalse);
+      expect(
+        m({
+          'kind': 'photo_decision',
+          'audio': 'rejected',
+        }).resolvedFor(rejected),
+        isFalse,
+      );
     });
 
     testWidgets('no messages, no card', (tester) async {

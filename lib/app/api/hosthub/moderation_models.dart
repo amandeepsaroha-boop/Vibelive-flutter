@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../core/network/strapi.dart';
+import 'profile_models.dart';
 
 /// One message from the moderation team to this host
 /// (`GET /api/me/moderation-notes`): a note, or a decision with what it is
@@ -70,4 +71,21 @@ class HostModerationMessage {
 
   bool get isApproval =>
       kind == 'approved' || (kind == 'status_changed' && status == 'approved');
+
+  /// Asked for a fix that [host] has made since: the rejected photo is gone
+  /// (deleted, or approved since), the voice intro or the profile is no
+  /// longer rejected. Notes and approvals are never resolved. (The backend
+  /// leaves these out too; this covers an older backend and a profile
+  /// changed since the messages loaded.)
+  bool resolvedFor(HostProfile host) {
+    final p = photo;
+    if (p != null) {
+      return !host.profileImages.any(
+        (img) => img.documentId == p && img.moderationStatus == 'rejected',
+      );
+    }
+    if (audio == 'rejected') return host.audioIntroStatus != 'rejected';
+    if (isTextRejection) return host.moderationStatus != 'rejected';
+    return false;
+  }
 }

@@ -12,6 +12,7 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/utils/scale.dart';
 import '../../../api/hosthub/hosthub_queries.dart';
 import '../../../api/hosthub/moderation_models.dart';
+import '../../../api/hosthub/profile_models.dart';
 import '../../../authscreen/helper/deep_links.dart';
 import '../../../component/c_image.dart';
 import '../../../component/c_text.dart';
@@ -26,17 +27,28 @@ import '../../onboarding/widgets/step_body.dart';
 /// change, the rejected photo) and a button to the screen the team linked,
 /// or to the step to fix. The same messages arrive as pushes.
 class HostModerationMessagesCard extends HookWidget {
-  const HostModerationMessagesCard({super.key, required this.open});
+  const HostModerationMessagesCard({super.key, required this.open, this.host});
 
   /// Opens an app route (and refreshes ME on return).
   final Future<void> Function(String route) open;
+
+  /// The profile now: a request it has already fixed (a rejected photo
+  /// since deleted, …) is not shown.
+  final HostProfile? host;
 
   /// Shown before "Show more".
   static const _first = 3;
 
   @override
   Widget build(BuildContext context) {
-    final messages = useHostModerationMessages(context).data ?? const [];
+    final all = useHostModerationMessages(context).data ?? const [];
+    final host = this.host;
+    final messages = host == null
+        ? all
+        : [
+            for (final m in all)
+              if (!m.resolvedFor(host)) m,
+          ];
     final expanded = useState(false);
     // Once per message count shown.
     useEffect(() {
