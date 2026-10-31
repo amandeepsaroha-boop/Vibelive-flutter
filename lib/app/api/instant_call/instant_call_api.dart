@@ -40,8 +40,9 @@ String? _codeOf(ApiException e) {
 }
 
 abstract final class InstantCallApi {
-  /// `GET /instant-call/config`: whether Talk Now is on for this user (off
-  /// when unset, staff-only for someone else, or unreadable), and how.
+  /// `GET /instant-call/config`: whether Talk Now and call rollover are on
+  /// for this user (off when unset, given only to company accounts and this
+  /// is not one, or unreadable), and how.
   static Future<InstantCallConfig> fetchConfig() async {
     try {
       final body = Strapi.map(await ApiClient.get('/instant-call/config'));
@@ -195,11 +196,13 @@ abstract final class InstantCallApi {
         m.contains('already on a call')) {
       return InstantCallErrorKeys.alreadyActive;
     }
-    // Off, staff-only, the type not allowed, or not set up on the server:
-    // all "not available" to the user.
+    // Off, not for this user (company accounts only), the type not
+    // allowed, or not set up on the server: all "not available" to the user.
     if (const {
           'DISABLED',
+          'COMPANY_ONLY',
           'STAFF_ONLY',
+          'ROLLOVER_OFF',
           'TYPE_NOT_ALLOWED',
           'RATE_MISSING',
           'CONFIG_MISSING',

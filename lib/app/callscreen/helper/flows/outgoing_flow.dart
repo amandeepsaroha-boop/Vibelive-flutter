@@ -125,6 +125,14 @@ abstract final class OutgoingFlow {
         firstHost: r,
       );
     }
+    return placeDirect(r);
+  }
+
+  /// A plain call to [r]'s host, never rolled over: also what a call falls
+  /// back to when the server refuses to roll it over.
+  static Future<bool> placeDirect(OutgoingRequest r) async {
+    CallRuntime.ensureStarted();
+    if (_placing) return false;
     final now = CallController.instance.value;
     // One call at a time (decision 17).
     if (now.phase.isActive) {

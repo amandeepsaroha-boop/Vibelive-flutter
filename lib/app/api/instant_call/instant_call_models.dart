@@ -184,7 +184,8 @@ class InstantCallConfig {
   final int? maxRingSeconds;
 
   /// A call to a host rings them first, then other hosts join the same way
-  /// as Talk Now (admin "Direct calls roll over").
+  /// as Talk Now (admin "Call rollover"). Switched apart from the Talk Now
+  /// button: on even while [enabled] is off.
   final bool directRollover;
 
   /// The call type the one-tap button places.
@@ -199,7 +200,7 @@ class InstantCallConfig {
 
   /// A [video] call to a host should roll over.
   bool rollsOver({required bool video}) =>
-      enabled && directRollover && allows(video: video);
+      directRollover && allows(video: video);
 }
 
 /// `POST /instant-call/host-accept`: the call record a Talk Now ring became.

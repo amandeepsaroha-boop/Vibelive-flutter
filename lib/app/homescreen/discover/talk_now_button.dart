@@ -6,6 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/analytics/events/discover_events.dart';
+import '../../../core/session/session_store.dart';
 import '../../../core/theme/vibe_colors.dart';
 import '../../../core/utils/scale.dart';
 import '../../api/instant_call/instant_call_queries.dart';
@@ -15,15 +16,21 @@ import '../../component/c_text.dart';
 import '../../component/pressable.dart';
 
 /// "Talk Now": one tap, the server finds a free host. Shown only while the
-/// server has Talk Now on for this user (`/instant-call/config`): off,
-/// unset or staff-only, a tap could only fail.
+/// server has Talk Now on for this user (`/instant-call/config`, which
+/// answers per user: the admin gives it to company accounts or to all);
+/// off or unset, a tap could only fail. A host never sees it unless the
+/// account is a company account.
 class TalkNowButton extends HookWidget {
   const TalkNowButton({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final session = useValueListenable(SessionStore.instance);
     final config = useInstantCallConfig(context).data;
-    if (config == null || !config.enabled) return const SizedBox.shrink();
+    final host = session.isExpert && !session.isCompanyAccount;
+    if (host || config == null || !config.enabled) {
+      return const SizedBox.shrink();
+    }
     final c = context.colors;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.ms, vertical: 6.ms),

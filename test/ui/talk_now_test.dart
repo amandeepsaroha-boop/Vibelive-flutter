@@ -43,6 +43,31 @@ void main() {
     await finishHost(tester);
   });
 
+  // The server answers per user (company accounts or all, as the admin
+  // set it); a host still never sees it unless a company account.
+  testWidgets('hidden from a host, shown to a company account', (tester) async {
+    const on = {
+      'enabled': true,
+      'allowedCallTypes': 'voice_only',
+      'callerVoiceRate': 10,
+    };
+    const expert = {'id': 9, 'documentId': 'e9'};
+    var backend = await resetHost(expert: expert);
+    backend.instantConfig = on;
+    await open(tester);
+    expect(button(), findsNothing, reason: 'a host');
+    await finishHost(tester);
+
+    backend = await resetHost(
+      user: {'id': 1, 'documentId': 'u1', 'is_company_account': true},
+      expert: expert,
+    );
+    backend.instantConfig = on;
+    await open(tester);
+    expect(button(), findsWidgets, reason: 'a company account (a host too)');
+    await finishHost(tester);
+  });
+
   test('nobody free: "no one is free", not "invalid response"', () async {
     await resetHost();
     await expectLater(

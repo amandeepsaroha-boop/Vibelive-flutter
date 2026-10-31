@@ -31,6 +31,17 @@ class SessionState {
       expert != null &&
       (expert!['id'] != null || expert!['documentId'] != null);
   int? get expertId => J.integer(expert?['id']);
+
+  /// Marked "company account" in admin (`is_company_account`).
+  bool get isCompanyAccount {
+    final u = user;
+    if (u == null) return false;
+    return [
+      u['is_company_account'],
+      u['isCompanyAccount'],
+    ].any((v) => v == true || v == 'true');
+  }
+
   String? get expertDocumentId => J.str(expert?['documentId']);
 
   SessionState copyWith({

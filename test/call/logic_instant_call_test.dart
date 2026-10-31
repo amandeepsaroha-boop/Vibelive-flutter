@@ -444,9 +444,13 @@ void main() {
       ratePerMin: 12,
     );
 
-    void rolloverOn({bool on = true, String types = 'voice_only'}) {
+    void rolloverOn({
+      bool on = true,
+      String types = 'voice_only',
+      bool talkNow = true,
+    }) {
       backend.replies['GET $config'] = (_) => {
-        'enabled': true,
+        'enabled': talkNow,
         'allowedCallTypes': types,
         'directRollover': on,
         'maxRingSeconds': 120,
@@ -502,6 +506,52 @@ void main() {
       expect(backend.to('POST', initiateCall), hasLength(2));
     });
 
+    test(
+      'rollover is its own switch: on with the Talk Now button off',
+      () async {
+        rolloverOn(talkNow: false);
+        backend.replies['POST $initiate'] = (_) => {
+          'success': true,
+          'sessionId': 'sess9',
+          'channelName': 'instant_9_9',
+          'callerToken': agoraToken(),
+          'currentHost': {'userId': 70, 'name': 'Meera'},
+          'firstHost': {'userId': 70, 'name': 'Meera', 'callerRate': 12},
+        };
+        expect(await OutgoingFlow.place(meera), isTrue);
+        await settle(100);
+        expect(backend.lastBody('POST', initiate)['firstHostId'], 70);
+        expect(backend.to('POST', initiateCall), isEmpty);
+      },
+    );
+
+    test('the server refuses to roll it over: still a plain call', () async {
+      for (final code in ['COMPANY_ONLY', 'ROLLOVER_OFF', 'DISABLED']) {
+        rolloverOn();
+        backend.refusals['POST $initiate'] = (
+          code == 'COMPANY_ONLY' ? 403 : 400,
+          {
+            'data': null,
+            'error': {
+              'status': code == 'COMPANY_ONLY' ? 403 : 400,
+              'message': 'Talk Now is not yet available.',
+              'details': {'code': code},
+            },
+          },
+        );
+        final before = backend.to('POST', initiateCall).length;
+        await OutgoingFlow.place(meera);
+        await settle(100);
+        expect(
+          backend.to('POST', initiateCall),
+          hasLength(before + 1),
+          reason: code,
+        );
+        expect(alertLog().join(' '), isNot(contains('instant_call')));
+        resetCallState();
+      }
+    });
+
     test('the host is on a call and nobody else is free: "busy"', () async {
       rolloverOn();
       backend.replies['POST $initiate'] = (_) => {
@@ -515,7 +565,7 @@ void main() {
       expect(alertLog().join(' '), contains('user_busy'));
     });
 
-    test('rollsOver needs Talk Now on, the switch on and the type', () {
+    test('rollsOver needs the rollover switch and the type', () {
       const on = InstantCallConfig(
         enabled: true,
         directRollover: true,
@@ -535,6 +585,11 @@ void main() {
           enabled: false,
           directRollover: true,
         ).rollsOver(video: false),
+        isTrue,
+        reason: 'switched apart from the Talk Now button',
+      );
+      expect(
+        const InstantCallConfig(enabled: true).rollsOver(video: false),
         isFalse,
       );
       expect(

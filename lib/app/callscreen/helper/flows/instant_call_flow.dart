@@ -120,6 +120,18 @@ abstract final class InstantCallFlow {
             : int.tryParse(chosenId) ?? chosenId,
       );
     } on ApiException catch (e) {
+      // The server won't roll this call over (switched off since, or not
+      // for this caller): it is still a call to that host, placed plainly.
+      final refused =
+          InstantCallApi.knownErrorKey(e) == InstantCallErrorKeys.disabled;
+      if (chosen != null && refused) {
+        CallUiEvents.instantFailed(
+          video: video,
+          reason: 'rollover_refused',
+          error: Analytics.errorCode(e),
+        );
+        return OutgoingFlow.placeDirect(chosen);
+      }
       CallUiEvents.instantFailed(
         video: video,
         reason: OutgoingFlow.failureReason(e),
